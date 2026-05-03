@@ -47,6 +47,7 @@ frontend/tmp_*.js
 *.log
 *.png
 .env.telegram-bot
+!.env.telegram-bot.example
 
 # Keep real product assets committed
 !frontend/assets/
