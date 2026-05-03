@@ -77,6 +77,38 @@ If the project is checked out from git, you can use:
 ./deploy.sh
 ```
 
+## 8. Optional: Telegram -> GitHub issue bot
+
+This project includes a small Telegram bot that can turn a message into a GitHub issue.
+
+1. Copy the environment example:
+
+```bash
+cd /home/user/rehab
+cp .env.telegram-bot.example .env.telegram-bot
+chmod 600 .env.telegram-bot
+```
+
+2. Fill in:
+
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_ALLOWED_CHAT_ID`
+- `GITHUB_TOKEN`
+
+3. Install the systemd unit:
+
+```bash
+sudo cp deploy/systemd/go-telegram-issues.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now go-telegram-issues.service
+```
+
+4. Check logs:
+
+```bash
+sudo journalctl -u go-telegram-issues.service -f
+```
+
 ## Notes
 
 - The frontend now calls `/api`, so it works behind a reverse proxy.
