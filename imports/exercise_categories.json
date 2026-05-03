@@ -1,0 +1,109 @@
+{
+  "exercises": [
+    {
+      "name": "arm_bike_warmup",
+      "category": "warmup"
+    },
+    {
+      "name": "bike",
+      "category": "warmup"
+    },
+    {
+      "name": "calf_gentle_stretch",
+      "category": "mobility"
+    },
+    {
+      "name": "crunch",
+      "category": "core"
+    },
+    {
+      "name": "dead_bug",
+      "category": "core"
+    },
+    {
+      "name": "face_pull",
+      "category": "pull"
+    },
+    {
+      "name": "glute_bridge",
+      "category": "lower_body"
+    },
+    {
+      "name": "hammer_curl",
+      "category": "arms"
+    },
+    {
+      "name": "hamstring_stretch",
+      "category": "mobility"
+    },
+    {
+      "name": "hangboard",
+      "category": "pull"
+    },
+    {
+      "name": "hip_mobility",
+      "category": "mobility"
+    },
+    {
+      "name": "hockey",
+      "category": "sport"
+    },
+    {
+      "name": "lat_pulldown",
+      "category": "pull"
+    },
+    {
+      "name": "leg_extension",
+      "category": "lower_body"
+    },
+    {
+      "name": "mobility",
+      "category": "mobility"
+    },
+    {
+      "name": "pec_deck",
+      "category": "push"
+    },
+    {
+      "name": "plank",
+      "category": "core"
+    },
+    {
+      "name": "russian_twist",
+      "category": "core"
+    },
+    {
+      "name": "seated_biceps_curl",
+      "category": "arms"
+    },
+    {
+      "name": "seated_chest_press",
+      "category": "push"
+    },
+    {
+      "name": "seated_leg_curl",
+      "category": "lower_body"
+    },
+    {
+      "name": "seated_row",
+      "category": "pull"
+    },
+    {
+      "name": "seated_shoulder_press",
+      "category": "push"
+    },
+    {
+      "name": "side_plank",
+      "category": "core"
+    },
+    {
+      "name": "triceps_pushdown",
+      "category": "arms"
+    },
+    {
+      "name": "upper body",
+      "category": "general"
+    }
+  ],
+  "planned_sessions": []
+}

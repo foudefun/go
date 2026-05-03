@@ -1,0 +1,1139 @@
+{
+  "exercises": [
+    {
+      "name": "angled_leg_press",
+      "display_name": "Angled Leg Press",
+      "category": "legs",
+      "description": "Imported from Strength Training Anatomy, Legs section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/angled_leg_press.png",
+      "document": ""
+    },
+    {
+      "name": "arm_bike_warmup",
+      "display_name": "Arm Bike Warm-Up",
+      "category": "warmup",
+      "description": "Echauffement progressif au arm bike.",
+      "link": "",
+      "image": "",
+      "document": ""
+    },
+    {
+      "name": "back_lat_pulldowns",
+      "display_name": "Back Lat Pulldowns",
+      "category": "back",
+      "description": "Imported from Strength Training Anatomy, Back section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/back_lat_pulldowns.png",
+      "document": ""
+    },
+    {
+      "name": "back_press",
+      "display_name": "Back Press",
+      "category": "shoulders",
+      "description": "Imported from Strength Training Anatomy, Shoulders section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/back_press.png",
+      "document": ""
+    },
+    {
+      "name": "barbell_curls",
+      "display_name": "Barbell Curls",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/barbell_curls.png",
+      "document": ""
+    },
+    {
+      "name": "barbell_front_raises",
+      "display_name": "Barbell Front Raises",
+      "category": "shoulders",
+      "description": "Imported from Strength Training Anatomy, Shoulders section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/barbell_front_raises.png",
+      "document": ""
+    },
+    {
+      "name": "barbell_pullovers",
+      "display_name": "Barbell Pullovers",
+      "category": "chest",
+      "description": "Imported from Strength Training Anatomy, Chest section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/barbell_pullovers.png",
+      "document": ""
+    },
+    {
+      "name": "barbell_shrugs",
+      "display_name": "Barbell Shrugs",
+      "category": "back",
+      "description": "Imported from Strength Training Anatomy, Back section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/barbell_shrugs.png",
+      "document": ""
+    },
+    {
+      "name": "bench_press",
+      "display_name": "Bench Press",
+      "category": "chest",
+      "description": "Imported from Strength Training Anatomy, Chest section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/bench_press.png",
+      "document": ""
+    },
+    {
+      "name": "bent_over_lateral_raises",
+      "display_name": "Bent-Over Lateral Raises",
+      "category": "shoulders",
+      "description": "Imported from Strength Training Anatomy, Shoulders section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/bent_over_lateral_raises.png",
+      "document": ""
+    },
+    {
+      "name": "bent_rows",
+      "display_name": "Bent Rows",
+      "category": "back",
+      "description": "Imported from Strength Training Anatomy, Back section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/bent_rows.png",
+      "document": ""
+    },
+    {
+      "name": "bike",
+      "display_name": "bike",
+      "category": "warmup",
+      "description": "Vélo léger ou endurance selon phase.",
+      "link": "",
+      "image": "",
+      "document": ""
+    },
+    {
+      "name": "broomstick_twists",
+      "display_name": "Broomstick Twists",
+      "category": "abdomen",
+      "description": "Imported from Strength Training Anatomy, Abdomen section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/broomstick_twists.png",
+      "document": ""
+    },
+    {
+      "name": "cable_adductions",
+      "display_name": "Cable Adductions",
+      "category": "legs",
+      "description": "Imported from Strength Training Anatomy, Legs section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/cable_adductions.png",
+      "document": ""
+    },
+    {
+      "name": "cable_crossover_fly",
+      "display_name": "Cable Crossover Flys",
+      "category": "chest",
+      "description": "Imported from Strength Training Anatomy, Chest section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/cable_crossover_fly.png",
+      "document": ""
+    },
+    {
+      "name": "cable_hip_abductions",
+      "display_name": "Cable Hip Abductions",
+      "category": "buttocks",
+      "description": "Imported from Strength Training Anatomy, Buttocks section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/cable_hip_abductions.png",
+      "document": ""
+    },
+    {
+      "name": "cable_kick_backs",
+      "display_name": "Cable Kick Backs",
+      "category": "buttocks",
+      "description": "Imported from Strength Training Anatomy, Buttocks section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/cable_kick_backs.png",
+      "document": ""
+    },
+    {
+      "name": "calf_gentle_stretch",
+      "display_name": "Calf Gentle Stretch",
+      "category": "mobility",
+      "description": "Etirement doux du mollet.",
+      "link": "",
+      "image": "",
+      "document": ""
+    },
+    {
+      "name": "calves_over_bench_sit_ups",
+      "display_name": "Calves Over Bench Sit-Ups",
+      "category": "abdomen",
+      "description": "Imported from Strength Training Anatomy, Abdomen section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/calves_over_bench_sit_ups.png",
+      "document": ""
+    },
+    {
+      "name": "chest_dumbbell_press",
+      "display_name": "Dumbbell Press (Chest)",
+      "category": "chest",
+      "description": "Imported from Strength Training Anatomy, Chest section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/chest_dumbbell_press.png",
+      "document": ""
+    },
+    {
+      "name": "chin_ups",
+      "display_name": "Chin-Ups",
+      "category": "back",
+      "description": "Imported from Strength Training Anatomy, Back section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/chin_ups.png",
+      "document": ""
+    },
+    {
+      "name": "close_grip_bench_press",
+      "display_name": "Close-Grip Bench Press",
+      "category": "chest",
+      "description": "Imported from Strength Training Anatomy, Chest section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/close_grip_bench_press.png",
+      "document": ""
+    },
+    {
+      "name": "close_grip_lat_pulldowns",
+      "display_name": "Close-Grip Lat Pulldowns",
+      "category": "back",
+      "description": "Imported from Strength Training Anatomy, Back section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/close_grip_lat_pulldowns.png",
+      "document": ""
+    },
+    {
+      "name": "concentration_curls",
+      "display_name": "Concentration Curls",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/concentration_curls.png",
+      "document": ""
+    },
+    {
+      "name": "crunch",
+      "display_name": "Crunches",
+      "category": "abdomen",
+      "description": "Imported from Strength Training Anatomy, Abdomen section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/crunch.png",
+      "document": ""
+    },
+    {
+      "name": "curls",
+      "display_name": "Curls",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/curls.png",
+      "document": ""
+    },
+    {
+      "name": "dead_bug",
+      "display_name": "Dead Bug",
+      "category": "core",
+      "description": "Exercice de gainage anti-extension type dead bug.",
+      "link": "",
+      "image": "",
+      "document": ""
+    },
+    {
+      "name": "deadlifts",
+      "display_name": "Deadlifts",
+      "category": "back",
+      "description": "Imported from Strength Training Anatomy, Back section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/deadlifts.png",
+      "document": ""
+    },
+    {
+      "name": "decline_press",
+      "display_name": "Decline Press",
+      "category": "chest",
+      "description": "Imported from Strength Training Anatomy, Chest section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/decline_press.png",
+      "document": ""
+    },
+    {
+      "name": "donkey_calf_raises",
+      "display_name": "Donkey Calf Raises",
+      "category": "legs",
+      "description": "Imported from Strength Training Anatomy, Legs section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/donkey_calf_raises.png",
+      "document": ""
+    },
+    {
+      "name": "dumbbell_flys",
+      "display_name": "Dumbbell Flys",
+      "category": "chest",
+      "description": "Imported from Strength Training Anatomy, Chest section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/dumbbell_flys.png",
+      "document": ""
+    },
+    {
+      "name": "dumbbell_press",
+      "display_name": "Dumbbell Press (Shoulders)",
+      "category": "shoulders",
+      "description": "Imported from Strength Training Anatomy, Shoulders section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/dumbbell_press.png",
+      "document": ""
+    },
+    {
+      "name": "dumbbell_pullovers",
+      "display_name": "Dumbbell Pullovers",
+      "category": "chest",
+      "description": "Imported from Strength Training Anatomy, Chest section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/dumbbell_pullovers.png",
+      "document": ""
+    },
+    {
+      "name": "dumbbell_shrugs",
+      "display_name": "Dumbbell Shrugs",
+      "category": "back",
+      "description": "Imported from Strength Training Anatomy, Back section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/dumbbell_shrugs.png",
+      "document": ""
+    },
+    {
+      "name": "dumbbell_side_bends",
+      "display_name": "Dumbbell Side Bends",
+      "category": "abdomen",
+      "description": "Imported from Strength Training Anatomy, Abdomen section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/dumbbell_side_bends.png",
+      "document": ""
+    },
+    {
+      "name": "dumbbell_squats",
+      "display_name": "Dumbbell Squats",
+      "category": "legs",
+      "description": "Imported from Strength Training Anatomy, Legs section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/dumbbell_squats.png",
+      "document": ""
+    },
+    {
+      "name": "dumbbell_triceps_extensions",
+      "display_name": "Dumbbell Triceps Extensions",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/dumbbell_triceps_extensions.png",
+      "document": ""
+    },
+    {
+      "name": "face_pull",
+      "display_name": "Face Pull",
+      "category": "pull",
+      "description": "Tirage visage pour l arriere d epaule et la posture.",
+      "link": "",
+      "image": "",
+      "document": ""
+    },
+    {
+      "name": "floor_hip_abductions",
+      "display_name": "Floor Hip Abductions",
+      "category": "buttocks",
+      "description": "Imported from Strength Training Anatomy, Buttocks section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/floor_hip_abductions.png",
+      "document": ""
+    },
+    {
+      "name": "floor_hip_extensions_kick_backs",
+      "display_name": "Floor Hip Extensions (Kick Backs)",
+      "category": "buttocks",
+      "description": "Imported from Strength Training Anatomy, Buttocks section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/floor_hip_extensions_kick_backs.png",
+      "document": ""
+    },
+    {
+      "name": "front_press",
+      "display_name": "Front Press",
+      "category": "shoulders",
+      "description": "Imported from Strength Training Anatomy, Shoulders section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/front_press.png",
+      "document": ""
+    },
+    {
+      "name": "front_raises",
+      "display_name": "Front Raises",
+      "category": "shoulders",
+      "description": "Imported from Strength Training Anatomy, Shoulders section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/front_raises.png",
+      "document": ""
+    },
+    {
+      "name": "front_squats",
+      "display_name": "Front Squats",
+      "category": "legs",
+      "description": "Imported from Strength Training Anatomy, Legs section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/front_squats.png",
+      "document": ""
+    },
+    {
+      "name": "glute_bridge",
+      "display_name": "Glute Bridge",
+      "category": "buttocks",
+      "description": "Imported from Strength Training Anatomy, Buttocks section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/bridging.png",
+      "document": ""
+    },
+    {
+      "name": "good_mornings",
+      "display_name": "Good Mornings",
+      "category": "legs",
+      "description": "Imported from Strength Training Anatomy, Legs section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/good_mornings.png",
+      "document": ""
+    },
+    {
+      "name": "gym_ladder_sit_ups",
+      "display_name": "Gym Ladder Sit-Ups",
+      "category": "abdomen",
+      "description": "Imported from Strength Training Anatomy, Abdomen section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/gym_ladder_sit_ups.png",
+      "document": ""
+    },
+    {
+      "name": "hack_squats",
+      "display_name": "Hack Squats",
+      "category": "legs",
+      "description": "Imported from Strength Training Anatomy, Legs section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/hack_squats.png",
+      "document": ""
+    },
+    {
+      "name": "hammer_curl",
+      "display_name": "Hammer Curls",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/hammer_curl.png",
+      "document": ""
+    },
+    {
+      "name": "hamstring_stretch",
+      "display_name": "Hamstring Stretch",
+      "category": "mobility",
+      "description": "Etirement leger des ischio-jambiers.",
+      "link": "",
+      "image": "",
+      "document": ""
+    },
+    {
+      "name": "hangboard",
+      "display_name": "hangboard",
+      "category": "pull",
+      "description": "Travail doigts / poutre sans charger le pied.",
+      "link": "",
+      "image": "",
+      "document": ""
+    },
+    {
+      "name": "hanging_leg_raises",
+      "display_name": "Hanging Leg Raises",
+      "category": "abdomen",
+      "description": "Imported from Strength Training Anatomy, Abdomen section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/hanging_leg_raises.png",
+      "document": ""
+    },
+    {
+      "name": "high_pulley_crunches",
+      "display_name": "High Pulley Crunches",
+      "category": "abdomen",
+      "description": "Imported from Strength Training Anatomy, Abdomen section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/high_pulley_crunches.png",
+      "document": ""
+    },
+    {
+      "name": "high_pulley_curls",
+      "display_name": "High Pulley Curls",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/high_pulley_curls.png",
+      "document": ""
+    },
+    {
+      "name": "hip_mobility",
+      "display_name": "Hip Mobility",
+      "category": "mobility",
+      "description": "Mobilite de hanche douce et controlee.",
+      "link": "",
+      "image": "",
+      "document": ""
+    },
+    {
+      "name": "hockey",
+      "display_name": "hockey",
+      "category": "sport",
+      "description": "Travail hockey.",
+      "link": "",
+      "image": "",
+      "document": ""
+    },
+    {
+      "name": "incline_bench_sit_ups",
+      "display_name": "Incline Bench Sit-Ups",
+      "category": "abdomen",
+      "description": "Imported from Strength Training Anatomy, Abdomen section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/incline_bench_sit_ups.png",
+      "document": ""
+    },
+    {
+      "name": "incline_dumbbell_flys",
+      "display_name": "Incline Dumbbell Flys",
+      "category": "chest",
+      "description": "Imported from Strength Training Anatomy, Chest section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/incline_dumbbell_flys.png",
+      "document": ""
+    },
+    {
+      "name": "incline_dumbbell_press",
+      "display_name": "Incline Dumbbell Press",
+      "category": "chest",
+      "description": "Imported from Strength Training Anatomy, Chest section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/incline_dumbbell_press.png",
+      "document": ""
+    },
+    {
+      "name": "incline_leg_raises",
+      "display_name": "Incline Leg Raises",
+      "category": "abdomen",
+      "description": "Imported from Strength Training Anatomy, Abdomen section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/incline_leg_raises.png",
+      "document": ""
+    },
+    {
+      "name": "incline_press",
+      "display_name": "Incline Press",
+      "category": "chest",
+      "description": "Imported from Strength Training Anatomy, Chest section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/incline_press.png",
+      "document": ""
+    },
+    {
+      "name": "lat_pulldown",
+      "display_name": "Lat Pulldowns",
+      "category": "back",
+      "description": "Imported from Strength Training Anatomy, Back section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/lat_pulldown.png",
+      "document": ""
+    },
+    {
+      "name": "lateral_raises",
+      "display_name": "Lateral Raises",
+      "category": "shoulders",
+      "description": "Imported from Strength Training Anatomy, Shoulders section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/lateral_raises.png",
+      "document": ""
+    },
+    {
+      "name": "leg_extension",
+      "display_name": "Leg Extensions",
+      "category": "legs",
+      "description": "Imported from Strength Training Anatomy, Legs section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/leg_extension.png",
+      "document": ""
+    },
+    {
+      "name": "leg_raises",
+      "display_name": "Leg Raises",
+      "category": "abdomen",
+      "description": "Imported from Strength Training Anatomy, Abdomen section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/leg_raises.png",
+      "document": ""
+    },
+    {
+      "name": "low_pulley_bent_over_lateral_raises",
+      "display_name": "Low Pulley Bent-Over Lateral Raises",
+      "category": "shoulders",
+      "description": "Imported from Strength Training Anatomy, Shoulders section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/low_pulley_bent_over_lateral_raises.png",
+      "document": ""
+    },
+    {
+      "name": "low_pulley_curls",
+      "display_name": "Low Pulley Curls",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/low_pulley_curls.png",
+      "document": ""
+    },
+    {
+      "name": "low_pulley_front_raise",
+      "display_name": "Low Pulley Front Raises",
+      "category": "shoulders",
+      "description": "Imported from Strength Training Anatomy, Shoulders section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/low_pulley_front_raise.png",
+      "document": ""
+    },
+    {
+      "name": "low_pulley_lateral_raises",
+      "display_name": "Low Pulley Lateral Raises",
+      "category": "shoulders",
+      "description": "Imported from Strength Training Anatomy, Shoulders section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/low_pulley_lateral_raises.png",
+      "document": ""
+    },
+    {
+      "name": "lunges",
+      "display_name": "Lunges",
+      "category": "buttocks",
+      "description": "Imported from Strength Training Anatomy, Buttocks section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/lunges.png",
+      "document": ""
+    },
+    {
+      "name": "lying_leg_curls",
+      "display_name": "Lying Leg Curls",
+      "category": "legs",
+      "description": "Imported from Strength Training Anatomy, Legs section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/lying_leg_curls.png",
+      "document": ""
+    },
+    {
+      "name": "machine_adductions",
+      "display_name": "Machine Adductions",
+      "category": "legs",
+      "description": "Imported from Strength Training Anatomy, Legs section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/machine_adductions.png",
+      "document": ""
+    },
+    {
+      "name": "machine_crunches",
+      "display_name": "Machine Crunches",
+      "category": "abdomen",
+      "description": "Imported from Strength Training Anatomy, Abdomen section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/machine_crunches.png",
+      "document": ""
+    },
+    {
+      "name": "machine_curls",
+      "display_name": "Machine Curls",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/machine_curls.png",
+      "document": ""
+    },
+    {
+      "name": "machine_hip_extensions_kick_backs",
+      "display_name": "Machine Hip Extensions (Kick Backs)",
+      "category": "buttocks",
+      "description": "Imported from Strength Training Anatomy, Buttocks section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/machine_hip_extensions_kick_backs.png",
+      "document": ""
+    },
+    {
+      "name": "machine_shrugs",
+      "display_name": "Machine Shrugs",
+      "category": "back",
+      "description": "Imported from Strength Training Anatomy, Back section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/machine_shrugs.png",
+      "document": ""
+    },
+    {
+      "name": "machine_trunk_rotations",
+      "display_name": "Machine Trunk Rotations",
+      "category": "abdomen",
+      "description": "Imported from Strength Training Anatomy, Abdomen section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/machine_trunk_rotations.png",
+      "document": ""
+    },
+    {
+      "name": "mobility",
+      "display_name": "mobility",
+      "category": "mobility",
+      "description": "Mobilité douce cheville et hanches.",
+      "link": "",
+      "image": "",
+      "document": ""
+    },
+    {
+      "name": "nautilus_lateral_raises",
+      "display_name": "Nautilus Lateral Raises",
+      "category": "shoulders",
+      "description": "Imported from Strength Training Anatomy, Shoulders section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/nautilus_lateral_raises.png",
+      "document": ""
+    },
+    {
+      "name": "one_arm_dumbbell_press",
+      "display_name": "One-Arm Dumbbell Press",
+      "category": "shoulders",
+      "description": "Imported from Strength Training Anatomy, Shoulders section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/one_arm_dumbbell_press.png",
+      "document": ""
+    },
+    {
+      "name": "one_arm_dumbbell_rows",
+      "display_name": "One-Arm Dumbbell Rows",
+      "category": "back",
+      "description": "Imported from Strength Training Anatomy, Back section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/one_arm_dumbbell_rows.png",
+      "document": ""
+    },
+    {
+      "name": "one_arm_dumbbell_triceps_extensions",
+      "display_name": "One-Arm Dumbbell Triceps Extensions",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/one_arm_dumbbell_triceps_extensions.png",
+      "document": ""
+    },
+    {
+      "name": "one_arm_reverse_pushdowns",
+      "display_name": "One-Arm Reverse Pushdowns",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/one_arm_reverse_pushdowns.png",
+      "document": ""
+    },
+    {
+      "name": "one_dumbbell_front_raises",
+      "display_name": "One-Dumbbell Front Raises",
+      "category": "shoulders",
+      "description": "Imported from Strength Training Anatomy, Shoulders section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/one_dumbbell_front_raises.png",
+      "document": ""
+    },
+    {
+      "name": "one_leg_toe_raises",
+      "display_name": "One-Leg Toe Raises",
+      "category": "legs",
+      "description": "Imported from Strength Training Anatomy, Legs section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/one_leg_toe_raises.png",
+      "document": ""
+    },
+    {
+      "name": "parallel_bar_dips",
+      "display_name": "Parallel Bar Dips",
+      "category": "chest",
+      "description": "Imported from Strength Training Anatomy, Chest section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/parallel_bar_dips.png",
+      "document": ""
+    },
+    {
+      "name": "pec_deck",
+      "display_name": "Pec Deck Flys",
+      "category": "chest",
+      "description": "Imported from Strength Training Anatomy, Chest section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/pec_deck.png",
+      "document": ""
+    },
+    {
+      "name": "pec_deck_rear_delt_laterals",
+      "display_name": "Pec Deck Rear Delt Laterals",
+      "category": "shoulders",
+      "description": "Imported from Strength Training Anatomy, Shoulders section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/pec_deck_rear_delt_laterals.png",
+      "document": ""
+    },
+    {
+      "name": "plank",
+      "display_name": "Plank",
+      "category": "core",
+      "description": "Gainage planche statique.",
+      "link": "",
+      "image": "",
+      "document": ""
+    },
+    {
+      "name": "power_squats",
+      "display_name": "Power Squats",
+      "category": "legs",
+      "description": "Imported from Strength Training Anatomy, Legs section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/power_squats.png",
+      "document": ""
+    },
+    {
+      "name": "preacher_curls",
+      "display_name": "Preacher Curls",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/preacher_curls.png",
+      "document": ""
+    },
+    {
+      "name": "push_ups",
+      "display_name": "Push-Ups",
+      "category": "chest",
+      "description": "Imported from Strength Training Anatomy, Chest section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/push_ups.png",
+      "document": ""
+    },
+    {
+      "name": "reverse_chin_ups",
+      "display_name": "Reverse Chin-Ups",
+      "category": "back",
+      "description": "Imported from Strength Training Anatomy, Back section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/reverse_chin_ups.png",
+      "document": ""
+    },
+    {
+      "name": "reverse_curls",
+      "display_name": "Reverse Curls",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/reverse_curls.png",
+      "document": ""
+    },
+    {
+      "name": "reverse_pushdown",
+      "display_name": "Reverse Pushdowns",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/reverse_pushdown.png",
+      "document": ""
+    },
+    {
+      "name": "reverse_wrist_curls",
+      "display_name": "Reverse Wrist Curls",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/reverse_wrist_curls.png",
+      "document": ""
+    },
+    {
+      "name": "roman_chair_side_bends",
+      "display_name": "Roman Chair Side Bends",
+      "category": "abdomen",
+      "description": "Imported from Strength Training Anatomy, Abdomen section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/roman_chair_side_bends.png",
+      "document": ""
+    },
+    {
+      "name": "russian_twist",
+      "display_name": "Russian Twist",
+      "category": "core",
+      "description": "Rotation du tronc type russian twist.",
+      "link": "",
+      "image": "",
+      "document": ""
+    },
+    {
+      "name": "seated_barbell_calf_raises",
+      "display_name": "Seated Barbell Calf Raises",
+      "category": "legs",
+      "description": "Imported from Strength Training Anatomy, Legs section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/seated_barbell_calf_raises.png",
+      "document": ""
+    },
+    {
+      "name": "seated_biceps_curl",
+      "display_name": "Seated Biceps Curl",
+      "category": "arms",
+      "description": "Curl biceps assis.",
+      "link": "",
+      "image": "",
+      "document": ""
+    },
+    {
+      "name": "seated_calf_raises",
+      "display_name": "Seated Calf Raises",
+      "category": "legs",
+      "description": "Imported from Strength Training Anatomy, Legs section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/seated_calf_raises.png",
+      "document": ""
+    },
+    {
+      "name": "seated_chest_press",
+      "display_name": "Seated Chest Press",
+      "category": "push",
+      "description": "Presse poitrine assise, execution controlee.",
+      "link": "",
+      "image": "",
+      "document": ""
+    },
+    {
+      "name": "seated_dumbbell_triceps_extensions",
+      "display_name": "Seated Dumbbell Triceps Extensions",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/seated_dumbbell_triceps_extensions.png",
+      "document": ""
+    },
+    {
+      "name": "seated_ez_bar_triceps_extensions",
+      "display_name": "Seated EZ-Bar Triceps Extensions",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/seated_ez_bar_triceps_extensions.png",
+      "document": ""
+    },
+    {
+      "name": "seated_leg_curl",
+      "display_name": "Seated Leg Curls",
+      "category": "legs",
+      "description": "Imported from Strength Training Anatomy, Legs section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/seated_leg_curl.png",
+      "document": ""
+    },
+    {
+      "name": "seated_machine_hip_abductions",
+      "display_name": "Seated Machine Hip Abductions",
+      "category": "buttocks",
+      "description": "Imported from Strength Training Anatomy, Buttocks section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/seated_machine_hip_abductions.png",
+      "document": ""
+    },
+    {
+      "name": "seated_row",
+      "display_name": "Seated Rows",
+      "category": "back",
+      "description": "Imported from Strength Training Anatomy, Back section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/seated_row.png",
+      "document": ""
+    },
+    {
+      "name": "seated_shoulder_press",
+      "display_name": "Seated Shoulder Press",
+      "category": "push",
+      "description": "Developpe epaules assis.",
+      "link": "",
+      "image": "",
+      "document": ""
+    },
+    {
+      "name": "side_lying_lateral_raises",
+      "display_name": "Side-Lying Lateral Raises",
+      "category": "shoulders",
+      "description": "Imported from Strength Training Anatomy, Shoulders section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/side_lying_lateral_raises.png",
+      "document": ""
+    },
+    {
+      "name": "side_plank",
+      "display_name": "Side Plank",
+      "category": "core",
+      "description": "Gainage lateral.",
+      "link": "",
+      "image": "",
+      "document": ""
+    },
+    {
+      "name": "sit_ups",
+      "display_name": "Sit-Ups",
+      "category": "abdomen",
+      "description": "Imported from Strength Training Anatomy, Abdomen section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/sit_ups.png",
+      "document": ""
+    },
+    {
+      "name": "specific_bench_sit_ups",
+      "display_name": "Specific Bench Sit-Ups",
+      "category": "abdomen",
+      "description": "Imported from Strength Training Anatomy, Abdomen section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/specific_bench_sit_ups.png",
+      "document": ""
+    },
+    {
+      "name": "squats",
+      "display_name": "Squats",
+      "category": "legs",
+      "description": "Imported from Strength Training Anatomy, Legs section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/squats.png",
+      "document": ""
+    },
+    {
+      "name": "standing_calf_raises",
+      "display_name": "Standing Calf Raises",
+      "category": "legs",
+      "description": "Imported from Strength Training Anatomy, Legs section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/standing_calf_raises.png",
+      "document": ""
+    },
+    {
+      "name": "standing_leg_curls",
+      "display_name": "Standing Leg Curls",
+      "category": "legs",
+      "description": "Imported from Strength Training Anatomy, Legs section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/standing_leg_curls.png",
+      "document": ""
+    },
+    {
+      "name": "standing_machine_hip_abductions",
+      "display_name": "Standing Machine Hip Abductions",
+      "category": "buttocks",
+      "description": "Imported from Strength Training Anatomy, Buttocks section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/standing_machine_hip_abductions.png",
+      "document": ""
+    },
+    {
+      "name": "stiff_legged_deadlifts",
+      "display_name": "Stiff-Legged Deadlifts",
+      "category": "back",
+      "description": "Imported from Strength Training Anatomy, Back section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/stiff_legged_deadlifts.png",
+      "document": ""
+    },
+    {
+      "name": "straight_arm_lat_pulldown",
+      "display_name": "Straight-Arm Lat Pulldowns",
+      "category": "back",
+      "description": "Imported from Strength Training Anatomy, Back section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/straight_arm_lat_pulldown.png",
+      "document": ""
+    },
+    {
+      "name": "sumo_deadlifts",
+      "display_name": "Sumo Deadlifts",
+      "category": "back",
+      "description": "Imported from Strength Training Anatomy, Back section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/sumo_deadlifts.png",
+      "document": ""
+    },
+    {
+      "name": "t_bar_rows",
+      "display_name": "T-Bar Rows",
+      "category": "back",
+      "description": "Imported from Strength Training Anatomy, Back section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/t_bar_rows.png",
+      "document": ""
+    },
+    {
+      "name": "triceps_dips",
+      "display_name": "Triceps Dips",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/triceps_dips.png",
+      "document": ""
+    },
+    {
+      "name": "triceps_extensions",
+      "display_name": "Triceps Extensions",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/triceps_extensions.png",
+      "document": ""
+    },
+    {
+      "name": "triceps_kickbacks",
+      "display_name": "Triceps Kickbacks",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/triceps_kickbacks.png",
+      "document": ""
+    },
+    {
+      "name": "triceps_pushdown",
+      "display_name": "Pushdowns",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/triceps_pushdown.png",
+      "document": ""
+    },
+    {
+      "name": "upper body",
+      "display_name": "upper body",
+      "category": "general",
+      "description": "Musculation haut du corps.",
+      "link": "",
+      "image": "",
+      "document": ""
+    },
+    {
+      "name": "upright_row",
+      "display_name": "Upright Row",
+      "category": "shoulders",
+      "description": "Tirage vertical pour trapezes et deltoides, amplitude controlee.",
+      "link": "",
+      "image": "/assets/exercises/delavier/upright_rows.png",
+      "document": ""
+    },
+    {
+      "name": "wrist_curls",
+      "display_name": "Wrist Curls",
+      "category": "arms",
+      "description": "Imported from Strength Training Anatomy, Arms section.",
+      "link": "",
+      "image": "/assets/exercises/delavier/book/wrist_curls.png",
+      "document": ""
+    }
+  ],
+  "planned_sessions": []
+}

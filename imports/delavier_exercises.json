@@ -1,0 +1,61 @@
+{
+  "exercises": [
+    {
+      "name": "reverse_pushdown",
+      "display_name": "Reverse Pushdown",
+      "category": "arms",
+      "description": "Extension triceps a la poulie, prise supination, execution controlee.",
+      "image": "/assets/exercises/delavier/reverse_pushdowns.png"
+    },
+    {
+      "name": "back_press",
+      "display_name": "Back Press",
+      "category": "push",
+      "description": "Developpe epaules barre derriere la nuque, a garder leger et strict.",
+      "image": "/assets/exercises/delavier/back_press.png"
+    },
+    {
+      "name": "low_pulley_front_raise",
+      "display_name": "Low Pulley Front Raise",
+      "category": "push",
+      "description": "Elevation frontale a la poulie basse pour le deltoide anterieur.",
+      "image": "/assets/exercises/delavier/low_pulley_front_raises.png"
+    },
+    {
+      "name": "close_grip_bench_press",
+      "display_name": "Close-Grip Bench Press",
+      "category": "push",
+      "description": "Developpe couche prise serree, accent sur triceps et poitrine.",
+      "image": "/assets/exercises/delavier/close_grip_bench_press.png"
+    },
+    {
+      "name": "cable_crossover_fly",
+      "display_name": "Cable Crossover Fly",
+      "category": "push",
+      "description": "Ecarte a la poulie vis-a-vis pour les pectoraux.",
+      "image": "/assets/exercises/delavier/cable_crossover_flys.png"
+    },
+    {
+      "name": "straight_arm_lat_pulldown",
+      "display_name": "Straight-Arm Lat Pulldown",
+      "category": "pull",
+      "description": "Tirage bras tendus a la poulie pour dorsaux et grand rond.",
+      "image": "/assets/exercises/delavier/straight_arm_lat_pulldowns.png"
+    },
+    {
+      "name": "upright_row",
+      "display_name": "Upright Row",
+      "category": "pull",
+      "description": "Tirage vertical pour trapezes et deltoides, amplitude controlee.",
+      "image": "/assets/exercises/delavier/upright_rows.png"
+    },
+    {
+      "name": "angled_leg_press",
+      "display_name": "Angled Leg Press",
+      "category": "lower_body",
+      "description": "Presse a cuisses inclinee, a programmer seulement si valide par le physio.",
+      "image": "/assets/exercises/delavier/angled_leg_press.png"
+    }
+  ],
+  "planned_sessions": []
+}

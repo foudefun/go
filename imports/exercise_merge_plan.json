@@ -1,0 +1,53 @@
+{
+  "aliases": {
+    "bridging": "glute_bridge",
+    "back_upright_row": "upright_row",
+    "shoulders_upright_row": "upright_row"
+  },
+  "updates": {
+    "arm_bike_warmup": {
+      "display_name": "Arm Bike Warm-Up"
+    },
+    "calf_gentle_stretch": {
+      "display_name": "Calf Gentle Stretch"
+    },
+    "dead_bug": {
+      "display_name": "Dead Bug"
+    },
+    "face_pull": {
+      "display_name": "Face Pull"
+    },
+    "glute_bridge": {
+      "display_name": "Glute Bridge",
+      "category": "buttocks"
+    },
+    "hamstring_stretch": {
+      "display_name": "Hamstring Stretch"
+    },
+    "hip_mobility": {
+      "display_name": "Hip Mobility"
+    },
+    "plank": {
+      "display_name": "Plank"
+    },
+    "russian_twist": {
+      "display_name": "Russian Twist"
+    },
+    "seated_biceps_curl": {
+      "display_name": "Seated Biceps Curl"
+    },
+    "seated_chest_press": {
+      "display_name": "Seated Chest Press"
+    },
+    "seated_shoulder_press": {
+      "display_name": "Seated Shoulder Press"
+    },
+    "side_plank": {
+      "display_name": "Side Plank"
+    },
+    "upright_row": {
+      "display_name": "Upright Row",
+      "category": "shoulders"
+    }
+  }
+}

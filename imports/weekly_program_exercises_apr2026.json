@@ -1,0 +1,301 @@
+{
+  "exercises": [
+    {
+      "name": "barbell_back_squat",
+      "display_name": "Squat avec barre",
+      "display_name_fr": "Squat avec barre",
+      "display_name_en": "Barbell Back Squat",
+      "category": "legs, glutes",
+      "description": "Exercice importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/barbell_back_squat.png"
+    },
+    {
+      "name": "romanian_deadlift",
+      "display_name": "Soulevé de terre roumain",
+      "display_name_fr": "Soulevé de terre roumain",
+      "display_name_en": "Romanian Deadlift",
+      "category": "hamstrings, glutes, back",
+      "description": "Exercice importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/romanian_deadlift.png"
+    },
+    {
+      "name": "walking_lunges",
+      "display_name": "Fentes marchées",
+      "display_name_fr": "Fentes marchées",
+      "display_name_en": "Walking Lunges",
+      "category": "legs, glutes",
+      "description": "Exercice importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/walking_lunges.png"
+    },
+    {
+      "name": "barbell_hip_thrust",
+      "display_name": "Hip thrust barre",
+      "display_name_fr": "Hip thrust barre",
+      "display_name_en": "Barbell Hip Thrust",
+      "category": "glutes, hamstrings",
+      "description": "Exercice importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/barbell_hip_thrust.png"
+    },
+    {
+      "name": "weighted_plank",
+      "display_name": "Planche lestée",
+      "display_name_fr": "Planche lestée",
+      "display_name_en": "Weighted Plank",
+      "category": "core",
+      "description": "Exercice importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/weighted_plank.png"
+    },
+    {
+      "name": "bench_press",
+      "display_name": "Développé couché",
+      "display_name_fr": "Développé couché",
+      "display_name_en": "Bench Press",
+      "category": "chest, push",
+      "description": "Exercice mis à jour depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/bench_press.png"
+    },
+    {
+      "name": "weighted_pull_ups",
+      "display_name": "Tractions lestées",
+      "display_name_fr": "Tractions lestées",
+      "display_name_en": "Weighted Pull-Ups",
+      "category": "back, arms",
+      "description": "Exercice importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/weighted_pull_ups.png"
+    },
+    {
+      "name": "barbell_row",
+      "display_name": "Rowing barre",
+      "display_name_fr": "Rowing barre",
+      "display_name_en": "Barbell Row",
+      "category": "back, arms",
+      "description": "Exercice importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/barbell_row.png"
+    },
+    {
+      "name": "overhead_press",
+      "display_name": "Développé militaire",
+      "display_name_fr": "Développé militaire",
+      "display_name_en": "Overhead Press",
+      "category": "shoulders, push",
+      "description": "Exercice importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/overhead_press.png"
+    },
+    {
+      "name": "rower_or_ski_erg_intervals",
+      "display_name": "Intervalles rameur ou ski erg",
+      "display_name_fr": "Intervalles rameur ou ski erg",
+      "display_name_en": "Rower or Ski Erg Intervals",
+      "category": "general",
+      "description": "Bloc cardio/conditioning importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/rower_or_ski_erg_intervals.png"
+    },
+    {
+      "name": "box_jumps",
+      "display_name": "Box jumps",
+      "display_name_fr": "Box jumps",
+      "display_name_en": "Box Jumps",
+      "category": "legs, glutes",
+      "description": "Exercice importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/box_jumps.png"
+    },
+    {
+      "name": "squat_jump_light",
+      "display_name": "Squat jump léger",
+      "display_name_fr": "Squat jump léger",
+      "display_name_en": "Light Squat Jump",
+      "category": "legs, glutes",
+      "description": "Exercice importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/squat_jump_light.png"
+    },
+    {
+      "name": "kettlebell_swings",
+      "display_name": "Kettlebell swings",
+      "display_name_fr": "Kettlebell swings",
+      "display_name_en": "Kettlebell Swings",
+      "category": "glutes, hamstrings",
+      "description": "Exercice importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/kettlebell_swings.png"
+    },
+    {
+      "name": "push_press",
+      "display_name": "Push press",
+      "display_name_fr": "Push press",
+      "display_name_en": "Push Press",
+      "category": "shoulders, push, legs",
+      "description": "Exercice importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/push_press.png"
+    },
+    {
+      "name": "medicine_ball_rotational_throws",
+      "display_name": "Lancers med ball rotation",
+      "display_name_fr": "Lancers med ball rotation",
+      "display_name_en": "Medicine Ball Rotational Throws",
+      "category": "core, shoulders",
+      "description": "Exercice importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/medicine_ball_rotational_throws.png"
+    },
+    {
+      "name": "sprints_20m",
+      "display_name": "Sprints 20 m",
+      "display_name_fr": "Sprints 20 m",
+      "display_name_en": "20 m Sprints",
+      "category": "general, legs",
+      "description": "Exercice importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/sprints_20m.png"
+    },
+    {
+      "name": "front_squats",
+      "display_name": "Front squat",
+      "display_name_fr": "Front squat",
+      "display_name_en": "Front Squat",
+      "category": "legs, glutes",
+      "description": "Exercice mis à jour depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/front_squats.png"
+    },
+    {
+      "name": "angled_leg_press",
+      "display_name": "Presse à cuisses",
+      "display_name_fr": "Presse à cuisses",
+      "display_name_en": "Leg Press",
+      "category": "legs, glutes",
+      "description": "Exercice mis à jour depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/angled_leg_press.png"
+    },
+    {
+      "name": "bulgarian_split_squat",
+      "display_name": "Bulgarian split squat",
+      "display_name_fr": "Bulgarian split squat",
+      "display_name_en": "Bulgarian Split Squat",
+      "category": "legs, glutes",
+      "description": "Exercice importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/bulgarian_split_squat.png"
+    },
+    {
+      "name": "leg_curl",
+      "display_name": "Leg curl",
+      "display_name_fr": "Leg curl",
+      "display_name_en": "Leg Curl",
+      "category": "hamstrings, legs",
+      "description": "Exercice importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/leg_curl.png"
+    },
+    {
+      "name": "standing_calf_raises",
+      "display_name": "Mollets debout",
+      "display_name_fr": "Mollets debout",
+      "display_name_en": "Standing Calf Raises",
+      "category": "calves",
+      "description": "Exercice mis à jour depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/standing_calf_raises.png"
+    },
+    {
+      "name": "zone_2_run",
+      "display_name": "Course zone 2",
+      "display_name_fr": "Course zone 2",
+      "display_name_en": "Zone 2 Run",
+      "category": "general",
+      "description": "Bloc cardio importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/zone_2_run.png"
+    },
+    {
+      "name": "incline_dumbbell_press",
+      "display_name": "Développé incliné haltères",
+      "display_name_fr": "Développé incliné haltères",
+      "display_name_en": "Incline Dumbbell Press",
+      "category": "chest, push",
+      "description": "Exercice mis à jour depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/incline_dumbbell_press.png"
+    },
+    {
+      "name": "seated_row",
+      "display_name": "Tirage horizontal",
+      "display_name_fr": "Tirage horizontal",
+      "display_name_en": "Seated Row",
+      "category": "back, pull",
+      "description": "Exercice mis à jour depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/seated_row.png"
+    },
+    {
+      "name": "lateral_raises",
+      "display_name": "Élévations latérales",
+      "display_name_fr": "Élévations latérales",
+      "display_name_en": "Lateral Raises",
+      "category": "shoulders",
+      "description": "Exercice mis à jour depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/lateral_raises.png"
+    },
+    {
+      "name": "parallel_bar_dips",
+      "display_name": "Dips",
+      "display_name_fr": "Dips",
+      "display_name_en": "Dips",
+      "category": "chest, arms",
+      "description": "Exercice mis à jour depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/parallel_bar_dips.png"
+    },
+    {
+      "name": "bicep_curl",
+      "display_name": "Curl biceps",
+      "display_name_fr": "Curl biceps",
+      "display_name_en": "Bicep Curl",
+      "category": "arms, biceps",
+      "description": "Exercice importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/bicep_curl_triceps_extension.png"
+    },
+    {
+      "name": "triceps_extension",
+      "display_name": "Extension triceps",
+      "display_name_fr": "Extension triceps",
+      "display_name_en": "Triceps Extension",
+      "category": "arms, triceps",
+      "description": "Exercice importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/bicep_curl_triceps_extension.png"
+    },
+    {
+      "name": "rower_conditioning",
+      "display_name": "Conditioning rameur",
+      "display_name_fr": "Conditioning rameur",
+      "display_name_en": "Rower Conditioning",
+      "category": "general",
+      "description": "Bloc cardio/conditioning importé depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/rower_conditioning.png"
+    },
+    {
+      "name": "hamstring_stretch",
+      "display_name": "Étirement ischio-jambiers",
+      "display_name_fr": "Étirement ischio-jambiers",
+      "display_name_en": "Hamstring Stretch",
+      "category": "mobility, hamstrings",
+      "description": "Mobilité importée depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/hamstring_stretch.png"
+    },
+    {
+      "name": "hip_mobility",
+      "display_name": "Mobilité des hanches",
+      "display_name_fr": "Mobilité des hanches",
+      "display_name_en": "Hip Mobility",
+      "category": "mobility",
+      "description": "Mobilité importée depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/hip_mobility.png"
+    },
+    {
+      "name": "adductor_mobility",
+      "display_name": "Mobilité adducteurs",
+      "display_name_fr": "Mobilité adducteurs",
+      "display_name_en": "Adductor Mobility",
+      "category": "mobility",
+      "description": "Mobilité importée depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/adductor_mobility.png"
+    },
+    {
+      "name": "ankle_mobility",
+      "display_name": "Mobilité chevilles",
+      "display_name_fr": "Mobilité chevilles",
+      "display_name_en": "Ankle Mobility",
+      "category": "mobility",
+      "description": "Mobilité importée depuis le visuel du programme hebdomadaire.",
+      "image": "/assets/exercises/weekly_program_apr2026/ankle_mobility.png"
+    }
+  ]
+}
