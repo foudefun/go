@@ -1,0 +1,61 @@
+name: Auto Draft PR From Telegram Issue
+
+on:
+  issues:
+    types:
+      - labeled
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  draft-pr:
+    if: github.event.label.name == 'auto-pr-draft'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate AI draft PR proposal
+        id: proposal
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: gpt-5.4
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python scripts/generate_issue_pr_draft.py
+
+      - name: Create draft PR
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: ${{ steps.proposal.outputs.branch_name }}
+          commit-message: "Add draft PR proposal for issue #${{ github.event.issue.number }}"
+          title: ${{ steps.proposal.outputs.pr_title }}
+          body: ${{ steps.proposal.outputs.pr_body }}
+          draft: true
+          delete-branch: true
+          add-paths: |
+            ${{ steps.proposal.outputs.proposal_path }}
+
+      - name: Comment on issue with draft PR link
+        if: steps.cpr.outputs.pull-request-number
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: `Draft PR #${{ steps.cpr.outputs.pull-request-number }} created automatically: ${{ steps.cpr.outputs.pull-request-url }}`
+            });

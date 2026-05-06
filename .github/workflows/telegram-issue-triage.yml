@@ -24,7 +24,7 @@ jobs:
               return;
             }
 
-            const missingLabels = ["codex-ready"].filter((label) => !labels.includes(label));
+            const missingLabels = ["codex-ready", "auto-pr-draft"].filter((label) => !labels.includes(label));
             if (missingLabels.length) {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
@@ -43,6 +43,7 @@ jobs:
                 "",
                 "- Source: Telegram",
                 "- Status: ready for Codex/manual implementation",
-                "- Next step: open this issue in Codex web or desktop and implement it from the repo",
+                "- Automation: a draft PR proposal will be generated automatically",
+                "- Next step: review the draft PR in GitHub or continue it in Codex web/desktop",
               ].join("\n"),
             });

@@ -70,3 +70,20 @@ That way your normal cycle becomes:
 3. commit and push
 4. SSH to the VPS
 5. run `./deploy.sh`
+
+## Telegram issue automation
+
+This project also supports a Telegram-driven planning flow:
+
+1. Telegram message
+2. GitHub issue created by the VPS bot
+3. issue labeled `from-telegram`, `codex-ready`, and `auto-pr-draft`
+4. GitHub Action generates an AI draft PR proposal
+
+To enable the draft PR proposal step, add this GitHub Actions secret:
+
+- `OPENAI_API_KEY`
+
+The workflow does not push product code automatically. It creates a draft PR
+proposal branch with a generated implementation note that can then be picked up
+in Codex web, Codex desktop, or manual review.
