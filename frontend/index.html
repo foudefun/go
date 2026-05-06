@@ -515,7 +515,8 @@ const UI_TEXT = {
     reps: "Reps",
     weight_kg: "Poids (kg)",
     weight_lb: "Poids (lb)",
-    duration_seconds: "Temps (sec)",
+    duration_seconds: "Durée (hh:mm:ss)",
+    duration_placeholder: "00:05:00",
     watts: "Watts",
     add_set: "Ajouter la série",
     exercise_note: "Note exercice",
@@ -762,7 +763,8 @@ const UI_TEXT = {
     reps: "Reps",
     weight_kg: "Weight (kg)",
     weight_lb: "Weight (lb)",
-    duration_seconds: "Time (sec)",
+    duration_seconds: "Duration (hh:mm:ss)",
+    duration_placeholder: "00:05:00",
     watts: "Watts",
     add_set: "Add set",
     exercise_note: "Exercise note",
@@ -2500,7 +2502,7 @@ function describePlannedItem(item){
   if(item.sets) parts.push(`${item.sets} series`);
   if(item.reps) parts.push(`${item.reps} reps`);
   if(item.duration_min) parts.push(`${item.duration_min} min`);
-  if(item.duration_sec) parts.push(`${item.duration_sec} sec`);
+  if(item.duration_sec) parts.push(formatDurationSeconds(item.duration_sec));
   return parts.join(" | ");
 }
 
@@ -2520,6 +2522,31 @@ function normalizeOptionalFloat(value){
   if(value === null || value === undefined || value === "") return null;
   const parsed = Number.parseFloat(String(value).replace(",", "."));
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseDurationInputToSeconds(value){
+  const raw = String(value ?? "").trim();
+  if(!raw) return null;
+  if(/^\d+$/.test(raw)){
+    return normalizeOptionalInt(raw);
+  }
+  const parts = raw.split(":").map((part) => part.trim());
+  if(parts.length > 3 || parts.some((part) => part === "" || !/^\d+$/.test(part))){
+    return null;
+  }
+  const numbers = parts.map((part) => Number.parseInt(part, 10));
+  if(numbers.some((part) => !Number.isFinite(part) || part < 0)){
+    return null;
+  }
+  if(parts.length === 3){
+    const [hours, minutes, seconds] = numbers;
+    return (hours * 3600) + (minutes * 60) + seconds;
+  }
+  if(parts.length === 2){
+    const [minutes, seconds] = numbers;
+    return (minutes * 60) + seconds;
+  }
+  return numbers[0];
 }
 
 function normalizeTrackingMode(value){
@@ -2557,7 +2584,7 @@ function normalizePerformedSetClient(rawSet){
   const set = {};
   const reps = normalizeOptionalInt(rawSet?.reps);
   const weight = normalizeOptionalFloat(rawSet?.weight);
-  const durationSec = normalizeOptionalInt(rawSet?.duration_sec);
+  const durationSec = parseDurationInputToSeconds(rawSet?.duration_sec);
   const watts = normalizeOptionalFloat(rawSet?.watts);
   if(reps !== null) set.reps = reps;
   if(weight !== null){
@@ -2933,10 +2960,10 @@ function getPlannedItemLabel(item){
 function formatDurationSeconds(value){
   const duration = normalizeOptionalInt(value);
   if(duration === null) return "";
-  if(duration < 60) return `${duration} sec`;
-  const minutes = Math.floor(duration / 60);
+  const hours = Math.floor(duration / 3600);
+  const minutes = Math.floor((duration % 3600) / 60);
   const seconds = duration % 60;
-  return seconds ? `${minutes} min ${seconds} sec` : `${minutes} min`;
+  return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
 function getExerciseTrackingMode(exerciseOrName){
@@ -3687,7 +3714,7 @@ function addSetToEditor(){
   const reps = normalizeOptionalInt(document.getElementById("setReps")?.value);
   const weight = normalizeOptionalFloat(document.getElementById("setWeight")?.value);
   const weightUnit = normalizeWeightUnit(document.getElementById("setWeightUnit")?.value || getExerciseWeightUnit(performedEditor?.exercise_name));
-  const durationSec = normalizeOptionalInt(document.getElementById("setDurationSec")?.value);
+  const durationSec = parseDurationInputToSeconds(document.getElementById("setDurationSec")?.value);
   const watts = normalizeOptionalFloat(document.getElementById("setWatts")?.value);
   const set = normalizePerformedSetClient(
     trackingMode === "time_watts"
@@ -3695,7 +3722,7 @@ function addSetToEditor(){
       : { reps, weight, weight_unit: weightUnit }
   );
   if(!set){
-    alert(trackingMode === "time_watts" ? "Ajoute au moins un temps ou des watts." : "Ajoute au moins des reps ou un poids.");
+    alert(trackingMode === "time_watts" ? "Ajoute au moins une durée (hh:mm:ss) ou des watts." : "Ajoute au moins des reps ou un poids.");
     return;
   }
   performedEditor.sets = performedEditor.sets || [];
@@ -3732,6 +3759,7 @@ function savePerformedItem(){
   }
   updateSessionExerciseNames();
   performedEditor = blankPerformedEditor();
+  performedExerciseSearch = "";
   renderModal();
 }
 
@@ -4894,7 +4922,7 @@ function renderModal(){
                   ${selectedTrackingMode === "time_watts" ? `
                     <div>
                       <label>${escapeHtml(t("duration_seconds"))}</label>
-                      <input id="setDurationSec" type="number" min="0" step="1" placeholder="45">
+                      <input id="setDurationSec" type="text" inputmode="numeric" placeholder="${escapeAttr(t("duration_placeholder"))}">
                     </div>
                     <div>
                       <label>${escapeHtml(t("watts"))}</label>

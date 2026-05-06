@@ -148,6 +148,7 @@ def classify_issue(text: str) -> tuple[str, list[str], str]:
 def build_issue_payload(message: dict[str, Any]) -> tuple[str, str, list[str]]:
     text = normalize_text(message)
     kind, labels, clean_text = classify_issue(text)
+    labels = ["from-telegram", *labels]
 
     lines = [line.strip() for line in clean_text.splitlines() if line.strip()]
     title = lines[0] if lines else "New request from Telegram"
@@ -205,7 +206,12 @@ def process_message(config: Config, message: dict[str, Any]) -> None:
     issue = github_create_issue(config, title, body, labels)
     issue_number = issue.get("number")
     issue_url = issue.get("html_url", "")
-    send_message(config, f"Issue #{issue_number} created:\n{issue_url}")
+    issue_title = issue.get("title", title)
+    send_message(
+        config,
+        f"Created GitHub issue #{issue_number} in {config.github_repo}:\n"
+        f"{issue_title}\n{issue_url}",
+    )
 
 
 def poll_updates(config: Config, offset: int) -> tuple[list[dict[str, Any]], int]:
@@ -230,10 +236,20 @@ def main() -> int:
         try:
             updates, next_offset = poll_updates(config, offset)
             for update in updates:
-                message = update.get("message")
-                if message:
-                    process_message(config, message)
-            if next_offset != offset:
+                try:
+                    message = update.get("message")
+                    if message:
+                        process_message(config, message)
+                except Exception as exc:  # pragma: no cover
+                    print(f"Message processing error: {exc}", file=sys.stderr)
+                    try:
+                        send_message(config, f"I could not create the GitHub issue right now: {exc}")
+                    except Exception:
+                        pass
+                finally:
+                    offset = int(update.get("update_id", offset - 1)) + 1
+                    save_state(config.state_path, {"offset": offset})
+            if next_offset > offset:
                 offset = next_offset
                 save_state(config.state_path, {"offset": offset})
         except urllib.error.HTTPError as exc:

@@ -1,0 +1,48 @@
+name: Triage Telegram Issues
+
+on:
+  issues:
+    types:
+      - opened
+
+permissions:
+  issues: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark Telegram issues for Codex triage
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const labels = (issue.labels || []).map((label) => label.name);
+            const fromTelegram = labels.includes("from-telegram") || (issue.body || "").includes("Imported from Telegram");
+            if (!fromTelegram) {
+              core.info("Issue is not from Telegram; skipping.");
+              return;
+            }
+
+            const missingLabels = ["codex-ready"].filter((label) => !labels.includes(label));
+            if (missingLabels.length) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: missingLabels,
+              });
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: [
+                "Telegram request received and queued.",
+                "",
+                "- Source: Telegram",
+                "- Status: ready for Codex/manual implementation",
+                "- Next step: open this issue in Codex web or desktop and implement it from the repo",
+              ].join("\n"),
+            });
