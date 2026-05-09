@@ -273,11 +273,26 @@ DEFAULT_SESSION = {
     "plan_notes": "",
     "planned_items": [],
     "used_equipment": [],
+    "activities": [],
+    "draft_active_activity_index": 0,
     "draft_performed_editor": {},
     "draft_planned_editor": {},
     "draft_selected_strength_category": "",
     "draft_planned_section_expanded": False,
     "draft_updated_at": "",
+}
+
+DEFAULT_ACTIVITY = {
+    "exercises": [],
+    "note": "",
+    "status": "todo",
+    "load": 0,
+    "physio_time": "",
+    "activity_type": "",
+    "activity_details": "",
+    "climbing_routes": [],
+    "performed_items": [],
+    "used_equipment": [],
 }
 
 def normalize_physio_time(value) -> str:
@@ -515,38 +530,8 @@ def unique_names(values: list[str]) -> list[str]:
         seen.add(value)
     return out
 
-def get_payload_display_exercises(payload: dict) -> list[str]:
-    performed_items = payload.get("performed_items", []) or []
-    if performed_items:
-        return unique_names(
-            [item.get("custom_name", "") or item.get("exercise_name", "") for item in performed_items]
-        )
-
-    if payload.get("exercises"):
-        return unique_names(payload.get("exercises", []))
-
-    return unique_names(
-        [
-            item.get("custom_name", "") or item.get("exercise_name", "")
-            for item in payload.get("planned_items", [])
-            if item.get("custom_name") or item.get("exercise_name")
-        ]
-    )
-
-def get_calendar_display_exercises(payload: dict) -> list[str]:
-    if str(payload.get("status", "todo") or "todo") == "done":
-        return get_payload_display_exercises(payload)
-
-    return unique_names(
-        [
-            item.get("custom_name", "") or item.get("exercise_name", "")
-            for item in payload.get("planned_items", [])
-            if item.get("custom_name") or item.get("exercise_name")
-        ]
-    )
-
-def compute_session_status(payload: dict) -> str:
-    has_actual_content = bool(
+def activity_has_content(payload: dict) -> bool:
+    return bool(
         payload.get("performed_items")
         or str(payload.get("activity_type", "") or "").strip()
         or str(payload.get("activity_details", "") or "").strip()
@@ -555,12 +540,22 @@ def compute_session_status(payload: dict) -> str:
         or str(payload.get("physio_time", "") or "").strip()
         or str(payload.get("note", "") or "").strip()
     )
-    return "done" if has_actual_content else "todo"
 
-def normalize_session_payload(payload: dict, existing: dict | None = None) -> dict:
-    base = dict(DEFAULT_SESSION)
-    if existing:
-        base.update(existing)
+def get_session_activities(payload: dict) -> list[dict]:
+    activities = payload.get("activities", [])
+    return activities if isinstance(activities, list) else []
+
+def get_primary_activity(payload: dict) -> dict:
+    activities = get_session_activities(payload)
+    if activities:
+        for activity in activities:
+            if activity_has_content(activity):
+                return activity
+        return activities[0]
+    return {}
+
+def normalize_activity_entry(payload: dict) -> dict:
+    base = dict(DEFAULT_ACTIVITY)
     if payload:
         base.update(payload)
 
@@ -568,11 +563,6 @@ def normalize_session_payload(payload: dict, existing: dict | None = None) -> di
         normalized_item
         for item in base.get("performed_items", [])
         if (normalized_item := normalize_performed_item(item))
-    ]
-    planned_items = [
-        normalized_item
-        for item in base.get("planned_items", [])
-        if (normalized_item := normalize_planned_item(item))
     ]
     exercise_names = [str(name).strip() for name in base.get("exercises", []) if str(name).strip()]
     if performed_items:
@@ -598,6 +588,125 @@ def normalize_session_payload(payload: dict, existing: dict | None = None) -> di
             if (normalized_route := normalize_climbing_route(item))
         ],
         "performed_items": performed_items,
+        "used_equipment": [
+            normalized_item
+            for item in base.get("used_equipment", [])
+            if (normalized_item := normalize_used_equipment_item(item))
+        ],
+    }
+    normalized["status"] = "done" if activity_has_content(normalized) else "todo"
+    if normalized["activity_type"] != "escalade":
+        normalized["climbing_routes"] = []
+    if normalized["activity_type"] != "musculation":
+        normalized["performed_items"] = []
+        normalized["exercises"] = []
+    return normalized
+
+def derive_legacy_activities(payload: dict) -> list[dict]:
+    legacy_activity = normalize_activity_entry(payload)
+    return [legacy_activity] if activity_has_content(legacy_activity) else []
+
+def get_payload_display_exercises(payload: dict) -> list[str]:
+    primary_payload = get_primary_activity(payload) or payload
+    performed_items = primary_payload.get("performed_items", []) or []
+    if performed_items:
+        return unique_names(
+            [item.get("custom_name", "") or item.get("exercise_name", "") for item in performed_items]
+        )
+
+    if primary_payload.get("exercises"):
+        return unique_names(primary_payload.get("exercises", []))
+
+    return unique_names(
+        [
+            item.get("custom_name", "") or item.get("exercise_name", "")
+            for item in primary_payload.get("planned_items", payload.get("planned_items", []))
+            if item.get("custom_name") or item.get("exercise_name")
+        ]
+    )
+
+def get_calendar_display_exercises(payload: dict) -> list[str]:
+    activities = get_session_activities(payload)
+    if activities:
+        return unique_names(
+            [
+                item.get("custom_name", "") or item.get("exercise_name", "")
+                for activity in activities
+                for item in activity.get("performed_items", [])
+                if item.get("custom_name") or item.get("exercise_name")
+            ]
+        )
+
+    if str(payload.get("status", "todo") or "todo") == "done":
+        return get_payload_display_exercises(payload)
+
+    return unique_names(
+        [
+            item.get("custom_name", "") or item.get("exercise_name", "")
+            for item in payload.get("planned_items", [])
+            if item.get("custom_name") or item.get("exercise_name")
+        ]
+    )
+
+def compute_session_status(payload: dict) -> str:
+    activities = get_session_activities(payload)
+    if activities and any(activity_has_content(activity) for activity in activities):
+        return "done"
+    has_actual_content = bool(
+        payload.get("performed_items")
+        or str(payload.get("activity_type", "") or "").strip()
+        or str(payload.get("activity_details", "") or "").strip()
+        or payload.get("climbing_routes")
+        or float(payload.get("load", 0) or 0) > 0
+        or str(payload.get("physio_time", "") or "").strip()
+        or str(payload.get("note", "") or "").strip()
+    )
+    return "done" if has_actual_content else "todo"
+
+def normalize_session_payload(payload: dict, existing: dict | None = None) -> dict:
+    base = dict(DEFAULT_SESSION)
+    if existing:
+        base.update(existing)
+    if payload:
+        base.update(payload)
+
+    normalized_activities = [
+        normalized_activity
+        for item in base.get("activities", [])
+        if (normalized_activity := normalize_activity_entry(item))
+    ]
+    if not normalized_activities:
+        normalized_activities = derive_legacy_activities(base)
+    active_activity_index = normalize_optional_int(base.get("draft_active_activity_index"))
+    if normalized_activities:
+        if active_activity_index is None:
+            active_activity_index = 0
+        active_activity_index = max(0, min(active_activity_index, len(normalized_activities) - 1))
+        primary_activity = normalized_activities[active_activity_index]
+        mirrored_activity = primary_activity
+        if not activity_has_content(mirrored_activity) and not str(base.get("draft_updated_at", "") or "").strip():
+            mirrored_activity = get_primary_activity({"activities": normalized_activities}) or mirrored_activity
+    else:
+        active_activity_index = 0
+        primary_activity = dict(DEFAULT_ACTIVITY)
+        mirrored_activity = primary_activity
+
+    planned_items = [
+        normalized_item
+        for item in base.get("planned_items", [])
+        if (normalized_item := normalize_planned_item(item))
+    ]
+
+    normalized = {
+        "exercises": mirrored_activity.get("exercises", []),
+        "note": mirrored_activity.get("note", ""),
+        "status": "todo",
+        "load": float(mirrored_activity.get("load", 0) or 0),
+        "physio_time": mirrored_activity.get("physio_time", ""),
+        "activity_type": mirrored_activity.get("activity_type", ""),
+        "activity_details": mirrored_activity.get("activity_details", ""),
+        "climbing_routes": mirrored_activity.get("climbing_routes", []),
+        "performed_items": mirrored_activity.get("performed_items", []),
         "plan_activity_type": normalize_activity_type(base.get("plan_activity_type", "")),
         "plan_time": normalize_physio_time(base.get("plan_time", "")),
         "plan_title": str(base.get("plan_title", "") or ""),
@@ -605,11 +714,9 @@ def normalize_session_payload(payload: dict, existing: dict | None = None) -> di
         "location": str(base.get("location", "") or ""),
         "plan_notes": str(base.get("plan_notes", "") or ""),
         "planned_items": planned_items,
-        "used_equipment": [
-            normalized_item
-            for item in base.get("used_equipment", [])
-            if (normalized_item := normalize_used_equipment_item(item))
-        ],
+        "used_equipment": mirrored_activity.get("used_equipment", []),
+        "activities": normalized_activities,
+        "draft_active_activity_index": active_activity_index,
         "draft_performed_editor": normalize_performed_editor_draft(base.get("draft_performed_editor", {})),
         "draft_planned_editor": normalize_planned_editor_draft(base.get("draft_planned_editor", {})),
         "draft_selected_strength_category": str(base.get("draft_selected_strength_category", "") or "").strip().lower(),
@@ -617,11 +724,6 @@ def normalize_session_payload(payload: dict, existing: dict | None = None) -> di
         "draft_updated_at": str(base.get("draft_updated_at", "") or "").strip(),
     }
     normalized["status"] = compute_session_status(normalized)
-    if normalized["activity_type"] != "escalade":
-        normalized["climbing_routes"] = []
-    if normalized["activity_type"] != "musculation":
-        normalized["performed_items"] = []
-        normalized["exercises"] = []
     return normalized
 
 def normalize_exercise_record(payload: dict) -> dict:
@@ -906,6 +1008,20 @@ def rename_exercise_references(db, old_name: str, new_name: str) -> None:
             if str(item.get("exercise_name", "")).strip() == old_value:
                 item["exercise_name"] = new_value
                 changed = True
+
+        for activity in payload.get("activities", []) or []:
+            activity_exercises = []
+            for exercise_name in activity.get("exercises", []) or []:
+                normalized_name = new_value if str(exercise_name or "").strip() == old_value else exercise_name
+                activity_exercises.append(normalized_name)
+                if normalized_name != exercise_name:
+                    changed = True
+            activity["exercises"] = activity_exercises
+
+            for item in activity.get("performed_items", []) or []:
+                if str(item.get("exercise_name", "")).strip() == old_value:
+                    item["exercise_name"] = new_value
+                    changed = True
 
         draft_performed_editor = payload.get("draft_performed_editor", {}) or {}
         if str(draft_performed_editor.get("exercise_name", "")).strip() == old_value:
@@ -1258,14 +1374,19 @@ def build_exercise_performance_summary(db, username: str, exercise_name: str) ->
 
     for row in rows:
         payload = session_payload_from_row(row)
-        activity_type = str(payload.get("activity_type", "") or "").strip()
-        if activity_type and activity_type != "musculation":
-            continue
-
-        matching_items = [
-            item for item in payload.get("performed_items", [])
-            if str(item.get("exercise_name", "")).strip() == normalized_name
-        ]
+        activities = get_session_activities(payload) or [payload]
+        matching_items = []
+        activity_status = payload.get("status", "todo")
+        for activity in activities:
+            activity_type = str(activity.get("activity_type", "") or "").strip()
+            if activity_type and activity_type != "musculation":
+                continue
+            matching_items.extend(
+                item for item in activity.get("performed_items", [])
+                if str(item.get("exercise_name", "")).strip() == normalized_name
+            )
+            if matching_items and activity.get("status") == "done":
+                activity_status = "done"
         if not matching_items:
             continue
 
@@ -1298,12 +1419,12 @@ def build_exercise_performance_summary(db, username: str, exercise_name: str) ->
 
         session_summary = {
             "date": row.date,
-            "status": payload.get("status", "todo"),
+            "status": activity_status,
             "sets": session_sets,
             "top_set": choose_best_set(session_sets),
         }
         matching_sessions.append(session_summary)
-        if payload.get("status") == "done":
+        if activity_status == "done":
             validated_sessions.append(session_summary)
 
     source_sessions = validated_sessions or matching_sessions
@@ -2552,6 +2673,7 @@ def read_session(date_str: str, current_user: UserModel = Depends(get_current_us
     target = get_target_for_date(date_str)
     data.update(target)
     data["diff"] = round((data.get("load", 0) or 0) - target["target_load"], 2)
+    data["activity_count"] = len(get_session_activities(data))
     return data
 
 @app.post("/api/session/{date_str}")
@@ -2609,6 +2731,7 @@ def get_calendar(
             date_str = d.isoformat()
             row = get_session_obj(db, current_user.username, date_str)
             payload = session_payload_from_row(row)
+            activities = get_session_activities(payload)
             target = get_target_for_date(date_str)
             display_exercises = get_calendar_display_exercises(payload)
             planned_exercises = unique_names(
@@ -2619,7 +2742,11 @@ def get_calendar(
                 ]
             )
             performed_exercises = unique_names(
-                [item.get("custom_name", "") or item.get("exercise_name", "") for item in payload.get("performed_items", [])]
+                [
+                    item.get("custom_name", "") or item.get("exercise_name", "")
+                    for activity in (activities or [payload])
+                    for item in activity.get("performed_items", [])
+                ]
             )
             out.append({
                 "date": date_str,
@@ -2637,6 +2764,7 @@ def get_calendar(
                 "planned_exercises": planned_exercises,
                 "performed_exercises": performed_exercises,
                 "plan_title": payload.get("plan_title", ""),
+                "activity_count": len(activities),
             })
         return out
     finally:

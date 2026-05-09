@@ -553,6 +553,11 @@ const UI_TEXT = {
     performed_exercises: "Exercices réalisés",
     performed_summary: "Séance enregistrée",
     performed_summary_empty: "Aucune activité enregistrée pour cette date.",
+    activities_for_day: "Activités de cette journée",
+    add_new_activity: "Ajouter une nouvelle activité",
+    current_activity: "Activité en cours",
+    activity_number: "Activité {number}",
+    switch_to_activity: "Ouvrir cette activité",
     strength_only_hint: "Les exercices apparaissent seulement si tu choisis l'activité Musculation.",
     settings: "Paramètres",
     start_load: "Charge de départ",
@@ -823,6 +828,11 @@ const UI_TEXT = {
     performed_exercises: "Completed exercises",
     performed_summary: "Saved session",
     performed_summary_empty: "No activity saved for this date.",
+    activities_for_day: "Activities for this day",
+    add_new_activity: "Add a new activity",
+    current_activity: "Current activity",
+    activity_number: "Activity {number}",
+    switch_to_activity: "Open this activity",
     strength_only_hint: "Exercises appear only when the activity is Strength.",
     settings: "Settings",
     start_load: "Starting load",
@@ -998,6 +1008,7 @@ let equipmentCatalog = [];
 let myEquipment = [];
 let editingExerciseName = null;
 let exerciseEditorOpen = false;
+let activeActivityIndex = 0;
 let exerciseEditorDraft = null;
 let selectedExerciseName = null;
 let exerciseReviewScope = "modified";
@@ -1205,7 +1216,7 @@ function openSelectedDay(){
 }
 
 function openQuickAddActivity(){
-  openDay(getLocalTodayIso());
+  openDay(getLocalTodayIso(), { preferNewActivity: true });
 }
 
 function getCalendarWeekContext(anchorDate){
@@ -2972,6 +2983,155 @@ function normalizePlannedItemClient(rawItem){
   return item;
 }
 
+function blankDayActivity(){
+  return {
+    exercises: [],
+    note: "",
+    status: "todo",
+    load: 0,
+    physio_time: "",
+    activity_type: "",
+    activity_details: "",
+    climbing_routes: [],
+    performed_items: [],
+    used_equipment: [],
+  };
+}
+
+function activityHasContentClient(rawActivity){
+  const activity = rawActivity && typeof rawActivity === "object" ? rawActivity : {};
+  return Boolean(
+    (activity.performed_items && activity.performed_items.length) ||
+    String(activity.activity_type || "").trim() ||
+    String(activity.activity_details || "").trim() ||
+    (activity.climbing_routes && activity.climbing_routes.length) ||
+    Number(activity.load || 0) > 0 ||
+    String(activity.physio_time || "").trim() ||
+    String(activity.note || "").trim()
+  );
+}
+
+function normalizeDayActivityClient(rawActivity){
+  const activity = {
+    ...blankDayActivity(),
+    ...(rawActivity && typeof rawActivity === "object" ? rawActivity : {}),
+  };
+  activity.exercises = Array.isArray(activity.exercises) ? activity.exercises.map((name) => String(name || "").trim()).filter(Boolean) : [];
+  activity.performed_items = Array.isArray(activity.performed_items)
+    ? activity.performed_items.map(normalizePerformedItemClient).filter(Boolean)
+    : [];
+  activity.used_equipment = Array.isArray(activity.used_equipment)
+    ? activity.used_equipment.map(normalizeUsedEquipmentClient).filter(Boolean)
+    : [];
+  activity.climbing_routes = Array.isArray(activity.climbing_routes) ? activity.climbing_routes.filter(Boolean) : [];
+  activity.note = String(activity.note || "");
+  activity.load = Number(activity.load || 0) || 0;
+  activity.physio_time = String(activity.physio_time || "").trim();
+  activity.activity_type = String(activity.activity_type || "").trim();
+  activity.activity_details = String(activity.activity_details || "").trim();
+  if(!activity.activity_type && (activity.performed_items.length || activity.exercises.length)){
+    activity.activity_type = "musculation";
+  }
+  if(activity.activity_type !== "musculation"){
+    activity.performed_items = [];
+    activity.exercises = [];
+  }
+  if(activity.activity_type !== "escalade"){
+    activity.climbing_routes = [];
+  }
+  activity.status = activityHasContentClient(activity) ? "done" : "todo";
+  return activity;
+}
+
+function ensureSessionActivities(){
+  const existingActivities = Array.isArray(session.activities)
+    ? session.activities.map(normalizeDayActivityClient)
+    : [];
+  if(existingActivities.length){
+    session.activities = existingActivities;
+  } else {
+    const legacyActivity = normalizeDayActivityClient({
+      exercises: session.exercises,
+      note: session.note,
+      status: session.status,
+      load: session.load,
+      physio_time: session.physio_time,
+      activity_type: session.activity_type,
+      activity_details: session.activity_details,
+      climbing_routes: session.climbing_routes,
+      performed_items: session.performed_items,
+      used_equipment: session.used_equipment,
+    });
+    session.activities = activityHasContentClient(legacyActivity) ? [legacyActivity] : [];
+  }
+  const requestedIndex = normalizeOptionalInt(session.draft_active_activity_index);
+  if(!session.activities.length){
+    activeActivityIndex = 0;
+    session.draft_active_activity_index = 0;
+    return;
+  }
+  const safeIndex = requestedIndex === null
+    ? Math.max(0, Math.min(activeActivityIndex, session.activities.length - 1))
+    : Math.max(0, Math.min(requestedIndex, session.activities.length - 1));
+  activeActivityIndex = safeIndex;
+  session.draft_active_activity_index = safeIndex;
+}
+
+function loadActivityIntoSessionView(index){
+  ensureSessionActivities();
+  const activity = session.activities[index] ? normalizeDayActivityClient(session.activities[index]) : blankDayActivity();
+  activeActivityIndex = session.activities.length ? Math.max(0, Math.min(index, session.activities.length - 1)) : 0;
+  session.exercises = Array.isArray(activity.exercises) ? [...activity.exercises] : [];
+  session.note = activity.note || "";
+  session.status = activity.status || "todo";
+  session.load = Number(activity.load || 0) || 0;
+  session.physio_time = activity.physio_time || "";
+  session.activity_type = activity.activity_type || "";
+  session.activity_details = activity.activity_details || "";
+  session.climbing_routes = Array.isArray(activity.climbing_routes) ? activity.climbing_routes.map((route) => ({ ...route })) : [];
+  session.performed_items = Array.isArray(activity.performed_items) ? activity.performed_items.map((item) => ({ ...item, sets: Array.isArray(item.sets) ? item.sets.map((set) => ({ ...set })) : [], used_equipment: Array.isArray(item.used_equipment) ? item.used_equipment.map((equipment) => ({ ...equipment })) : [] })) : [];
+  session.used_equipment = Array.isArray(activity.used_equipment) ? activity.used_equipment.map((equipment) => ({ ...equipment })) : [];
+  session.draft_active_activity_index = activeActivityIndex;
+}
+
+function commitSessionViewToActiveActivity(){
+  ensureSessionCollections();
+  const normalizedActivity = normalizeDayActivityClient({
+    exercises: session.exercises,
+    note: session.note,
+    status: session.status,
+    load: session.load,
+    physio_time: session.physio_time,
+    activity_type: session.activity_type,
+    activity_details: session.activity_details,
+    climbing_routes: session.climbing_routes,
+    performed_items: session.performed_items,
+    used_equipment: session.used_equipment,
+  });
+  if(!session.activities.length){
+    if(activityHasContentClient(normalizedActivity)){
+      session.activities = [normalizedActivity];
+      activeActivityIndex = 0;
+    }
+    session.draft_active_activity_index = activeActivityIndex;
+    return;
+  }
+  session.activities[activeActivityIndex] = normalizedActivity;
+  session.draft_active_activity_index = activeActivityIndex;
+}
+
+function getActivityDisplaySummary(activity, index){
+  const normalized = normalizeDayActivityClient(activity);
+  const parts = [
+    normalized.activity_type ? getActivityLabel(normalized.activity_type) : "",
+    String(normalized.activity_details || "").trim(),
+    normalized.performed_items.length ? `${normalized.performed_items.length} ex.` : "",
+    normalized.climbing_routes.length ? `${normalized.climbing_routes.length} voie(s)` : "",
+  ].filter(Boolean);
+  const baseLabel = t("activity_number").replace("{number}", String(index + 1));
+  return parts.length ? `${baseLabel} · ${parts.join(" | ")}` : baseLabel;
+}
+
 function ensureSessionCollections(){
   session.exercises = Array.isArray(session.exercises) ? session.exercises : [];
   session.planned_items = Array.isArray(session.planned_items) ? session.planned_items : [];
@@ -2982,6 +3142,7 @@ function ensureSessionCollections(){
   session.activity_details = String(session.activity_details || "").trim();
   session.plan_activity_type = String(session.plan_activity_type || "").trim();
   session.plan_time = String(session.plan_time || "").trim();
+  ensureSessionActivities();
 }
 
 function getSessionDraftKey(dateValue = currentDate){
@@ -2992,6 +3153,7 @@ function getSessionDraftKey(dateValue = currentDate){
 function buildSessionDraftPayload(){
   ensureSessionCollections();
   syncSessionGeneralDraft();
+  commitSessionViewToActiveActivity();
   return {
     session: {
       note: session.note || "",
@@ -3010,6 +3172,8 @@ function buildSessionDraftPayload(){
       location: session.location || "",
       plan_notes: session.plan_notes || "",
       planned_items: session.planned_items || [],
+      activities: session.activities || [],
+      draft_active_activity_index: activeActivityIndex,
     },
     performedEditor: performedEditor || blankPerformedEditor(),
     plannedEditor: plannedEditor || blankPlannedEditor(),
@@ -3037,7 +3201,11 @@ function buildSessionRequestPayload(options = {}){
     session.climbing_routes = [];
   }
   updateSessionExerciseNames();
+  commitSessionViewToActiveActivity();
   session.status = computeSessionStatus();
+  const persistedActivityIndex = includeDraft
+    ? activeActivityIndex
+    : Math.max(0, (session.activities || []).findIndex((activity) => activityHasContentClient(activity)));
 
   const payload = {
     performed_items: session.performed_items || [],
@@ -3056,6 +3224,8 @@ function buildSessionRequestPayload(options = {}){
     location: session.location || "",
     plan_notes: session.plan_notes || "",
     planned_items: session.planned_items || [],
+    activities: session.activities || [],
+    draft_active_activity_index: persistedActivityIndex,
   };
 
   if(includeDraft){
@@ -3081,7 +3251,7 @@ function mergeDraftSessionIntoCurrentSession(draftSession){
   const draft = draftSession && typeof draftSession === "object" ? draftSession : {};
   const merged = { ...baseSession, ...draft };
 
-  for(const key of ["performed_items", "planned_items", "used_equipment", "climbing_routes", "exercises"]){
+  for(const key of ["performed_items", "planned_items", "used_equipment", "climbing_routes", "exercises", "activities"]){
     const currentArray = Array.isArray(baseSession[key]) ? baseSession[key] : [];
     const draftArray = Array.isArray(draft[key]) ? draft[key] : null;
     merged[key] = draftArray && draftArray.length ? draftArray : currentArray;
@@ -3103,6 +3273,9 @@ function mergeDraftSessionIntoCurrentSession(draftSession){
 
   if(draft.status === null || draft.status === undefined || draft.status === ""){
     merged.status = baseSession.status || "todo";
+  }
+  if(draft.draft_active_activity_index === null || draft.draft_active_activity_index === undefined || draft.draft_active_activity_index === ""){
+    merged.draft_active_activity_index = baseSession.draft_active_activity_index ?? 0;
   }
 
   session = merged;
@@ -3145,6 +3318,7 @@ function restoreEmbeddedSessionDraft(){
   selectedStrengthCategory = String(session.draft_selected_strength_category || "").trim().toLowerCase();
   performedExerciseSearch = "";
   plannedSectionExpanded = Boolean(session.draft_planned_section_expanded);
+  activeActivityIndex = Math.max(0, normalizeOptionalInt(session.draft_active_activity_index) ?? 0);
   return true;
 }
 
@@ -3171,6 +3345,7 @@ function restoreSessionDraft(dateValue = currentDate){
     selectedStrengthCategory = String(parsed.selectedStrengthCategory || "").trim().toLowerCase();
     performedExerciseSearch = String(parsed.performedExerciseSearch || "").trim();
     plannedSectionExpanded = Boolean(parsed.plannedSectionExpanded);
+    activeActivityIndex = Math.max(0, normalizeOptionalInt(parsed.session?.draft_active_activity_index ?? parsed.draftActiveActivityIndex) ?? 0);
     updateSessionExerciseNames();
     return true;
   } catch (error) {
@@ -3199,10 +3374,14 @@ function syncSessionGeneralDraft(){
   if(activityDetailsInput) session.activity_details = activityDetailsInput.value.trim();
   if(noteInput) session.note = noteInput.value;
   session.status = computeSessionStatus();
+  session.draft_active_activity_index = activeActivityIndex;
 }
 
 function computeSessionStatus(){
   ensureSessionCollections();
+  if(Array.isArray(session.activities) && session.activities.some((activity) => activityHasContentClient(activity))){
+    return "done";
+  }
   const hasActualContent = Boolean(
     (session.performed_items && session.performed_items.length) ||
     (session.activity_type && session.activity_type.trim()) ||
@@ -3540,6 +3719,28 @@ function blankPlannedEditor(){
     duration_sec: "",
     used_equipment: [],
   };
+}
+
+function switchToDayActivity(index){
+  syncSessionGeneralDraft();
+  commitSessionViewToActiveActivity();
+  loadActivityIntoSessionView(index);
+  performedEditor = blankPerformedEditor();
+  performedExerciseSearch = "";
+  renderModal();
+}
+
+function addDayActivity(){
+  syncSessionGeneralDraft();
+  commitSessionViewToActiveActivity();
+  const nextActivity = blankDayActivity();
+  session.activities = Array.isArray(session.activities) ? session.activities : [];
+  session.activities.push(nextActivity);
+  loadActivityIntoSessionView(session.activities.length - 1);
+  performedEditor = blankPerformedEditor();
+  performedExerciseSearch = "";
+  renderModal();
+  requestAnimationFrame(() => scrollToPerformedEditor());
 }
 
 function syncPerformedEditorDraft(){
@@ -4880,7 +5081,7 @@ function closeModal(shouldPersist = true){
   document.getElementById("modal").style.display = "none";
 }
 
-async function openDay(date){
+async function openDay(date, options = {}){
   if(document.getElementById("modal").style.display === "flex" && currentDate && currentDate !== date){
     persistSessionDraft();
   }
@@ -4889,8 +5090,12 @@ async function openDay(date){
   exerciseList = await api("/exercises");
   myEquipment = await api("/my-equipment");
   ensureSessionCollections();
-  if(!session.performed_items.length && session.exercises.length){
+  if(!session.activities.length && !session.performed_items.length && session.exercises.length){
     session.performed_items = session.exercises.map((exerciseName) => ({ exercise_name: exerciseName, sets: [] }));
+  }
+  ensureSessionActivities();
+  if(session.activities.length){
+    loadActivityIntoSessionView(activeActivityIndex);
   }
   updateSessionExerciseNames();
   performedEditor = blankPerformedEditor();
@@ -4899,9 +5104,19 @@ async function openDay(date){
   plannedSectionExpanded = Boolean(session.plan_title || session.plan_activity_type || session.plan_time || (session.planned_items || []).length);
   const restoredEmbeddedDraft = restoreEmbeddedSessionDraft();
   const restoredDraft = restoreSessionDraft(date) || restoredEmbeddedDraft;
+  ensureSessionActivities();
+  if(session.activities.length){
+    loadActivityIntoSessionView(activeActivityIndex);
+  }
   renderModal();
   document.getElementById("modal").style.display = "flex";
   setSessionAutosaveState("idle");
+  if(options?.preferNewActivity){
+    const alreadyHasActivity = Array.isArray(session.activities) && session.activities.some((activity) => activityHasContentClient(activity));
+    if(alreadyHasActivity){
+      addDayActivity();
+    }
+  }
   if(restoredDraft && (performedEditor?.exercise_name || performedEditor?.custom_name || (performedEditor?.sets || []).length)){
     requestAnimationFrame(() => scrollToPerformedEditor());
   }
@@ -4909,6 +5124,7 @@ async function openDay(date){
 
 function renderModal(){
   ensureSessionCollections();
+  commitSessionViewToActiveActivity();
   if(!performedEditor){
     performedEditor = blankPerformedEditor();
   }
@@ -4975,6 +5191,11 @@ function renderModal(){
     String(session.note || "").trim() ||
     String(session.activity_type || "").trim()
   );
+  const activitiesHtml = (session.activities || []).map((activity, index) => `
+    <button type="button" class="${index === activeActivityIndex ? "btn-save" : "btn-cancel"}" onclick="switchToDayActivity(${index})" title="${escapeAttr(t("switch_to_activity"))}">
+      ${escapeHtml(getActivityDisplaySummary(activity, index))}
+    </button>
+  `).join("");
   const performedSummaryParts = [
     session.activity_type ? getActivityLabel(session.activity_type) : "",
     String(session.activity_details || "").trim(),
@@ -5155,6 +5376,15 @@ function renderModal(){
         <div class="info-box"><strong>Diff</strong><br>${session.diff}</div>
       </div>
     ` : ""}
+
+    <div class="card">
+      <h4>${escapeHtml(t("activities_for_day"))}</h4>
+      <div class="small">${escapeHtml(t("current_activity"))}: ${escapeHtml(t("activity_number").replace("{number}", String(activeActivityIndex + 1)))}</div>
+      <div class="actions" style="margin-top:10px;">
+        ${activitiesHtml || `<span class="small">${escapeHtml(t("performed_summary_empty"))}</span>`}
+        <button class="btn-add" type="button" onclick="addDayActivity()">${escapeHtml(t("add_new_activity"))}</button>
+      </div>
+    </div>
 
     <div class="session-stack">
       ${plannedSessionHtml}
