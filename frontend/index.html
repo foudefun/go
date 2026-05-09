@@ -115,10 +115,12 @@ textarea { min-height:80px; }
 .exercise-search-input { width:100%; }
 .exercise-primary-button { background:#f97316; color:#fff; font-weight:700; box-shadow:0 8px 18px rgba(249,115,22,0.24); }
 .exercise-picker-grid { display:grid; grid-template-columns:minmax(140px, 180px) minmax(0, 1fr); gap:8px; align-items:end; }
-.exercise-picker-grid.secondary { grid-template-columns:minmax(0, 1.15fr) minmax(0, 1fr) minmax(130px, 160px) minmax(150px, 180px); }
+.exercise-picker-grid.secondary { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px 12px; }
 .exercise-picker-field { min-width:0; }
 .exercise-picker-field label { margin-bottom:1px; }
 .exercise-picker-field input, .exercise-picker-field select { margin-top:2px; }
+.inline-field-action { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:8px; align-items:end; }
+.inline-field-action button { white-space:nowrap; }
 .duration-input-row { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; }
 .duration-input-row input { text-align:center; }
 .category-checkbox-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:8px; margin-top:6px; }
@@ -312,6 +314,7 @@ label { display:block; font-size:13px; }
   .session-toolbar.compact { gap:4px; }
   .exercise-picker-grid,
   .exercise-picker-grid.secondary { grid-template-columns:1fr; gap:6px; }
+  .inline-field-action { grid-template-columns:1fr; }
   .compact-grid { gap:6px; }
   .editor-exercise-preview { margin-top:6px; gap:6px; }
   .set-list { gap:6px; margin-top:6px; }
@@ -5264,8 +5267,8 @@ function renderModal(){
                   </div>
                   <div class="exercise-picker-field">
                     <label>${escapeHtml(t("visible_name"))}</label>
-                    <div style="display:flex; gap:8px; align-items:center;">
-                      <input id="performedCustomName" style="flex:1 1 auto;" placeholder="ex: Lats pecs" value="${escapeAttr(performedEditor.custom_name || "")}" oninput="captureSessionDraft()">
+                    <div class="inline-field-action">
+                      <input id="performedCustomName" placeholder="ex: Lats pecs" value="${escapeAttr(performedEditor.custom_name || "")}" oninput="captureSessionDraft()">
                       <button type="button" onclick="createExerciseFromPerformedEditor()">${escapeHtml(t("create_in_library"))}</button>
                     </div>
                   </div>
