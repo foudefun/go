@@ -60,6 +60,8 @@ class ExerciseModel(Base):
     display_name_fr = Column(Text)
     display_name_en = Column(Text)
     category = Column(Text)
+    movement_family = Column(Text)
+    variant_label = Column(Text)
     tracking_mode = Column(String)
     weight_unit = Column(String)
     description = Column(Text)
@@ -199,6 +201,10 @@ def ensure_columns():
             conn.exec_driver_sql("ALTER TABLE exercises ADD COLUMN display_name_en TEXT")
         if "category" not in existing:
             conn.exec_driver_sql("ALTER TABLE exercises ADD COLUMN category TEXT")
+        if "movement_family" not in existing:
+            conn.exec_driver_sql("ALTER TABLE exercises ADD COLUMN movement_family TEXT")
+        if "variant_label" not in existing:
+            conn.exec_driver_sql("ALTER TABLE exercises ADD COLUMN variant_label TEXT")
         if "tracking_mode" not in existing:
             conn.exec_driver_sql("ALTER TABLE exercises ADD COLUMN tracking_mode TEXT")
         if "weight_unit" not in existing:
@@ -363,6 +369,7 @@ def normalize_climbing_route(item: dict) -> dict:
         "name": str(item.get("name", "") or "").strip(),
         "topo_grade": str(item.get("topo_grade", item.get("difficulty", "")) or "").strip(),
         "felt_grade": str(item.get("felt_grade", "") or "").strip(),
+        "own_grade": str(item.get("own_grade", "") or "").strip(),
         "ascent_style": str(item.get("ascent_style", "") or "").strip().lower(),
     }
     if normalized["ascent_style"] not in {"a_vue", "enchainee", "repos"}:
@@ -624,6 +631,8 @@ def normalize_exercise_record(payload: dict) -> dict:
     display_name_en = str(payload.get("display_name_en", "") or "").strip()
     fallback_display_name = display_name or name.replace("_", " ")
     category = str(payload.get("category", "") or payload.get("block", "") or "").strip()
+    movement_family = str(payload.get("movement_family", "") or "").strip()
+    variant_label = str(payload.get("variant_label", "") or "").strip()
     raw_images = payload.get("images", [])
     if isinstance(raw_images, str):
         raw_images = [part.strip() for part in raw_images.splitlines()]
@@ -645,6 +654,8 @@ def normalize_exercise_record(payload: dict) -> dict:
         "display_name_fr": display_name_fr or fallback_display_name,
         "display_name_en": display_name_en or fallback_display_name,
         "category": category,
+        "movement_family": movement_family,
+        "variant_label": variant_label,
         "tracking_mode": normalize_tracking_mode(payload.get("tracking_mode")),
         "weight_unit": normalize_weight_unit(payload.get("weight_unit")),
         "description": str(payload.get("description", "") or "").strip(),
@@ -722,6 +733,8 @@ def upsert_exercise_record(db, payload: dict) -> bool:
         exists.display_name_fr = record["display_name_fr"]
         exists.display_name_en = record["display_name_en"]
         exists.category = record["category"]
+        exists.movement_family = record["movement_family"]
+        exists.variant_label = record["variant_label"]
         exists.tracking_mode = record["tracking_mode"]
         exists.weight_unit = record["weight_unit"]
         exists.description = record["description"]
@@ -769,6 +782,8 @@ def serialize_exercise(row: ExerciseModel) -> dict:
         "display_name_fr": row.display_name_fr or row.display_name or row.name.replace("_", " "),
         "display_name_en": row.display_name_en or row.display_name or row.name.replace("_", " "),
         "category": row.category or "",
+        "movement_family": row.movement_family or "",
+        "variant_label": row.variant_label or "",
         "tracking_mode": normalize_tracking_mode(row.tracking_mode),
         "weight_unit": normalize_weight_unit(row.weight_unit),
         "description": row.description or "",
@@ -850,6 +865,10 @@ def merge_exercise_rows(target_row: ExerciseModel, source_row: ExerciseModel) ->
         if not target_value and source_value:
             setattr(target_row, field_name, source_value)
 
+    if not str(target_row.movement_family or "").strip():
+        target_row.movement_family = str(source_row.movement_family or "").strip()
+    if not str(target_row.variant_label or "").strip():
+        target_row.variant_label = str(source_row.variant_label or "").strip()
     if not str(target_row.tracking_mode or "").strip():
         target_row.tracking_mode = normalize_tracking_mode(source_row.tracking_mode)
     if not str(target_row.weight_unit or "").strip():
@@ -861,6 +880,9 @@ def rename_exercise_references(db, old_name: str, new_name: str) -> None:
     new_value = str(new_name or "").strip()
     if not old_value or not new_value or old_value == new_value:
         return
+
+    for exercise_row in db.query(ExerciseModel).filter_by(movement_family=old_value).all():
+        exercise_row.movement_family = new_value
 
     rows = db.query(SessionModel).all()
     for row in rows:
@@ -1930,6 +1952,8 @@ def update_exercise(name: str, e: dict, current_user: UserModel = Depends(get_cu
         row.display_name_fr = record["display_name_fr"]
         row.display_name_en = record["display_name_en"]
         row.category = record["category"]
+        row.movement_family = record["movement_family"]
+        row.variant_label = record["variant_label"]
         row.tracking_mode = record["tracking_mode"]
         row.weight_unit = record["weight_unit"]
         row.description = record["description"]

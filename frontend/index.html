@@ -589,6 +589,7 @@ const UI_TEXT = {
     climbing_spot: "Spot",
     topo_grade: "Difficulte topo ex: 6a",
     felt_grade: "Cotation ressentie ex: 6a+",
+    own_grade: "Ma cotation ex: 6b",
     route_name: "Nom de la voie",
     ascent_result: "Resultat",
     onsight: "A vue",
@@ -694,6 +695,13 @@ const UI_TEXT = {
     merge_exercise_target: "Fusionner dans",
     merge_exercise_button: "Fusionner dans cet exercice",
     merge_exercise_confirm: "Fusionner \"{source}\" dans \"{target}\" ? Toutes les references existantes seront deplacees vers l'exercice cible.",
+    movement_family: "Mouvement proche",
+    movement_family_none: "Exercice autonome",
+    movement_family_help: "Relie ici les variantes tres proches d'un meme mouvement sans les fusionner.",
+    variant_label: "Variante / machine",
+    variant_label_placeholder: "ex: poulie, Cybex, halteres",
+    similar_variants: "Variantes proches",
+    similar_variants_empty: "Aucune variante proche liee.",
     save_exercise: "Enregistrer exercice",
     cancel_edit: "Annuler modification",
     description: "Description",
@@ -851,6 +859,7 @@ const UI_TEXT = {
     climbing_spot: "Spot",
     topo_grade: "Guidebook grade ex: 6a",
     felt_grade: "Felt grade ex: 6a+",
+    own_grade: "My grade ex: 6b",
     route_name: "Route name",
     ascent_result: "Result",
     onsight: "Onsight",
@@ -956,6 +965,13 @@ const UI_TEXT = {
     merge_exercise_target: "Merge into",
     merge_exercise_button: "Merge into this exercise",
     merge_exercise_confirm: "Merge \"{source}\" into \"{target}\"? All existing references will be moved to the target exercise.",
+    movement_family: "Similar movement",
+    movement_family_none: "Standalone exercise",
+    movement_family_help: "Use this to link close variants of the same movement without merging them.",
+    variant_label: "Variant / machine",
+    variant_label_placeholder: "e.g. cable, Cybex, dumbbells",
+    similar_variants: "Close variants",
+    similar_variants_empty: "No close variants linked yet.",
     save_exercise: "Save exercise",
     cancel_edit: "Cancel edit",
     description: "Description",
@@ -1442,10 +1458,12 @@ async function loadExercises(forceRefresh = false){
     const selectedDocumentUrl = normalizeExternalUrl(selectedExercise.document);
     const secondaryName = getExerciseSecondaryName(selectedExercise);
     const mergeOptionsHtml = getMergeTargetOptionsHtml(selectedExercise.name);
+    const relatedExercises = getRelatedExercises(selectedExercise);
     managementHtml = `
       <div class="card" id="exerciseDetailCard">
         <h3>${escapeHtml(getExerciseDisplayName(selectedExercise))}</h3>
         ${secondaryName ? `<div class="small">${escapeHtml(secondaryName)}</div>` : ""}
+        ${getExerciseVariantDescription(selectedExercise) ? `<div class="small" style="margin-top:8px;">${escapeHtml(t("variant_label"))}: ${escapeHtml(getExerciseVariantDescription(selectedExercise))}</div>` : ""}
         ${getCategoryLabels(selectedExercise.category).length ? `<div class="exercise-badges" style="margin-top:10px;">${getCategoryLabels(selectedExercise.category).map((label) => `<span class="exercise-badge">${escapeHtml(label)}</span>`).join("")}</div>` : ""}
         <div style="margin-top:12px;">
           ${selectedImageUrl
@@ -1462,6 +1480,15 @@ async function loadExercises(forceRefresh = false){
           <button onclick="editExercise('${escapeAttr(toJs(selectedExercise))}')">${escapeHtml(t("exercise_editor_detail_button"))}</button>
           <button onclick="editExercise('${escapeAttr(toJs(selectedExercise))}')">${escapeHtml(t("exercise_editor_image_button"))}</button>
           <button onclick="clearExerciseSelection()">${escapeHtml(t("close_button"))}</button>
+        </div>
+        <div class="helper-box" style="margin-top:12px;">
+          <strong>${escapeHtml(t("similar_variants"))}</strong>
+          <div class="small" style="margin-top:6px;">${escapeHtml(t("movement_family_help"))}</div>
+          <div class="exercise-badges" style="margin-top:10px;">
+            ${relatedExercises.length
+              ? relatedExercises.map((exercise) => `<button type="button" class="exercise-badge" style="cursor:pointer;" onclick="viewExercise('${escapeAttr(toJs(exercise))}')">${escapeHtml(getExerciseDisplayName(exercise))}${getExerciseVariantDescription(exercise) ? ` - ${escapeHtml(getExerciseVariantDescription(exercise))}` : ""}</button>`).join("")
+              : `<span class="small">${escapeHtml(t("similar_variants_empty"))}</span>`}
+          </div>
         </div>
         ${mergeOptionsHtml ? `
           <div class="helper-box" style="margin-top:12px;">
@@ -1486,6 +1513,11 @@ async function loadExercises(forceRefresh = false){
   } else if(showExerciseEditor) {
     const editingImageUrls = normalizeImageList(editorExercise?.images, editorExercise?.image).map(normalizeExternalUrl).filter(Boolean);
     const mergeOptionsHtml = editingExercise ? getMergeTargetOptionsHtml(editingExercise.name) : "";
+    const selectedMovementFamily = String(editorExercise?.movement_family || "").trim();
+    const movementFamilyOptions = sortExercisesForLibrary(exerciseList)
+      .filter((exercise) => exercise.name !== (editingExercise?.name || editorExercise?.name || ""))
+      .map((exercise) => `<option value="${escapeAttr(exercise.name)}"${selectedMovementFamily === exercise.name ? " selected" : ""}>${escapeHtml(getExercisePickerLabel(exercise))} (${escapeHtml(exercise.name)})</option>`)
+      .join("");
     managementHtml = `
       <div class="card">
         <h3>${escapeHtml(editingExercise ? t("exercise_editor_edit_title") : t("exercise_editor_create_title"))}</h3>
@@ -1503,6 +1535,15 @@ async function loadExercises(forceRefresh = false){
               ${renderExerciseCategoryCheckboxes(editorExercise?.category || "")}
             </div>
           </div>
+          <div>
+            <label>${escapeHtml(t("movement_family"))}</label>
+            <select id="exMovementFamily">
+              <option value="">${escapeHtml(t("movement_family_none"))}</option>
+              ${movementFamilyOptions}
+            </select>
+            <div class="small technical-name-note">${escapeHtml(t("movement_family_help"))}</div>
+          </div>
+          <div><label>${escapeHtml(t("variant_label"))}</label><input id="exVariantLabel" placeholder="${escapeAttr(t("variant_label_placeholder"))}" value="${escapeAttr(editorExercise?.variant_label || "")}"></div>
           <div>
             <label>${escapeHtml(t("tracking_mode"))}</label>
             <select id="exTrackingMode">
@@ -2331,6 +2372,43 @@ function getExerciseSecondaryName(exercise){
   return titleizeLabel(secondaryName);
 }
 
+function getExerciseFamilyKey(exercise){
+  const currentExercise = typeof exercise === "string"
+    ? exerciseList.find((item) => item.name === exercise)
+    : exercise;
+  if(!currentExercise) return "";
+  const family = String(currentExercise.movement_family || "").trim();
+  return family || String(currentExercise.name || "").trim();
+}
+
+function getExerciseMovementFamilyOptions(currentName = ""){
+  return sortExercisesForLibrary(exerciseList)
+    .filter((exercise) => exercise.name !== currentName)
+    .map((exercise) => `<option value="${escapeAttr(exercise.name)}">${escapeHtml(getExerciseDisplayName(exercise))} (${escapeHtml(exercise.name)})</option>`)
+    .join("");
+}
+
+function getRelatedExercises(exercise){
+  const currentExercise = typeof exercise === "string"
+    ? exerciseList.find((item) => item.name === exercise)
+    : exercise;
+  if(!currentExercise) return [];
+  const familyKey = getExerciseFamilyKey(currentExercise);
+  if(!familyKey) return [];
+  return sortExercisesForLibrary(exerciseList)
+    .filter((candidate) => candidate.name !== currentExercise.name && getExerciseFamilyKey(candidate) === familyKey);
+}
+
+function getExerciseVariantDescription(exercise){
+  return String(exercise?.variant_label || "").trim();
+}
+
+function getExercisePickerLabel(exercise){
+  const baseLabel = getExerciseDisplayName(exercise);
+  const variantDescription = getExerciseVariantDescription(exercise);
+  return variantDescription ? `${baseLabel} - ${variantDescription}` : baseLabel;
+}
+
 function getExerciseSearchTerms(exercise){
   return [
     exercise?.name,
@@ -2338,6 +2416,8 @@ function getExerciseSearchTerms(exercise){
     exercise?.display_name_fr,
     exercise?.display_name_en,
     exercise?.category,
+    exercise?.movement_family,
+    exercise?.variant_label,
     exercise?.description,
   ]
     .map((value) => String(value || "").toLowerCase())
@@ -2364,7 +2444,7 @@ function sortExercisesForLibrary(exercises){
 function getMergeTargetOptionsHtml(currentName){
   return sortExercisesForLibrary(exerciseList)
     .filter((exercise) => exercise.name !== currentName)
-    .map((exercise) => `<option value="${escapeAttr(exercise.name)}">${escapeHtml(getExerciseDisplayName(exercise))} (${escapeHtml(exercise.name)})</option>`)
+    .map((exercise) => `<option value="${escapeAttr(exercise.name)}">${escapeHtml(getExercisePickerLabel(exercise))} (${escapeHtml(exercise.name)})</option>`)
     .join("");
 }
 
@@ -2578,6 +2658,7 @@ function formatClimbingRoute(route){
   if(header) parts.push(String(header));
   if(route?.topo_grade) parts.push(`Topo ${String(route.topo_grade)}`);
   if(route?.felt_grade) parts.push(`Ressenti ${String(route.felt_grade)}`);
+  if(route?.own_grade) parts.push(`Moi ${String(route.own_grade)}`);
   if(route?.ascent_style === "a_vue") parts.push("A vue");
   if(route?.ascent_style === "enchainee") parts.push("Enchainee");
   if(route?.ascent_style === "repos"){
@@ -3753,6 +3834,8 @@ function applyExerciseAiJson(){
     display_name_fr: String(payload.display_name_fr || payload.display_name || "").trim(),
     display_name_en: String(payload.display_name_en || payload.display_name || "").trim(),
     category: String(payload.category || "").trim(),
+    movement_family: String(payload.movement_family || "").trim(),
+    variant_label: String(payload.variant_label || "").trim(),
     description: String(payload.description || "").trim(),
     link: String(payload.link || "").trim(),
     document: String(payload.document || "").trim(),
@@ -3797,6 +3880,7 @@ function addClimbingRoute(){
   const name = String(document.getElementById("climbingRouteName")?.value || "").trim();
   const topoGrade = String(document.getElementById("climbingRouteTopoGrade")?.value || document.getElementById("climbingRouteDifficulty")?.value || "").trim();
   const feltGrade = String(document.getElementById("climbingRouteFeltGrade")?.value || "").trim();
+  const ownGrade = String(document.getElementById("climbingRouteOwnGrade")?.value || "").trim();
   const ascentStyle = String(document.getElementById("climbingRouteAscentStyle")?.value || "").trim();
   const restCount = normalizeOptionalInt(document.getElementById("climbingRouteRestCount")?.value);
   if(!spot && !name){
@@ -3804,7 +3888,7 @@ function addClimbingRoute(){
     return;
   }
   session.climbing_routes = Array.isArray(session.climbing_routes) ? session.climbing_routes : [];
-  const route = { spot, name, topo_grade: topoGrade, felt_grade: feltGrade, ascent_style: ascentStyle };
+  const route = { spot, name, topo_grade: topoGrade, felt_grade: feltGrade, own_grade: ownGrade, ascent_style: ascentStyle };
   if(ascentStyle === "repos" && restCount !== null && restCount >= 0){
     route.rest_count = restCount;
   }
@@ -4502,6 +4586,8 @@ async function saveExercise(){
     display_name_fr: displayNameFr,
     display_name_en: displayNameEn,
     category: readExerciseEditorCategories(),
+    movement_family: document.getElementById("exMovementFamily")?.value?.trim() || "",
+    variant_label: document.getElementById("exVariantLabel")?.value?.trim() || "",
     tracking_mode: normalizeTrackingMode(document.getElementById("exTrackingMode")?.value),
     weight_unit: normalizeWeightUnit(document.getElementById("exWeightUnit")?.value),
     description: document.getElementById("exDesc").value.trim(),
@@ -4995,7 +5081,7 @@ function renderModal(){
               <label>Exercice planifié</label>
               <select id="plannedExerciseSelect" onchange="if(!plannedEditor) plannedEditor=blankPlannedEditor(); plannedEditor.exercise_name=this.value;">
                 <option value="">Choisir...</option>
-                ${sortedExercises.map((exercise) => `<option value="${exercise.name}"${plannedEditorExerciseName === exercise.name ? " selected" : ""}>${escapeHtml(getExerciseDisplayName(exercise))}</option>`).join("")}
+                ${sortedExercises.map((exercise) => `<option value="${exercise.name}"${plannedEditorExerciseName === exercise.name ? " selected" : ""}>${escapeHtml(getExercisePickerLabel(exercise))}</option>`).join("")}
               </select>
             </div>
             <div>
@@ -5103,6 +5189,9 @@ function renderModal(){
               <input id="climbingRouteFeltGrade" placeholder="${escapeAttr(t("felt_grade"))}">
             </div>
             <div>
+              <input id="climbingRouteOwnGrade" placeholder="${escapeAttr(t("own_grade"))}">
+            </div>
+            <div>
               <select id="climbingRouteAscentStyle">
                 <option value="">${escapeHtml(t("ascent_result"))}</option>
                 <option value="a_vue">${escapeHtml(t("onsight"))}</option>
@@ -5170,7 +5259,7 @@ function renderModal(){
                     <label>${escapeHtml(t("exercise_library"))}</label>
                     <select id="performedExerciseSelect" onchange="handlePerformedExerciseSelection(this.value)">
                       <option value="">${escapeHtml(t("choose"))}</option>
-                      ${filteredStrengthExercises.map((exercise) => `<option value="${exercise.name}"${selectedExerciseName === exercise.name ? " selected" : ""}>${escapeHtml(getExerciseDisplayName(exercise))}</option>`).join("")}
+                      ${filteredStrengthExercises.map((exercise) => `<option value="${exercise.name}"${selectedExerciseName === exercise.name ? " selected" : ""}>${escapeHtml(getExercisePickerLabel(exercise))}</option>`).join("")}
                     </select>
                   </div>
                   <div class="exercise-picker-field">
