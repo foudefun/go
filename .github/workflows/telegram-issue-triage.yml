@@ -12,60 +12,13 @@ on:
         type: string
 
 permissions:
-  contents: write
   issues: write
-  pull-requests: write
 
 jobs:
   triage:
-    if: github.event_name == 'issues'
     runs-on: ubuntu-latest
     steps:
-      - name: Mark Telegram issues for Codex triage
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const issue = context.payload.issue;
-            const labels = (issue.labels || []).map((label) => label.name);
-            const fromTelegram = labels.includes("from-telegram") || (issue.body || "").includes("Imported from Telegram");
-            if (!fromTelegram) {
-              core.info("Issue is not from Telegram; skipping.");
-              return;
-            }
-
-            const missingLabels = ["codex-ready", "auto-pr-draft"].filter((label) => !labels.includes(label));
-            if (missingLabels.length) {
-              await github.rest.issues.addLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issue.number,
-                labels: missingLabels,
-              });
-            }
-
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue.number,
-              body: [
-                "Telegram request received and queued.",
-                "",
-                "- Source: Telegram",
-                "- Status: ready for Codex/manual implementation",
-                "- Automation: a draft PR proposal will be generated automatically",
-                "- Next step: review the draft PR in GitHub or continue it in Codex web/desktop",
-              ].join("\n"),
-            });
-
-  draft-pr:
-    runs-on: ubuntu-latest
-    needs: triage
-    if: always() && (github.event_name == 'workflow_dispatch' || needs.triage.result == 'success')
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Resolve issue payload
+      - name: Resolve Telegram issue payload
         id: issue
         uses: actions/github-script@v7
         with:
@@ -79,52 +32,77 @@ jobs:
               issue_number: issueNumber,
             });
             const labels = (issue.data.labels || []).map((label) => typeof label === 'string' ? label : label.name);
-            if (!labels.includes('from-telegram')) {
-              core.setFailed(`Issue #${issueNumber} is not marked from-telegram`);
+            const fromTelegram = labels.includes('from-telegram') || (issue.data.body || '').includes('Imported from Telegram');
+            if (!fromTelegram) {
+              core.setFailed(`Issue #${issueNumber} is not marked from Telegram`);
               return;
             }
             core.setOutput('issue_number', String(issueNumber));
             core.setOutput('issue_title', issue.data.title);
+            core.setOutput('issue_url', issue.data.html_url);
             core.setOutput('issue_body', issue.data.body || '');
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Generate AI draft PR proposal
-        id: proposal
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: gpt-5.4
-          ISSUE_NUMBER: ${{ steps.issue.outputs.issue_number }}
-          ISSUE_TITLE: ${{ steps.issue.outputs.issue_title }}
-          ISSUE_BODY: ${{ steps.issue.outputs.issue_body }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: |
-          python scripts/generate_issue_pr_draft.py
-
-      - name: Create draft PR
-        id: cpr
-        uses: peter-evans/create-pull-request@v6
-        with:
-          branch: ${{ steps.proposal.outputs.branch_name }}
-          commit-message: "Add draft PR proposal for issue #${{ steps.issue.outputs.issue_number }}"
-          title: ${{ steps.proposal.outputs.pr_title }}
-          body: ${{ steps.proposal.outputs.pr_body }}
-          draft: true
-          delete-branch: true
-          add-paths: |
-            ${{ steps.proposal.outputs.proposal_path }}
-
-      - name: Comment on issue with draft PR link
-        if: steps.cpr.outputs.pull-request-number
+      - name: Mark Telegram issues for Codex handoff
         uses: actions/github-script@v7
         with:
           script: |
+            const issueNumber = Number('${{ steps.issue.outputs.issue_number }}');
+            const issue = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+            });
+            const labels = (issue.data.labels || []).map((label) => typeof label === 'string' ? label : label.name);
+            const desiredLabels = ['codex-ready'];
+            const missingLabels = desiredLabels.filter((label) => !labels.includes(label));
+            if (missingLabels.length) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: missingLabels,
+              });
+            }
+            const removableLabels = ['auto-pr-draft'];
+            for (const label of removableLabels) {
+              if (!labels.includes(label)) continue;
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  name: label,
+                });
+              } catch (error) {
+                core.warning(`Could not remove label ${label}: ${error.message}`);
+              }
+            }
+
+      - name: Comment with Codex handoff
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = Number('${{ steps.issue.outputs.issue_number }}');
+            const issueTitle = `${{ steps.issue.outputs.issue_title }}`;
+            const issueUrl = `${{ steps.issue.outputs.issue_url }}`;
+            const repoName = context.repo.owner + '/' + context.repo.repo;
+            const handoff = [
+              'Telegram request received and queued.',
+              '',
+              '- Source: Telegram',
+              '- Status: ready for Codex/manual implementation',
+              '- Reliability mode: issue backlog + Codex handoff',
+              '',
+              '### Codex handoff',
+              '```text',
+              `Open repo ${repoName} in Codex and implement GitHub issue #${issueNumber}: ${issueTitle}.`,
+              `Issue: ${issueUrl}`,
+              `After implementation, close issue #${issueNumber}.`,
+              '```',
+            ].join('\n');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: Number('${{ steps.issue.outputs.issue_number }}'),
-              body: `Draft PR #${{ steps.cpr.outputs.pull-request-number }} created automatically: ${{ steps.cpr.outputs.pull-request-url }}`
+              issue_number: issueNumber,
+              body: handoff,
             });

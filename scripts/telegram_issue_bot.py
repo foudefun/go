@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -94,18 +95,47 @@ def telegram_request(config: Config, method: str, payload: dict[str, Any]) -> di
     return data
 
 
-def github_create_issue(config: Config, title: str, body: str, labels: list[str]) -> dict[str, Any]:
-    url = f"{GITHUB_API}/repos/{config.github_repo}/issues"
+def github_request(
+    config: Config,
+    method: str,
+    path: str,
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    url = f"{GITHUB_API}/repos/{config.github_repo}{path}"
     headers = {
         "Accept": "application/vnd.github+json",
         "Authorization": f"Bearer {config.github_token}",
         "X-GitHub-Api-Version": "2022-11-28",
         "User-Agent": "go-telegram-issue-bot",
     }
+    return http_json(url, method=method, headers=headers, payload=payload)
+
+
+def github_create_issue(config: Config, title: str, body: str, labels: list[str]) -> dict[str, Any]:
     payload: dict[str, Any] = {"title": title, "body": body}
     if labels:
         payload["labels"] = labels
-    return http_json(url, method="POST", headers=headers, payload=payload)
+    return github_request(config, "POST", "/issues", payload)
+
+
+def github_get_issue(config: Config, issue_number: int) -> dict[str, Any]:
+    return github_request(config, "GET", f"/issues/{issue_number}")
+
+
+def github_set_issue_state(config: Config, issue_number: int, state: str) -> dict[str, Any]:
+    return github_request(config, "PATCH", f"/issues/{issue_number}", {"state": state})
+
+
+def github_list_open_telegram_issues(config: Config, limit: int = 10) -> list[dict[str, Any]]:
+    query = urllib.parse.urlencode({
+        "state": "open",
+        "labels": "from-telegram",
+        "per_page": str(limit),
+    })
+    data = github_request(config, "GET", f"/issues?{query}")
+    if isinstance(data, list):
+        return data
+    return []
 
 
 def send_message(config: Config, text: str) -> None:
@@ -145,6 +175,27 @@ def classify_issue(text: str) -> tuple[str, list[str], str]:
     return kind, labels, clean_text
 
 
+def parse_issue_number_argument(text: str) -> int | None:
+    match = re.search(r"(\d+)", str(text or ""))
+    if not match:
+        return None
+    try:
+        return int(match.group(1))
+    except ValueError:
+        return None
+
+
+def build_codex_handoff(issue: dict[str, Any], repo: str) -> str:
+    number = issue.get("number", "?")
+    title = issue.get("title", "Untitled issue")
+    url = issue.get("html_url", "")
+    return (
+        f"Open repo {repo} in Codex and implement GitHub issue #{number}: {title}.\n"
+        f"Issue: {url}\n"
+        f"After implementation, close issue #{number}."
+    )
+
+
 def build_issue_payload(message: dict[str, Any]) -> tuple[str, str, list[str]]:
     text = normalize_text(message)
     kind, labels, clean_text = classify_issue(text)
@@ -180,11 +231,59 @@ def handle_command(config: Config, text: str) -> bool:
         send_message(
             config,
             "Send a message and I will create a GitHub issue.\n"
-            "Optional prefixes: bug:, feature:, idea:, urgent:",
+            "Optional prefixes: bug:, feature:, idea:, urgent:\n"
+            "Commands: /backlog, /show 12, /done 12, /open 12, /codex 12",
         )
         return True
     if lowered == "/ping":
         send_message(config, "Bot is running.")
+        return True
+    if lowered == "/backlog":
+        issues = github_list_open_telegram_issues(config)
+        if not issues:
+            send_message(config, "No open Telegram backlog items right now.")
+            return True
+        lines = ["Open Telegram backlog:"]
+        for issue in issues:
+            lines.append(f"#{issue.get('number')} - {issue.get('title')}")
+        send_message(config, "\n".join(lines))
+        return True
+    if lowered.startswith("/show"):
+        issue_number = parse_issue_number_argument(text)
+        if issue_number is None:
+            send_message(config, "Use /show <issue-number>")
+            return True
+        issue = github_get_issue(config, issue_number)
+        send_message(
+            config,
+            f"#{issue.get('number')} [{issue.get('state')}]\n"
+            f"{issue.get('title')}\n"
+            f"{issue.get('html_url', '')}",
+        )
+        return True
+    if lowered.startswith("/done"):
+        issue_number = parse_issue_number_argument(text)
+        if issue_number is None:
+            send_message(config, "Use /done <issue-number>")
+            return True
+        issue = github_set_issue_state(config, issue_number, "closed")
+        send_message(config, f"Closed issue #{issue.get('number')}: {issue.get('title')}")
+        return True
+    if lowered.startswith("/open"):
+        issue_number = parse_issue_number_argument(text)
+        if issue_number is None:
+            send_message(config, "Use /open <issue-number>")
+            return True
+        issue = github_set_issue_state(config, issue_number, "open")
+        send_message(config, f"Reopened issue #{issue.get('number')}: {issue.get('title')}")
+        return True
+    if lowered.startswith("/codex"):
+        issue_number = parse_issue_number_argument(text)
+        if issue_number is None:
+            send_message(config, "Use /codex <issue-number>")
+            return True
+        issue = github_get_issue(config, issue_number)
+        send_message(config, build_codex_handoff(issue, config.github_repo))
         return True
     return False
 
@@ -210,7 +309,11 @@ def process_message(config: Config, message: dict[str, Any]) -> None:
     send_message(
         config,
         f"Created GitHub issue #{issue_number} in {config.github_repo}:\n"
-        f"{issue_title}\n{issue_url}",
+        f"{issue_title}\n{issue_url}\n\n"
+        f"Useful next steps:\n"
+        f"- /backlog\n"
+        f"- /codex {issue_number}\n"
+        f"- /done {issue_number}",
     )
 
 

@@ -77,13 +77,22 @@ This project also supports a Telegram-driven planning flow:
 
 1. Telegram message
 2. GitHub issue created by the VPS bot
-3. issue labeled `from-telegram`, `codex-ready`, and `auto-pr-draft`
-4. GitHub Action generates an AI draft PR proposal
+3. issue labeled `from-telegram` and `codex-ready`
+4. GitHub Action adds a deterministic Codex handoff comment
 
-To enable the draft PR proposal step, add this GitHub Actions secret:
+This flow is intentionally simple and reliable:
 
-- `OPENAI_API_KEY`
+- Telegram is the quick mobile inbox
+- GitHub is the real backlog
+- Codex picks up the GitHub issue when implementation starts
 
-The workflow does not push product code automatically. It creates a draft PR
-proposal branch with a generated implementation note that can then be picked up
-in Codex web, Codex desktop, or manual review.
+Useful Telegram bot commands:
+
+- `/backlog` to list open Telegram-created issues
+- `/show 12` to show issue `#12`
+- `/codex 12` to get a ready-to-paste Codex prompt for issue `#12`
+- `/done 12` to close issue `#12`
+- `/open 12` to reopen issue `#12`
+
+The workflow does not try to auto-start Codex or auto-create PRs. Instead, it
+keeps the handoff explicit and predictable for mobile use.
