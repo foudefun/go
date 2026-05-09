@@ -542,6 +542,7 @@ const UI_TEXT = {
     add_set: "Ajouter la série",
     exercise_note: "Note exercice",
     add_exercise: "Sauvegarder l'exercice",
+    save_as_new_exercise: "Sauvegarder comme nouvel exercice",
     save_changes: "Enregistrer les modifications",
     new_exercise: "Nouvel exercice",
     create_in_library: "Créer dans la bibliothèque",
@@ -803,6 +804,7 @@ const UI_TEXT = {
     add_set: "Add set",
     exercise_note: "Exercise note",
     add_exercise: "Save exercise",
+    save_as_new_exercise: "Save as new exercise",
     save_changes: "Save changes",
     new_exercise: "New exercise",
     create_in_library: "Create in library",
@@ -3438,7 +3440,7 @@ async function loadExercisePerformance(exerciseName){
 }
 
 function blankPerformedEditor(){
-  return { index: null, exercise_name: "", custom_name: "", work_mode: "normal", work_type: "resistance", notes: "", sets: [], used_equipment: [] };
+  return { index: null, exercise_name: "", custom_name: "", work_mode: "normal", work_type: "resistance", weight_unit: "", notes: "", sets: [], used_equipment: [] };
 }
 
 function blankPlannedEditor(){
@@ -3462,12 +3464,36 @@ function syncPerformedEditorDraft(){
   const customName = document.getElementById("performedCustomName");
   const workMode = document.getElementById("performedWorkMode");
   const workType = document.getElementById("performedWorkType");
+  const weightUnit = document.getElementById("setWeightUnit");
   const notes = document.getElementById("performedExerciseNotes");
   if(exerciseSelect) performedEditor.exercise_name = exerciseSelect.value || "";
   if(customName) performedEditor.custom_name = customName.value.trim();
   if(workMode) performedEditor.work_mode = normalizeWorkMode(workMode.value);
   if(workType) performedEditor.work_type = normalizeWorkType(workType.value);
+  if(weightUnit) performedEditor.weight_unit = normalizeWeightUnit(weightUnit.value || performedEditor.weight_unit || getExerciseWeightUnit(performedEditor.exercise_name));
   if(notes) performedEditor.notes = notes.value.trim();
+}
+
+function getPerformedEditorWeightUnit(){
+  if(performedEditor?.weight_unit){
+    return normalizeWeightUnit(performedEditor.weight_unit);
+  }
+  if(Array.isArray(performedEditor?.sets)){
+    const lastSetWithUnit = [...performedEditor.sets].reverse().find((set) => set?.weight_unit);
+    if(lastSetWithUnit?.weight_unit){
+      return normalizeWeightUnit(lastSetWithUnit.weight_unit);
+    }
+  }
+  return normalizeWeightUnit(getExerciseWeightUnit(performedEditor?.exercise_name));
+}
+
+function updatePerformedWeightUnit(value){
+  if(!performedEditor){
+    performedEditor = blankPerformedEditor();
+  }
+  performedEditor.weight_unit = normalizeWeightUnit(value);
+  captureSessionDraft();
+  renderModal();
 }
 
 function updatePerformedWorkType(value){
@@ -3560,6 +3586,7 @@ function removeEquipmentFromPlannedEditor(index){
 function handlePerformedExerciseSelection(value){
   if(!performedEditor) performedEditor = blankPerformedEditor();
   performedEditor.exercise_name = String(value || "").trim();
+  performedEditor.weight_unit = normalizeWeightUnit(getExerciseWeightUnit(performedEditor.exercise_name));
   if(performedEditor.exercise_name){
     void loadExercisePerformance(performedEditor.exercise_name);
   }
@@ -3820,6 +3847,7 @@ function editPerformedItem(index){
     custom_name: item.custom_name || "",
     work_mode: normalizeWorkMode(item.work_mode),
     work_type: normalizeWorkType(item.work_type),
+    weight_unit: normalizeWeightUnit(item.weight_unit || item.sets?.find((set) => set?.weight_unit)?.weight_unit || getExerciseWeightUnit(item.exercise_name || "")),
     notes: item.notes || "",
     sets: Array.isArray(item.sets) ? item.sets.map((set) => ({ ...set })) : [],
     used_equipment: Array.isArray(item.used_equipment) ? item.used_equipment.map((equipment) => ({ ...equipment })) : [],
@@ -3951,8 +3979,8 @@ function addSetToEditor(){
   const trackingMode = normalizeTrackingMode(getExerciseTrackingMode(performedEditor?.exercise_name));
   const reps = normalizeOptionalInt(document.getElementById("setReps")?.value);
   const weight = normalizeOptionalFloat(document.getElementById("setWeight")?.value);
-  const weightUnit = normalizeWeightUnit(document.getElementById("setWeightUnit")?.value || getExerciseWeightUnit(performedEditor?.exercise_name));
-  const durationSec = parseDurationInputToSeconds(document.getElementById("setDurationSec")?.value);
+  const weightUnit = normalizeWeightUnit(document.getElementById("setWeightUnit")?.value || performedEditor?.weight_unit || getExerciseWeightUnit(performedEditor?.exercise_name));
+  const durationSec = readDurationEditorSeconds();
   const watts = normalizeOptionalFloat(document.getElementById("setWatts")?.value);
   const set = normalizePerformedSetClient(
     trackingMode === "time_watts"
@@ -3965,13 +3993,18 @@ function addSetToEditor(){
   }
   performedEditor.sets = performedEditor.sets || [];
   performedEditor.sets.push(set);
+  performedEditor.weight_unit = weightUnit;
   const repsInput = document.getElementById("setReps");
   const weightInput = document.getElementById("setWeight");
-  const durationInput = document.getElementById("setDurationSec");
+  const hoursInput = document.getElementById("setDurationHours");
+  const minutesInput = document.getElementById("setDurationMinutes");
+  const secondsInput = document.getElementById("setDurationSeconds");
   const wattsInput = document.getElementById("setWatts");
   if(repsInput) repsInput.value = "";
   if(weightInput) weightInput.value = "";
-  if(durationInput) durationInput.value = "";
+  if(hoursInput) hoursInput.value = "";
+  if(minutesInput) minutesInput.value = "";
+  if(secondsInput) secondsInput.value = "";
   if(wattsInput) wattsInput.value = "";
   renderModal();
 }
@@ -3999,6 +4032,15 @@ function savePerformedItem(){
   performedEditor = blankPerformedEditor();
   performedExerciseSearch = "";
   renderModal();
+}
+
+function savePerformedItemAsNew(){
+  syncPerformedEditorDraft();
+  if(!performedEditor){
+    performedEditor = blankPerformedEditor();
+  }
+  performedEditor.index = null;
+  savePerformedItem();
 }
 
 function clearPlannedSessionFields(shouldRender = true){
@@ -4796,7 +4838,7 @@ function renderModal(){
   const selectedExerciseName = performedEditor.exercise_name || "";
   const selectedExercise = exerciseList.find((exercise) => exercise.name === selectedExerciseName) || null;
   const selectedTrackingMode = selectedExercise ? normalizeTrackingMode(selectedExercise?.tracking_mode) : inferTrackingModeFromSets(performedEditor?.sets);
-  const selectedWeightUnit = selectedExercise ? normalizeWeightUnit(selectedExercise?.weight_unit) : "kg";
+  const selectedWeightUnit = getPerformedEditorWeightUnit();
   const selectedExerciseLabel = selectedExerciseName ? getExerciseLabel(selectedExerciseName) : "";
   if(selectedExerciseName && !exercisePerformanceCache[selectedExerciseName]){
     void loadExercisePerformance(selectedExerciseName);
@@ -5181,7 +5223,7 @@ function renderModal(){
                     </div>
                     <div>
                       <label>${escapeHtml(t("weight_unit"))}</label>
-                      <select id="setWeightUnit">
+                      <select id="setWeightUnit" onchange="updatePerformedWeightUnit(this.value)">
                         <option value="kg"${selectedWeightUnit === "kg" ? " selected" : ""}>${escapeHtml(t("unit_kg"))}</option>
                         <option value="lb"${selectedWeightUnit === "lb" ? " selected" : ""}>${escapeHtml(t("unit_lb"))}</option>
                       </select>
@@ -5200,6 +5242,7 @@ function renderModal(){
                 </div>
                 <div class="actions">
                   <button class="exercise-primary-button" onclick="savePerformedItem()">${escapeHtml(performedEditor.index === null ? t("add_exercise") : t("save_changes"))}</button>
+                  ${performedEditor.index === null || performedEditor.index === undefined ? "" : `<button onclick="savePerformedItemAsNew()">${escapeHtml(t("save_as_new_exercise"))}</button>`}
                   <button onclick="startNewPerformedItem()">${escapeHtml(t("new_exercise"))}</button>
                   <button onclick="removeCurrentPerformedExercise()">${escapeHtml(t("remove_current_exercise"))}</button>
                 </div>
@@ -5976,7 +6019,7 @@ function addSetToEditor(){
   const trackingMode = normalizeTrackingMode(getExerciseTrackingMode(performedEditor?.exercise_name));
   const reps = normalizeOptionalInt(document.getElementById("setReps")?.value);
   const weight = normalizeOptionalFloat(document.getElementById("setWeight")?.value);
-  const weightUnit = normalizeWeightUnit(document.getElementById("setWeightUnit")?.value || getExerciseWeightUnit(performedEditor?.exercise_name));
+  const weightUnit = normalizeWeightUnit(document.getElementById("setWeightUnit")?.value || performedEditor?.weight_unit || getExerciseWeightUnit(performedEditor?.exercise_name));
   const durationSec = readDurationEditorSeconds();
   const watts = normalizeOptionalFloat(document.getElementById("setWatts")?.value);
   const set = normalizePerformedSetClient(
@@ -5990,6 +6033,7 @@ function addSetToEditor(){
   }
   performedEditor.sets = performedEditor.sets || [];
   performedEditor.sets.push(set);
+  performedEditor.weight_unit = weightUnit;
   const repsInput = document.getElementById("setReps");
   const weightInput = document.getElementById("setWeight");
   const hoursInput = document.getElementById("setDurationHours");
