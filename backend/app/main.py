@@ -1354,10 +1354,11 @@ def choose_best_set(sets: list[dict]) -> dict | None:
         ),
     )
 
-def build_exercise_performance_summary(db, username: str, exercise_name: str) -> dict:
+def build_exercise_performance_summary(db, username: str, exercise_name: str, exclude_date: str | None = None) -> dict:
     normalized_name = str(exercise_name or "").strip()
     if not normalized_name:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Exercise name is required")
+    excluded_date = str(exclude_date or "").strip()
     exercise_row = db.query(ExerciseModel).filter_by(name=normalized_name).first()
     tracking_mode = normalize_tracking_mode(exercise_row.tracking_mode if exercise_row else "")
     default_weight_unit = normalize_weight_unit(exercise_row.weight_unit if exercise_row else "")
@@ -1373,6 +1374,8 @@ def build_exercise_performance_summary(db, username: str, exercise_name: str) ->
     validated_sessions: list[dict] = []
 
     for row in rows:
+        if excluded_date and str(row.date or "").strip() == excluded_date:
+            continue
         payload = session_payload_from_row(row)
         activities = get_session_activities(payload) or [payload]
         matching_items = []
@@ -2041,11 +2044,12 @@ def add_exercise(e: dict, current_user: UserModel = Depends(get_current_user)):
 @app.get("/api/exercises/{exercise_name}/performance")
 def get_exercise_performance(
     exercise_name: str,
+    exclude_date: str | None = None,
     current_user: UserModel = Depends(get_current_user),
 ):
     db = get_db()
     try:
-        return build_exercise_performance_summary(db, current_user.username, exercise_name)
+        return build_exercise_performance_summary(db, current_user.username, exercise_name, exclude_date)
     finally:
         db.close()
 

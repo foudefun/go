@@ -3565,7 +3565,8 @@ function getItemEquipmentBadges(item){
 }
 
 function renderExercisePerformanceSummary(exerciseName, workType = "resistance"){
-  const cached = exercisePerformanceCache[exerciseName];
+  const cacheKey = currentDate ? `${exerciseName}::${currentDate}` : exerciseName;
+  const cached = exercisePerformanceCache[cacheKey] || exercisePerformanceCache[exerciseName];
   if(!cached || cached.loading){
     return `<div class="performance-summary"><div class="small">${escapeHtml(t("loading_history"))}</div></div>`;
   }
@@ -3681,21 +3682,24 @@ function renderExercisePerformanceSummary(exerciseName, workType = "resistance")
   `;
 }
 
-async function loadExercisePerformance(exerciseName){
+async function loadExercisePerformance(exerciseName, options = {}){
   const name = String(exerciseName || "").trim();
   if(!name) return;
-  if(exercisePerformanceCache[name] && !exercisePerformanceCache[name].loading){
+  const excludeDate = String(options.excludeDate || "").trim();
+  const cacheKey = excludeDate ? `${name}::${excludeDate}` : name;
+  if(exercisePerformanceCache[cacheKey] && !exercisePerformanceCache[cacheKey].loading && !options.force){
     return;
   }
-  exercisePerformanceCache[name] = { loading: true };
+  exercisePerformanceCache[cacheKey] = { loading: true };
   if(performedEditor?.exercise_name === name){
     renderModal();
   }
   try {
-    const summary = await api(`/exercises/${encodeURIComponent(name)}/performance`);
-    exercisePerformanceCache[name] = summary;
+    const query = excludeDate ? `?exclude_date=${encodeURIComponent(excludeDate)}` : "";
+    const summary = await api(`/exercises/${encodeURIComponent(name)}/performance${query}`);
+    exercisePerformanceCache[cacheKey] = summary;
   } catch (error) {
-    exercisePerformanceCache[name] = { error: error.message };
+    exercisePerformanceCache[cacheKey] = { error: error.message };
   }
   if(performedEditor?.exercise_name === name){
     renderModal();
@@ -3873,7 +3877,7 @@ function handlePerformedExerciseSelection(value){
   performedEditor.exercise_name = String(value || "").trim();
   performedEditor.weight_unit = normalizeWeightUnit(getExerciseWeightUnit(performedEditor.exercise_name));
   if(performedEditor.exercise_name){
-    void loadExercisePerformance(performedEditor.exercise_name);
+    void loadExercisePerformance(performedEditor.exercise_name, { excludeDate: currentDate });
   }
   renderModal();
 }
@@ -4141,7 +4145,7 @@ function editPerformedItem(index){
     used_equipment: Array.isArray(item.used_equipment) ? item.used_equipment.map((equipment) => ({ ...equipment })) : [],
   };
   if(performedEditor.exercise_name){
-    void loadExercisePerformance(performedEditor.exercise_name);
+    void loadExercisePerformance(performedEditor.exercise_name, { excludeDate: currentDate, force: true });
   }
   renderModal();
   requestAnimationFrame(() => scrollToPerformedEditor());
@@ -5145,8 +5149,9 @@ function renderModal(){
   const selectedTrackingMode = selectedExercise ? normalizeTrackingMode(selectedExercise?.tracking_mode) : inferTrackingModeFromSets(performedEditor?.sets);
   const selectedWeightUnit = getPerformedEditorWeightUnit();
   const selectedExerciseLabel = selectedExerciseName ? getExerciseLabel(selectedExerciseName) : "";
-  if(selectedExerciseName && !exercisePerformanceCache[selectedExerciseName]){
-    void loadExercisePerformance(selectedExerciseName);
+  const performanceCacheKey = selectedExerciseName && currentDate ? `${selectedExerciseName}::${currentDate}` : selectedExerciseName;
+  if(selectedExerciseName && !exercisePerformanceCache[performanceCacheKey]){
+    void loadExercisePerformance(selectedExerciseName, { excludeDate: currentDate });
   }
   const selectedExercisePreview = selectedExerciseName
     ? `<div class="editor-exercise-preview">
