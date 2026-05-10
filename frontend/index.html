@@ -109,8 +109,9 @@ textarea { min-height:80px; }
 .editor-subsection { border:1px solid #e2e8f0; border-radius:12px; background:#fff; padding:12px; display:grid; gap:8px; }
 .editor-subsection h5 { margin:0; font-size:14px; }
 .editor-subsection .actions { margin-top:4px; }
-.session-overview-card .row { margin-top:10px; }
-.session-overview-card .actions { margin-top:10px; }
+.session-overview-fields { display:grid; gap:12px; }
+.session-overview-fields .row { margin-top:0; }
+.session-overview-fields .actions { margin-top:10px; }
 .exercise-picker-note { margin-top:2px; }
 .exercise-search-input { width:100%; }
 .exercise-primary-button { background:#f97316; color:#fff; font-weight:700; box-shadow:0 8px 18px rgba(249,115,22,0.24); }
@@ -307,7 +308,7 @@ label { display:block; font-size:13px; }
   .image-lightbox-nav-row { display:flex; justify-content:center; gap:10px; }
   .image-lightbox-nav-row .image-lightbox-nav { display:flex; }
   .image-lightbox-image { max-height:70vh; width:100%; }
-  .session-overview-card .row { margin-top:8px; }
+  .session-overview-fields { gap:10px; }
   .editor-layout { gap:10px; }
   .editor-column { gap:8px; }
   .editor-subsection { padding:10px; gap:6px; }
@@ -5395,9 +5396,7 @@ function renderModal(){
     <div class="session-stack">
       ${plannedSessionHtml}
 
-      <div class="card session-overview-card">
-        <h4>${escapeHtml(t("session_followup"))}</h4>
-        <div class="small">${escapeHtml(t("generic_help"))}</div>
+      <div class="session-overview-fields">
         <div class="row">
           <div>
             <label>${escapeHtml(t("activity_type"))}</label>
@@ -5466,8 +5465,8 @@ function renderModal(){
       </div>
 
       <div class="card" id="performedEditorCard">
-        <h4>${escapeHtml(showStrengthSection ? t("strength_session") : t("session_followup"))}</h4>
-        <div class="small">${escapeHtml(showStrengthSection ? t("strength_help") : t("generic_help"))}</div>
+        ${showStrengthSection ? `<h4>${escapeHtml(t("strength_session"))}</h4>
+        <div class="small">${escapeHtml(t("strength_help"))}</div>` : ""}
         <div class="editor-state-banner" style="${showStrengthSection ? "margin:10px 0 0;" : "display:none;"}">${editorModeLabel}<br><span class="small">${editorModeSummary}</span></div>
         <div class="muted-box" style="${showStrengthSection ? "margin-top:12px;" : "display:none;"}">
           <div class="editor-layout">
