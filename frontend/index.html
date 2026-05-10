@@ -5149,6 +5149,7 @@ function renderModal(){
   const selectedTrackingMode = selectedExercise ? normalizeTrackingMode(selectedExercise?.tracking_mode) : inferTrackingModeFromSets(performedEditor?.sets);
   const selectedWeightUnit = getPerformedEditorWeightUnit();
   const selectedExerciseLabel = selectedExerciseName ? getExerciseLabel(selectedExerciseName) : "";
+  const isEditingExistingExercise = performedEditor.index !== null && performedEditor.index !== undefined;
   const performanceCacheKey = selectedExerciseName && currentDate ? `${selectedExerciseName}::${currentDate}` : selectedExerciseName;
   if(selectedExerciseName && !exercisePerformanceCache[performanceCacheKey]){
     void loadExercisePerformance(selectedExerciseName, { excludeDate: currentDate });
@@ -5479,34 +5480,50 @@ function renderModal(){
             <div class="editor-column">
               <div class="editor-subsection">
                 <h5>${escapeHtml(t("current_exercise"))}</h5>
-                <div class="exercise-picker-grid">
-                  <div class="exercise-picker-field">
-                    <label>${escapeHtml(t("strength_filter"))}</label>
-                    <select id="performedCategoryFilter" onchange="setStrengthCategoryFilter(this.value)">
-                      ${strengthCategoryOptions}
-                    </select>
-                  </div>
-                  <div class="exercise-picker-field">
-                    <label>${escapeHtml(t("exercise_search"))}</label>
-                    <input id="performedExerciseSearch" class="exercise-search-input" value="${escapeAttr(performedExerciseSearch || "")}" placeholder="${escapeAttr(t("exercise_search_placeholder"))}" oninput="setPerformedExerciseSearch(this.value)">
-                    <div id="performedExerciseSearchCount" class="small exercise-picker-note">${filteredStrengthExercises.length} ${escapeHtml(t("matching_exercises"))}</div>
-                  </div>
-                </div>
-                <div class="exercise-picker-grid secondary">
-                  <div class="exercise-picker-field">
+                ${isEditingExistingExercise ? `
+                  <div class="helper-box">
                     <label>${escapeHtml(t("exercise_library"))}</label>
-                    <select id="performedExerciseSelect" onchange="handlePerformedExerciseSelection(this.value)">
-                      <option value="">${escapeHtml(t("choose"))}</option>
-                      ${filteredStrengthExercises.map((exercise) => `<option value="${exercise.name}"${selectedExerciseName === exercise.name ? " selected" : ""}>${escapeHtml(getExercisePickerLabel(exercise))}</option>`).join("")}
-                    </select>
+                    <div style="font-weight:700; margin-top:6px;">${escapeHtml(getPerformedItemLabel(performedEditor) || t("new_exercise_label"))}</div>
+                    ${selectedExerciseName ? `<div class="small" style="margin-top:4px;">${escapeHtml(selectedExerciseLabel)}</div>` : ""}
                   </div>
-                  <div class="exercise-picker-field">
-                    <label>${escapeHtml(t("visible_name"))}</label>
-                    <div class="inline-field-action">
+                  ${selectedExerciseName ? "" : `
+                    <div class="exercise-picker-field" style="margin-top:10px;">
+                      <label>${escapeHtml(t("visible_name"))}</label>
                       <input id="performedCustomName" placeholder="ex: Lats pecs" value="${escapeAttr(performedEditor.custom_name || "")}" oninput="captureSessionDraft()">
-                      <button type="button" onclick="createExerciseFromPerformedEditor()">${escapeHtml(t("create_in_library"))}</button>
+                    </div>
+                  `}
+                ` : `
+                  <div class="exercise-picker-grid">
+                    <div class="exercise-picker-field">
+                      <label>${escapeHtml(t("strength_filter"))}</label>
+                      <select id="performedCategoryFilter" onchange="setStrengthCategoryFilter(this.value)">
+                        ${strengthCategoryOptions}
+                      </select>
+                    </div>
+                    <div class="exercise-picker-field">
+                      <label>${escapeHtml(t("exercise_search"))}</label>
+                      <input id="performedExerciseSearch" class="exercise-search-input" value="${escapeAttr(performedExerciseSearch || "")}" placeholder="${escapeAttr(t("exercise_search_placeholder"))}" oninput="setPerformedExerciseSearch(this.value)">
+                      <div id="performedExerciseSearchCount" class="small exercise-picker-note">${filteredStrengthExercises.length} ${escapeHtml(t("matching_exercises"))}</div>
                     </div>
                   </div>
+                  <div class="exercise-picker-grid secondary">
+                    <div class="exercise-picker-field">
+                      <label>${escapeHtml(t("exercise_library"))}</label>
+                      <select id="performedExerciseSelect" onchange="handlePerformedExerciseSelection(this.value)">
+                        <option value="">${escapeHtml(t("choose"))}</option>
+                        ${filteredStrengthExercises.map((exercise) => `<option value="${exercise.name}"${selectedExerciseName === exercise.name ? " selected" : ""}>${escapeHtml(getExercisePickerLabel(exercise))}</option>`).join("")}
+                      </select>
+                    </div>
+                    <div class="exercise-picker-field">
+                      <label>${escapeHtml(t("visible_name"))}</label>
+                      <div class="inline-field-action">
+                        <input id="performedCustomName" placeholder="ex: Lats pecs" value="${escapeAttr(performedEditor.custom_name || "")}" oninput="captureSessionDraft()">
+                        <button type="button" onclick="createExerciseFromPerformedEditor()">${escapeHtml(t("create_in_library"))}</button>
+                      </div>
+                    </div>
+                  </div>
+                `}
+                <div class="exercise-picker-grid secondary">
                   <div class="exercise-picker-field">
                     <label>${escapeHtml(t("work_mode"))}</label>
                     <select id="performedWorkMode" onchange="captureSessionDraft()">
