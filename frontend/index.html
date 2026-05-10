@@ -5395,8 +5395,9 @@ function renderModal(){
     <div class="session-stack">
       ${plannedSessionHtml}
 
-      <div class="card">
-        <h4>${escapeHtml(t("day_activity"))}</h4>
+      <div class="card session-overview-card">
+        <h4>${escapeHtml(t("session_followup"))}</h4>
+        <div class="small">${escapeHtml(t("generic_help"))}</div>
         <div class="row">
           <div>
             <label>${escapeHtml(t("activity_type"))}</label>
@@ -5406,8 +5407,16 @@ function renderModal(){
             <label>${escapeHtml(t("activity_details"))}</label>
             <input id="activityDetails" placeholder="ex: 45 min, zone 2, match, sortie longue..." value="${escapeAttr(session.activity_details || "")}" oninput="captureSessionDraft()">
           </div>
+          <div>
+            <label>${escapeHtml(t("real_day_load"))}</label>
+            <input id="load" value="${session.load || 0}" oninput="captureSessionDraft()">
+          </div>
+          <div>
+            <label>${escapeHtml(t("physio_time_label"))}</label>
+            <input id="physioTime" type="time" value="${session.physio_time || ""}" onchange="captureSessionDraft()">
+          </div>
         </div>
-        <div id="climbingSection" style="${showClimbingSection ? "" : "display:none;"} margin-top:12px;">
+        <div id="climbingSection" style="${showClimbingSection ? "margin-top:12px;" : "display:none; margin-top:12px;"}">
           <label>${escapeHtml(t("climbing_routes"))}</label>
           <div class="row">
             <div>
@@ -5444,21 +5453,6 @@ function renderModal(){
           </div>
           <div style="margin-top:8px;">
             ${climbingRoutesHtml || `<div class="small">${escapeHtml(t("no_routes"))}</div>`}
-          </div>
-        </div>
-      </div>
-
-      <div class="card session-overview-card">
-        <h4>${escapeHtml(t("session_followup"))}</h4>
-        <div class="small">${escapeHtml(t("generic_help"))}</div>
-        <div class="row">
-          <div>
-            <label>${escapeHtml(t("real_day_load"))}</label>
-            <input id="load" value="${session.load || 0}" oninput="captureSessionDraft()">
-          </div>
-          <div>
-            <label>${escapeHtml(t("physio_time_label"))}</label>
-            <input id="physioTime" type="time" value="${session.physio_time || ""}" onchange="captureSessionDraft()">
           </div>
         </div>
       </div>
