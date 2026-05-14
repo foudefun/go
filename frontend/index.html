@@ -1512,6 +1512,128 @@ function setCalendarView(view){
   loadCalendar();
 }
 
+function renderCalendarDayCard(dateStr, row, { today, showRehabCalendarInfo, compact = false, isCurrentMonth = true } = {}){
+  const classes = ["calendar-day"];
+  if(compact) classes.push("compact");
+  if(!isCurrentMonth) classes.push("other-month");
+  if(dateStr === today) classes.push("today");
+  if(dateStr < today) classes.push("past-row");
+  const planned = (row?.planned_exercises || []).map(formatExerciseName).join(", ");
+  const performed = (row?.performed_exercises || []).map(formatExerciseName).join(", ");
+  const activityBadge = renderActivityBadge(row?.activity_type || "", { compact: true });
+  const targetLine = (showRehabCalendarInfo && shouldShowRehabHistoryForDate(dateStr))
+    ? `<div class="small calendar-day-target">J${row?.rehab_day || "-"} · cible ${row?.target_load ?? "-"}</div>`
+    : "";
+  const physioLine = row?.physio_time ? `<div class="small">Physio: ${escapeHtml(row.physio_time)}</div>` : "";
+  return `
+    <div class="${classes.join(" ")}" onclick="openDay('${dateStr}')">
+      <div class="calendar-day-number">${new Date(`${dateStr}T00:00:00`).getDate()}</div>
+      <div class="calendar-day-lines">
+        <div class="calendar-day-activity">${activityBadge || ""}</div>
+        ${targetLine}
+        ${physioLine}
+        <div class="small">Prévu: ${escapeHtml(planned || "-")}</div>
+        <div class="small">Fait: ${escapeHtml(performed || "-")}</div>
+      </div>
+    </div>
+  `;
+}
+
+async function loadCalendar(){
+  const today = getLocalTodayIso();
+  const monthContext = getCalendarMonthContext(currentCalendarMonth);
+  const weekContext = getCalendarWeekContext(currentCalendarFocusDate);
+  const activeContext = currentCalendarView === "week" ? weekContext : monthContext;
+  const rows = await api(`/calendar?start_date=${activeContext.startDate}&end_date=${activeContext.endDate}`);
+  const rowsByDate = new Map(rows.map((row) => [row.date, row]));
+  const showRehabCalendarInfo = authState?.username === "JST";
+  const calendarOwnerLabel = authState?.username ? ` de ${escapeHtml(authState.username)}` : "";
+
+  let html = `<h2>Calendrier${calendarOwnerLabel}</h2>`;
+  html += `
+    <div class="calendar-toolbar">
+      <div>
+        <label>${escapeHtml(t("calendar_displayed_period"))}</label>
+        <input id="monthPicker" type="month" value="${currentCalendarMonth}" onchange="setCalendarMonth(this.value)">
+      </div>
+      <div class="actions">
+        <button onclick="shiftCalendarPeriod(-1)">${escapeHtml(t("calendar_previous_period"))}</button>
+        <button onclick="jumpCalendarToToday()">${escapeHtml(t("calendar_today"))}</button>
+        <button onclick="shiftCalendarPeriod(1)">${escapeHtml(t("calendar_next_period"))}</button>
+      </div>
+      <div>
+        <label>${escapeHtml(t("calendar_open_date"))}</label>
+        <input id="jumpDate" type="date" value="${currentCalendarFocusDate}" onchange="setCalendarFocusDate(this.value)">
+      </div>
+      <div style="display:flex; align-items:end;">
+        <button onclick="openSelectedDay()">${escapeHtml(t("calendar_edit_day"))}</button>
+      </div>
+      <div class="calendar-view-switch">
+        <div>
+          <label>${escapeHtml(t("calendar_view"))}</label>
+          <div class="actions" style="margin-top:4px;">
+            <button class="${currentCalendarView === "month" ? "active" : ""}" onclick="setCalendarView('month')">${escapeHtml(t("calendar_view_month"))}</button>
+            <button class="${currentCalendarView === "week" ? "active" : ""}" onclick="setCalendarView('week')">${escapeHtml(t("calendar_view_week"))}</button>
+            <button class="${currentCalendarView === "list" ? "active" : ""}" onclick="setCalendarView('list')">${escapeHtml(t("calendar_view_list"))}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  if(currentCalendarView === "month"){
+    html += `<div class="calendar-panel"><div class="small" style="margin-bottom:12px;">${escapeHtml(monthContext.monthLabel)}</div>`;
+    html += `<div class="calendar-month-grid">${WEEKDAY_LABELS.map((label) => `<div class="calendar-weekday">${label}</div>`).join("")}`;
+    monthContext.gridDates.forEach((dateStr) => {
+      html += renderCalendarDayCard(dateStr, rowsByDate.get(dateStr), {
+        today,
+        showRehabCalendarInfo,
+        compact: false,
+        isCurrentMonth: dateStr.startsWith(currentCalendarMonth),
+      });
+    });
+    html += "</div></div>";
+  } else if(currentCalendarView === "week"){
+    html += `<div class="calendar-panel"><div class="small" style="margin-bottom:12px;">${escapeHtml(weekContext.weekLabel)}</div>`;
+    html += `<div class="calendar-week-strip"><div class="calendar-week-grid">`;
+    weekContext.weekDates.forEach((dateStr, index) => {
+      html += `
+        <div>
+          <div class="calendar-weekday" style="margin-bottom:6px;">${escapeHtml(WEEKDAY_LABELS[index])}</div>
+          ${renderCalendarDayCard(dateStr, rowsByDate.get(dateStr), {
+            today,
+            showRehabCalendarInfo,
+            compact: true,
+            isCurrentMonth: true,
+          })}
+        </div>
+      `;
+    });
+    html += "</div></div></div>";
+  } else {
+    html += `<div class="calendar-panel">`;
+    html += "<table><thead><tr><th>Date</th><th>Jour</th><th>Activité</th><th>Cible</th><th>Physio</th><th>Prévus</th><th>Effectués</th></tr></thead><tbody>";
+    rows
+      .filter((row) => row.date.startsWith(currentCalendarMonth))
+      .forEach((s) => {
+        const rowClass = s.date < today ? "past-row" : "";
+        const showRehabColumns = shouldShowRehabHistoryForDate(s.date);
+        html += `<tr class="${rowClass}" onclick="openDay('${s.date}')">
+          <td>${s.date}</td>
+          <td>${showRehabColumns ? `J${s.rehab_day}` : "-"}</td>
+          <td>${renderActivityBadge(s.activity_type || "") || "-"}</td>
+          <td>${showRehabColumns ? s.target_load : "-"}</td>
+          <td>${s.physio_time || "-"}</td>
+          <td>${escapeHtml((s.planned_exercises || []).map(formatExerciseName).join(", ") || "-")}</td>
+          <td>${escapeHtml((s.performed_exercises || []).map(formatExerciseName).join(", ") || "-")}</td>
+        </tr>`;
+      });
+    html += "</tbody></table></div>";
+  }
+
+  document.getElementById("calendar").innerHTML = html;
+}
+
 function readDurationEditorSeconds(){
   const hours = normalizeOptionalInt(document.getElementById("setDurationHours")?.value);
   const minutes = normalizeOptionalInt(document.getElementById("setDurationMinutes")?.value);
@@ -2717,6 +2839,10 @@ function getLocalTodayIso(){
   const now = new Date();
   const offset = now.getTimezoneOffset();
   return new Date(now.getTime() - offset * 60000).toISOString().slice(0, 10);
+}
+
+function shouldShowRehabHistoryForDate(dateStr){
+  return authState?.username === "JST" && String(dateStr || "").trim() < getLocalTodayIso();
 }
 
 function formatLocalDateIso(dateValue){
@@ -5684,7 +5810,7 @@ function renderModal(){
         </div>
       </div>
     </details>`;
-  const showRehabInfo = authUser === "JST";
+  const showRehabInfo = shouldShowRehabHistoryForDate(currentDate);
 
   document.getElementById("content").innerHTML = `
     <h3>${currentDate}</h3>
