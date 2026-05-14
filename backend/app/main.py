@@ -290,6 +290,7 @@ DEFAULT_ACTIVITY = {
     "status": "todo",
     "load": 0,
     "physio_time": "",
+    "title": "",
     "activity_type": "",
     "activity_details": "",
     "image": "",
@@ -536,6 +537,7 @@ def unique_names(values: list[str]) -> list[str]:
 def activity_has_content(payload: dict) -> bool:
     return bool(
         payload.get("performed_items")
+        or str(payload.get("title", "") or "").strip()
         or str(payload.get("activity_type", "") or "").strip()
         or str(payload.get("activity_details", "") or "").strip()
         or str(payload.get("image", "") or "").strip()
@@ -584,6 +586,7 @@ def normalize_activity_entry(payload: dict) -> dict:
         "status": "todo",
         "load": float(base.get("load", 0) or 0),
         "physio_time": normalize_physio_time(base.get("physio_time", "")),
+        "title": str(base.get("title", "") or "").strip(),
         "activity_type": normalized_activity_type,
         "activity_details": str(base.get("activity_details", "") or "").strip(),
         "image": str(base.get("image", "") or "").strip(),
@@ -659,6 +662,7 @@ def compute_session_status(payload: dict) -> str:
         return "done"
     has_actual_content = bool(
         payload.get("performed_items")
+        or str(payload.get("title", "") or "").strip()
         or str(payload.get("activity_type", "") or "").strip()
         or str(payload.get("activity_details", "") or "").strip()
         or str(payload.get("image", "") or "").strip()
@@ -709,6 +713,7 @@ def normalize_session_payload(payload: dict, existing: dict | None = None) -> di
         "status": "todo",
         "load": float(mirrored_activity.get("load", 0) or 0),
         "physio_time": mirrored_activity.get("physio_time", ""),
+        "title": mirrored_activity.get("title", ""),
         "activity_type": mirrored_activity.get("activity_type", ""),
         "activity_details": mirrored_activity.get("activity_details", ""),
         "image": mirrored_activity.get("image", ""),
@@ -1308,8 +1313,9 @@ def import_activity_file_into_db(
     existing_activities = [normalize_activity_entry(item) for item in get_session_activities(existing_payload)]
 
     activity_type = normalize_activity_type(activity_type_override) or normalize_activity_type(parsed_activity.get("activity_type")) or "velo"
-    summary = build_fit_activity_summary(parsed_activity, parsed_activity.get("source_file", ""), title)
+    summary = build_fit_activity_summary(parsed_activity, parsed_activity.get("source_file", ""))
     imported_activity = normalize_activity_entry({
+        "title": str(title or "").strip(),
         "activity_type": activity_type,
         "activity_details": summary,
         "note": str(note or "").strip(),

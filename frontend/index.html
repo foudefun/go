@@ -1096,6 +1096,10 @@ const UI_TEXT = {
     no_sets_saved: "No saved sets",
   }
 };
+UI_TEXT.fr.activity_title = "Titre de l'activite";
+UI_TEXT.fr.activity_title_placeholder = "ex: MyWhoosh endurance, sortie longue, match...";
+UI_TEXT.en.activity_title = "Activity title";
+UI_TEXT.en.activity_title_placeholder = "e.g. MyWhoosh endurance, long ride, match...";
 
 let currentDate = null;
 let session = {};
@@ -3248,6 +3252,7 @@ function blankDayActivity(){
     status: "todo",
     load: 0,
     physio_time: "",
+    title: "",
     activity_type: "",
     activity_details: "",
     image: "",
@@ -3261,6 +3266,7 @@ function activityHasContentClient(rawActivity){
   const activity = rawActivity && typeof rawActivity === "object" ? rawActivity : {};
   return Boolean(
     (activity.performed_items && activity.performed_items.length) ||
+    String(activity.title || "").trim() ||
     String(activity.activity_type || "").trim() ||
     String(activity.activity_details || "").trim() ||
     String(activity.image || "").trim() ||
@@ -3287,6 +3293,7 @@ function normalizeDayActivityClient(rawActivity){
   activity.note = String(activity.note || "");
   activity.load = Number(activity.load || 0) || 0;
   activity.physio_time = String(activity.physio_time || "").trim();
+  activity.title = String(activity.title || "").trim();
   activity.activity_type = String(activity.activity_type || "").trim();
   activity.activity_details = String(activity.activity_details || "").trim();
   activity.image = String(activity.image || "").trim();
@@ -3317,6 +3324,7 @@ function ensureSessionActivities(){
       status: session.status,
       load: session.load,
       physio_time: session.physio_time,
+      title: session.activity_title,
       activity_type: session.activity_type,
       activity_details: session.activity_details,
       image: session.image,
@@ -3348,6 +3356,7 @@ function loadActivityIntoSessionView(index){
   session.status = activity.status || "todo";
   session.load = Number(activity.load || 0) || 0;
   session.physio_time = activity.physio_time || "";
+  session.activity_title = activity.title || "";
   session.activity_type = activity.activity_type || "";
   session.activity_details = activity.activity_details || "";
   session.image = activity.image || "";
@@ -3365,6 +3374,7 @@ function commitSessionViewToActiveActivity(){
     status: session.status,
     load: session.load,
     physio_time: session.physio_time,
+    title: session.activity_title,
     activity_type: session.activity_type,
     activity_details: session.activity_details,
     image: session.image,
@@ -3387,6 +3397,7 @@ function commitSessionViewToActiveActivity(){
 function getActivityDisplaySummary(activity, index){
   const normalized = normalizeDayActivityClient(activity);
   const parts = [
+    String(normalized.title || "").trim(),
     normalized.activity_type ? getActivityLabel(normalized.activity_type) : "",
     String(normalized.activity_details || "").trim(),
     normalized.performed_items.length ? `${normalized.performed_items.length} ex.` : "",
@@ -3403,6 +3414,7 @@ function ensureSessionCollections(){
   session.performed_items = Array.isArray(session.performed_items) ? session.performed_items : [];
   session.used_equipment = Array.isArray(session.used_equipment) ? session.used_equipment.map(normalizeUsedEquipmentClient).filter(Boolean) : [];
   session.climbing_routes = Array.isArray(session.climbing_routes) ? session.climbing_routes : [];
+  session.activity_title = String(session.activity_title || "").trim();
   session.activity_type = String(session.activity_type || "").trim();
   session.activity_details = String(session.activity_details || "").trim();
   session.image = String(session.image || "").trim();
@@ -3425,6 +3437,7 @@ function buildSessionDraftPayload(){
       note: session.note || "",
       load: session.load || 0,
       physio_time: session.physio_time || "",
+      title: session.activity_title || "",
       activity_type: session.activity_type || "",
       activity_details: session.activity_details || "",
       image: session.image || "",
@@ -3481,6 +3494,7 @@ function buildSessionRequestPayload(options = {}){
     status: session.status || "todo",
     load: session.load || 0,
     physio_time: session.physio_time || "",
+    title: session.activity_title || "",
     activity_type: session.activity_type || "",
     activity_details: session.activity_details || "",
     image: session.image || "",
@@ -3636,11 +3650,13 @@ function clearSessionDraft(dateValue = currentDate){
 function syncSessionGeneralDraft(){
   const loadInput = document.getElementById("load");
   const physioInput = document.getElementById("physioTime");
+  const activityTitleInput = document.getElementById("activityTitle");
   const activityTypeInput = document.getElementById("activityType");
   const activityDetailsInput = document.getElementById("activityDetails");
   const noteInput = document.getElementById("note");
   if(loadInput) session.load = parseFloat(loadInput.value) || 0;
   if(physioInput) session.physio_time = physioInput.value || "";
+  if(activityTitleInput) session.activity_title = activityTitleInput.value.trim();
   if(activityTypeInput) session.activity_type = activityTypeInput.value || "";
   if(activityDetailsInput) session.activity_details = activityDetailsInput.value.trim();
   if(noteInput) session.note = noteInput.value;
@@ -3655,6 +3671,7 @@ function computeSessionStatus(){
   }
   const hasActualContent = Boolean(
     (session.performed_items && session.performed_items.length) ||
+    (session.activity_title && session.activity_title.trim()) ||
     (session.activity_type && session.activity_type.trim()) ||
     (session.activity_details && session.activity_details.trim()) ||
     (session.climbing_routes && session.climbing_routes.length) ||
@@ -5642,6 +5659,7 @@ function renderModal(){
     .join("");
   const hasSavedActivity = Boolean(
     (session.performed_items || []).length ||
+    String(session.activity_title || "").trim() ||
     String(session.activity_details || "").trim() ||
     String(session.image || "").trim() ||
     (session.climbing_routes || []).length ||
@@ -5655,6 +5673,7 @@ function renderModal(){
     </button>
   `).join("");
   const performedSummaryParts = [
+    String(session.activity_title || "").trim(),
     session.activity_type ? getActivityLabel(session.activity_type) : "",
     String(session.activity_details || "").trim(),
     (session.performed_items || []).length ? `${session.performed_items.length} exercice(s)` : "",
@@ -5850,6 +5869,10 @@ function renderModal(){
 
       <div class="session-overview-fields">
         <div class="row">
+          <div>
+            <label>${escapeHtml(t("activity_title"))}</label>
+            <input id="activityTitle" placeholder="${escapeAttr(t("activity_title_placeholder"))}" value="${escapeAttr(session.activity_title || "")}" oninput="captureSessionDraft()">
+          </div>
           <div>
             <label>${escapeHtml(t("activity_type"))}</label>
             <select id="activityType" onchange="toggleActivitySections(this.value)">${activityOptions}</select>
