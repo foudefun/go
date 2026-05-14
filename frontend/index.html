@@ -135,6 +135,11 @@ textarea { min-height:80px; }
   text-align:center;
   padding:16px;
 }
+.compact-selection-box { display:grid; gap:8px; }
+.selected-exercise-box { border:1px solid #dbeafe; border-radius:12px; background:#f8fbff; padding:10px 12px; display:grid; gap:4px; }
+.advanced-details { border:1px dashed #cbd5e1; border-radius:12px; background:#f8fafc; padding:10px 12px; }
+.advanced-details summary { cursor:pointer; font-weight:600; color:#334155; }
+.advanced-details[open] summary { margin-bottom:10px; }
 .exercise-picker-note { margin-top:2px; }
 .exercise-search-input { width:100%; }
 .exercise-primary-button { background:#f97316; color:#fff; font-weight:700; box-shadow:0 8px 18px rgba(249,115,22,0.24); }
@@ -688,6 +693,9 @@ const UI_TEXT = {
     review_open: "Visualiser",
     review_edit: "Corriger",
     current_exercise: "Exercice en cours",
+    advanced_options: "Options avancées",
+    selected_library_exercise: "Exercice bibliothèque choisi",
+    free_session_name: "Nom libre pour cette séance",
     linked_equipment: "Materiel lie a cet exercice",
     previous_time: "Derniere fois",
     personal_records_label: "PR",
@@ -968,6 +976,9 @@ const UI_TEXT = {
     review_open: "Open",
     review_edit: "Fix",
     current_exercise: "Current exercise",
+    advanced_options: "Advanced options",
+    selected_library_exercise: "Selected library exercise",
+    free_session_name: "Free name for this session",
     linked_equipment: "Equipment linked to this exercise",
     previous_time: "Last time",
     personal_records_label: "PR",
@@ -5605,25 +5616,23 @@ function renderModal(){
                   </div>
                   ${selectedExerciseName ? "" : `
                     <div class="exercise-picker-field" style="margin-top:10px;">
-                      <label>${escapeHtml(t("visible_name"))}</label>
+                      <label>${escapeHtml(t("free_session_name"))}</label>
                       <input id="performedCustomName" placeholder="ex: Lats pecs" value="${escapeAttr(performedEditor.custom_name || "")}" oninput="captureSessionDraft()">
                     </div>
                   `}
                 ` : `
-                  <div class="exercise-picker-grid">
-                    <div class="exercise-picker-field">
-                      <label>${escapeHtml(t("strength_filter"))}</label>
-                      <select id="performedCategoryFilter" onchange="setStrengthCategoryFilter(this.value)">
-                        ${strengthCategoryOptions}
-                      </select>
-                    </div>
+                  <div class="compact-selection-box">
+                    ${selectedExerciseName ? `
+                      <div class="selected-exercise-box">
+                        <label>${escapeHtml(t("selected_library_exercise"))}</label>
+                        <div style="font-weight:700;">${escapeHtml(selectedExerciseLabel)}</div>
+                      </div>
+                    ` : ""}
                     <div class="exercise-picker-field">
                       <label>${escapeHtml(t("exercise_search"))}</label>
                       <input id="performedExerciseSearch" class="exercise-search-input" value="${escapeAttr(performedExerciseSearch || "")}" placeholder="${escapeAttr(t("exercise_search_placeholder"))}" oninput="setPerformedExerciseSearch(this.value)">
                       <div id="performedExerciseSearchCount" class="small exercise-picker-note">${filteredStrengthExercises.length} ${escapeHtml(t("matching_exercises"))}</div>
                     </div>
-                  </div>
-                  <div class="exercise-picker-grid secondary">
                     <div class="exercise-picker-field">
                       <label>${escapeHtml(t("exercise_library"))}</label>
                       <select id="performedExerciseSelect" onchange="handlePerformedExerciseSelection(this.value)">
@@ -5631,14 +5640,36 @@ function renderModal(){
                         ${filteredStrengthExercises.map((exercise) => `<option value="${exercise.name}"${selectedExerciseName === exercise.name ? " selected" : ""}>${escapeHtml(getExercisePickerLabel(exercise))}</option>`).join("")}
                       </select>
                     </div>
-                    <div class="exercise-picker-field">
-                      <label>${escapeHtml(t("visible_name"))}</label>
-                      <div class="inline-field-action">
+                    ${selectedExerciseName ? "" : `
+                      <div class="exercise-picker-field">
+                        <label>${escapeHtml(t("free_session_name"))}</label>
                         <input id="performedCustomName" placeholder="ex: Lats pecs" value="${escapeAttr(performedEditor.custom_name || "")}" oninput="captureSessionDraft()">
-                        <button type="button" onclick="createExerciseFromPerformedEditor()">${escapeHtml(t("create_in_library"))}</button>
+                      </div>
+                    `}
+                  </div>
+                  <details class="advanced-details">
+                    <summary>${escapeHtml(t("advanced_options"))}</summary>
+                    <div class="exercise-picker-grid secondary">
+                      <div class="exercise-picker-field">
+                        <label>${escapeHtml(t("strength_filter"))}</label>
+                        <select id="performedCategoryFilter" onchange="setStrengthCategoryFilter(this.value)">
+                          ${strengthCategoryOptions}
+                        </select>
+                      </div>
+                      <div class="exercise-picker-field">
+                        ${selectedExerciseName ? `
+                          <label>${escapeHtml(t("visible_name"))}</label>
+                          <div class="inline-field-action">
+                            <input id="performedCustomName" placeholder="ex: Lats pecs" value="${escapeAttr(performedEditor.custom_name || "")}" oninput="captureSessionDraft()">
+                            <button type="button" onclick="createExerciseFromPerformedEditor()">${escapeHtml(t("create_in_library"))}</button>
+                          </div>
+                        ` : `
+                          <label>${escapeHtml(t("create_in_library"))}</label>
+                          <button type="button" onclick="createExerciseFromPerformedEditor()">${escapeHtml(t("create_in_library"))}</button>
+                        `}
                       </div>
                     </div>
-                  </div>
+                  </details>
                 `}
                 <div class="exercise-picker-grid secondary">
                   <div class="exercise-picker-field">
