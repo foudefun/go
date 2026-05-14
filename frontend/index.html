@@ -3776,7 +3776,23 @@ async function loadExercisePerformance(exerciseName, options = {}){
 }
 
 function blankPerformedEditor(){
-  return { index: null, exercise_name: "", custom_name: "", work_mode: "normal", work_type: "resistance", weight_unit: "", notes: "", sets: [], used_equipment: [] };
+  return {
+    index: null,
+    exercise_name: "",
+    custom_name: "",
+    work_mode: "normal",
+    work_type: "resistance",
+    weight_unit: "",
+    notes: "",
+    sets: [],
+    used_equipment: [],
+    draft_reps: "",
+    draft_weight: "",
+    draft_duration_hours: "",
+    draft_duration_minutes: "",
+    draft_duration_seconds: "",
+    draft_watts: "",
+  };
 }
 
 function blankPlannedEditor(){
@@ -3830,6 +3846,7 @@ function syncPerformedEditorDraft(){
   if(workType) performedEditor.work_type = normalizeWorkType(workType.value);
   if(weightUnit) performedEditor.weight_unit = normalizeWeightUnit(weightUnit.value || performedEditor.weight_unit || getExerciseWeightUnit(performedEditor.exercise_name));
   if(notes) performedEditor.notes = notes.value.trim();
+  syncPerformedSetInputDraft();
 }
 
 function getPerformedEditorWeightUnit(){
@@ -3845,11 +3862,45 @@ function getPerformedEditorWeightUnit(){
   return normalizeWeightUnit(getExerciseWeightUnit(performedEditor?.exercise_name));
 }
 
+function syncPerformedSetInputDraft(options = {}){
+  if(!performedEditor) return;
+  const sourceUnit = normalizeWeightUnit(options.sourceUnit || getPerformedEditorWeightUnit());
+  const targetUnit = normalizeWeightUnit(options.targetUnit || sourceUnit);
+  const repsInput = document.getElementById("setReps");
+  const weightInput = document.getElementById("setWeight");
+  const hoursInput = document.getElementById("setDurationHours");
+  const minutesInput = document.getElementById("setDurationMinutes");
+  const secondsInput = document.getElementById("setDurationSeconds");
+  const wattsInput = document.getElementById("setWatts");
+  performedEditor.draft_reps = repsInput ? String(repsInput.value || "") : String(performedEditor.draft_reps || "");
+  if(weightInput){
+    const convertedWeight = convertWeightUnit(weightInput.value, sourceUnit, targetUnit);
+    performedEditor.draft_weight = convertedWeight === null ? String(weightInput.value || "") : String(convertedWeight);
+  }
+  performedEditor.draft_duration_hours = hoursInput ? String(hoursInput.value || "") : String(performedEditor.draft_duration_hours || "");
+  performedEditor.draft_duration_minutes = minutesInput ? String(minutesInput.value || "") : String(performedEditor.draft_duration_minutes || "");
+  performedEditor.draft_duration_seconds = secondsInput ? String(secondsInput.value || "") : String(performedEditor.draft_duration_seconds || "");
+  performedEditor.draft_watts = wattsInput ? String(wattsInput.value || "") : String(performedEditor.draft_watts || "");
+}
+
+function clearPerformedSetInputDraft(){
+  if(!performedEditor) return;
+  performedEditor.draft_reps = "";
+  performedEditor.draft_weight = "";
+  performedEditor.draft_duration_hours = "";
+  performedEditor.draft_duration_minutes = "";
+  performedEditor.draft_duration_seconds = "";
+  performedEditor.draft_watts = "";
+}
+
 function updatePerformedWeightUnit(value){
   if(!performedEditor){
     performedEditor = blankPerformedEditor();
   }
-  performedEditor.weight_unit = normalizeWeightUnit(value);
+  const nextUnit = normalizeWeightUnit(value);
+  const previousUnit = getPerformedEditorWeightUnit();
+  syncPerformedSetInputDraft({ sourceUnit: previousUnit, targetUnit: nextUnit });
+  performedEditor.weight_unit = nextUnit;
   captureSessionDraft();
   renderModal();
 }
@@ -4355,6 +4406,7 @@ function addSetToEditor(){
   performedEditor.sets = performedEditor.sets || [];
   performedEditor.sets.push(set);
   performedEditor.weight_unit = weightUnit;
+  clearPerformedSetInputDraft();
   const repsInput = document.getElementById("setReps");
   const weightInput = document.getElementById("setWeight");
   const hoursInput = document.getElementById("setDurationHours");
@@ -5612,23 +5664,23 @@ function renderModal(){
                     <div>
                       <label>${escapeHtml(t("duration_seconds"))}</label>
                       <div class="duration-input-row">
-                        <input id="setDurationHours" type="number" min="0" step="1" inputmode="numeric" placeholder="${escapeAttr(t("hours_short"))}">
-                        <input id="setDurationMinutes" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="${escapeAttr(t("minutes_short"))}">
-                        <input id="setDurationSeconds" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="${escapeAttr(t("seconds_short"))}">
+                        <input id="setDurationHours" type="number" min="0" step="1" inputmode="numeric" placeholder="${escapeAttr(t("hours_short"))}" value="${escapeAttr(performedEditor.draft_duration_hours || "")}">
+                        <input id="setDurationMinutes" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="${escapeAttr(t("minutes_short"))}" value="${escapeAttr(performedEditor.draft_duration_minutes || "")}">
+                        <input id="setDurationSeconds" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="${escapeAttr(t("seconds_short"))}" value="${escapeAttr(performedEditor.draft_duration_seconds || "")}">
                       </div>
                     </div>
                     <div>
                       <label>${escapeHtml(t("watts"))}</label>
-                      <input id="setWatts" type="number" min="0" step="1" placeholder="250">
+                      <input id="setWatts" type="number" min="0" step="1" placeholder="250" value="${escapeAttr(performedEditor.draft_watts || "")}">
                     </div>
                   ` : `
                     <div>
                       <label>${escapeHtml(t("reps"))}</label>
-                      <input id="setReps" type="number" min="0" step="1" placeholder="10">
+                      <input id="setReps" type="number" min="0" step="1" placeholder="10" value="${escapeAttr(performedEditor.draft_reps || "")}">
                     </div>
                     <div>
                       <label>${escapeHtml(selectedWeightUnit === "lb" ? t("weight_lb") : t("weight_kg"))}</label>
-                      <input id="setWeight" type="number" min="0" step="0.5" placeholder="${selectedWeightUnit === "lb" ? "55" : "25"}">
+                      <input id="setWeight" type="number" min="0" step="0.5" placeholder="${selectedWeightUnit === "lb" ? "55" : "25"}" value="${escapeAttr(performedEditor.draft_weight || "")}">
                     </div>
                     <div>
                       <label>${escapeHtml(t("weight_unit"))}</label>
