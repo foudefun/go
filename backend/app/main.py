@@ -8,10 +8,10 @@ import secrets
 import shutil
 import uuid
 from datetime import date, datetime, timedelta, timezone
-from io import StringIO
+from io import BytesIO, StringIO
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from sqlalchemy import Boolean, Column, Float, Integer, String, Text, UniqueConstraint, create_engine
@@ -1120,6 +1120,220 @@ def serialize_user_equipment(
         "purchase_date": row.purchase_date,
         "purchase_price": row.purchase_price,
         "note": row.note or "",
+    }
+
+
+def format_duration_hms(total_seconds) -> str:
+    seconds_value = normalize_optional_int(total_seconds)
+    if seconds_value is None or seconds_value < 0:
+        return ""
+    hours, remainder = divmod(seconds_value, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+
+def build_fit_activity_summary(parsed: dict, source_name: str, extra_details: str = "") -> str:
+    lines = []
+    if parsed.get("source_label"):
+        lines.append(parsed["source_label"])
+    if source_name:
+        lines.append(f"Fichier: {source_name}")
+
+    metrics = []
+    if parsed.get("duration"):
+        metrics.append(f"Durée {parsed['duration']}")
+    if parsed.get("distance_km") is not None:
+        metrics.append(f"Distance {parsed['distance_km']:.2f} km")
+    if parsed.get("avg_power") is not None:
+        metrics.append(f"Puissance moy. {int(round(parsed['avg_power']))} W")
+    if parsed.get("max_power") is not None:
+        metrics.append(f"Puissance max {int(round(parsed['max_power']))} W")
+    if parsed.get("avg_hr") is not None:
+        metrics.append(f"FC moy. {int(round(parsed['avg_hr']))} bpm")
+    if parsed.get("max_hr") is not None:
+        metrics.append(f"FC max {int(round(parsed['max_hr']))} bpm")
+    if parsed.get("avg_cadence") is not None:
+        metrics.append(f"Cadence moy. {int(round(parsed['avg_cadence']))} rpm")
+    if parsed.get("calories") is not None:
+        metrics.append(f"Calories {int(round(parsed['calories']))}")
+
+    if metrics:
+        lines.append(" | ".join(metrics))
+    if extra_details:
+        lines.append(extra_details.strip())
+    return "\n".join(part for part in lines if part).strip()
+
+
+def infer_activity_type_from_fit(sport: str, sub_sport: str) -> str:
+    normalized_sport = str(sport or "").strip().lower()
+    normalized_sub_sport = str(sub_sport or "").strip().lower()
+    if normalized_sport == "running":
+        return "course_a_pied"
+    if normalized_sport in {"cycling", "biking"}:
+        if "mountain" in normalized_sub_sport:
+            return "vtt"
+        return "velo"
+    return ""
+
+
+def parse_fit_activity_file(content: bytes, filename: str = "") -> dict:
+    try:
+        from fitparse import FitFile
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="FIT import is not available on the server yet.",
+        ) from exc
+
+    try:
+        fit_file = FitFile(BytesIO(content))
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unable to read this FIT file") from exc
+
+    session_message = None
+    file_id_message = None
+    first_record_timestamp = None
+    last_record_timestamp = None
+    last_record_distance = None
+    record_count = 0
+
+    try:
+        for message in fit_file.get_messages():
+            message_name = getattr(message, "name", "")
+            if message_name == "file_id" and file_id_message is None:
+                file_id_message = message
+            elif message_name == "session" and session_message is None:
+                session_message = message
+            elif message_name == "record":
+                record_count += 1
+                timestamp = message.get_value("timestamp")
+                if isinstance(timestamp, datetime):
+                    if first_record_timestamp is None or timestamp < first_record_timestamp:
+                        first_record_timestamp = timestamp
+                    if last_record_timestamp is None or timestamp > last_record_timestamp:
+                        last_record_timestamp = timestamp
+                distance_value = normalize_optional_float(message.get_value("distance"))
+                if distance_value is not None:
+                    last_record_distance = distance_value
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed while parsing FIT activity data") from exc
+
+    if session_message is None and file_id_message is None and record_count == 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No usable activity data found in this FIT file")
+
+    session_start = session_message.get_value("start_time") if session_message else None
+    if not isinstance(session_start, datetime):
+        session_start = first_record_timestamp
+    if not isinstance(session_start, datetime):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This FIT file does not contain a valid activity date")
+
+    sport = ""
+    sub_sport = ""
+    if session_message is not None:
+        sport = str(session_message.get_value("sport") or "")
+        sub_sport = str(session_message.get_value("sub_sport") or "")
+    if not sport and file_id_message is not None:
+        sport = str(file_id_message.get_value("sport") or "")
+
+    duration_seconds = None
+    if session_message is not None:
+        duration_seconds = normalize_optional_int(session_message.get_value("total_timer_time"))
+        if duration_seconds is None:
+            duration_seconds = normalize_optional_int(session_message.get_value("total_elapsed_time"))
+    if duration_seconds is None and first_record_timestamp and last_record_timestamp:
+        duration_seconds = max(0, int((last_record_timestamp - first_record_timestamp).total_seconds()))
+
+    distance_m = None
+    if session_message is not None:
+        distance_m = normalize_optional_float(session_message.get_value("total_distance"))
+    if distance_m is None and last_record_distance is not None:
+        distance_m = last_record_distance
+
+    avg_power = normalize_optional_float(session_message.get_value("avg_power") if session_message else None)
+    max_power = normalize_optional_float(session_message.get_value("max_power") if session_message else None)
+    avg_hr = normalize_optional_float(session_message.get_value("avg_heart_rate") if session_message else None)
+    max_hr = normalize_optional_float(session_message.get_value("max_heart_rate") if session_message else None)
+    avg_cadence = normalize_optional_float(session_message.get_value("avg_cadence") if session_message else None)
+    calories = normalize_optional_float(session_message.get_value("total_calories") if session_message else None)
+
+    source_label = "Importé depuis un fichier FIT"
+    if sport:
+        sport_label = sport.replace("_", " ").strip()
+        if sub_sport:
+            sport_label = f"{sport_label} ({sub_sport.replace('_', ' ').strip()})"
+        source_label = f"Import FIT: {sport_label}"
+
+    return {
+        "date": session_start.date().isoformat(),
+        "started_at": session_start.isoformat(),
+        "sport": sport.strip().lower(),
+        "sub_sport": sub_sport.strip().lower(),
+        "activity_type": infer_activity_type_from_fit(sport, sub_sport),
+        "duration_seconds": duration_seconds,
+        "duration": format_duration_hms(duration_seconds),
+        "distance_m": distance_m,
+        "distance_km": round(distance_m / 1000, 2) if distance_m is not None else None,
+        "avg_power": avg_power,
+        "max_power": max_power,
+        "avg_hr": avg_hr,
+        "max_hr": max_hr,
+        "avg_cadence": avg_cadence,
+        "calories": calories,
+        "record_count": record_count,
+        "source_label": source_label,
+        "source_file": str(filename or "").strip(),
+    }
+
+
+def import_activity_file_into_db(
+    db,
+    username: str,
+    *,
+    parsed_activity: dict,
+    activity_type_override: str = "",
+    date_override: str = "",
+    title: str = "",
+    note: str = "",
+) -> dict:
+    target_date = str(date_override or parsed_activity.get("date") or "").strip()
+    if not target_date:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No target date could be determined from the activity file")
+    try:
+        date.fromisoformat(target_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid target date for imported activity") from exc
+
+    row = get_session_obj(db, username, target_date)
+    existing_payload = session_payload_from_row(row) if row else normalize_session_payload({})
+    existing_activities = [normalize_activity_entry(item) for item in get_session_activities(existing_payload)]
+
+    activity_type = normalize_activity_type(activity_type_override) or normalize_activity_type(parsed_activity.get("activity_type")) or "velo"
+    summary = build_fit_activity_summary(parsed_activity, parsed_activity.get("source_file", ""), title)
+    imported_activity = normalize_activity_entry({
+        "activity_type": activity_type,
+        "activity_details": summary,
+        "note": str(note or "").strip(),
+    })
+    existing_activities.append(imported_activity)
+
+    payload_to_save = dict(existing_payload)
+    payload_to_save["activities"] = existing_activities
+    payload_to_save["draft_active_activity_index"] = len(existing_activities) - 1
+    payload_to_save["draft_updated_at"] = ""
+    normalized_payload = normalize_session_payload(payload_to_save)
+
+    if row:
+        row.data = json.dumps(normalized_payload, ensure_ascii=False)
+    else:
+        db.add(SessionModel(username=username, date=target_date, data=json.dumps(normalized_payload, ensure_ascii=False)))
+
+    db.commit()
+    return {
+        "date": target_date,
+        "activity_index": len(existing_activities) - 1,
+        "activity_type": activity_type,
+        "activity_count": len(existing_activities),
+        "summary": summary,
     }
 
 def parse_json_import_payload(content: str) -> dict:
@@ -2796,6 +3010,70 @@ def import_program(payload: dict, current_user: UserModel = Depends(get_current_
         return {"ok": True, **result}
     finally:
         db.close()
+
+
+@app.post("/api/import/activity-file")
+async def import_activity_file(
+    file: UploadFile = File(...),
+    format: str = Form("fit"),
+    activity_type_override: str = Form(""),
+    date_override: str = Form(""),
+    title: str = Form(""),
+    note: str = Form(""),
+    current_user: UserModel = Depends(get_current_user),
+):
+    selected_format = str(format or "fit").strip().lower()
+    if selected_format != "fit":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only FIT activity import is supported for now")
+
+    filename = str(file.filename or "").strip()
+    if not filename:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="An activity file is required")
+    if Path(filename).suffix.lower() != ".fit":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please upload a .fit file")
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The uploaded file is empty")
+
+    parsed_activity = parse_fit_activity_file(content, filename)
+
+    db = get_db()
+    try:
+        result = import_activity_file_into_db(
+            db,
+            current_user.username,
+            parsed_activity=parsed_activity,
+            activity_type_override=activity_type_override,
+            date_override=date_override,
+            title=title,
+            note=note,
+        )
+        write_audit_log(
+            db,
+            current_user.username,
+            "import_activity_file",
+            "session",
+            result["date"],
+            f"Imported {selected_format.upper()} activity into {result['date']} ({result['activity_type']})",
+        )
+        db.commit()
+        return {
+            "ok": True,
+            "imported_date": result["date"],
+            "activity_index": result["activity_index"],
+            "activity_count": result["activity_count"],
+            "activity_type": result["activity_type"],
+            "summary": result["summary"],
+            "detected_format": selected_format,
+            "detected_sport": parsed_activity.get("sport", ""),
+            "detected_sub_sport": parsed_activity.get("sub_sport", ""),
+            "distance_km": parsed_activity.get("distance_km"),
+            "duration": parsed_activity.get("duration", ""),
+        }
+    finally:
+        db.close()
+
 
 @app.get("/api/session/{date_str}")
 def read_session(date_str: str, current_user: UserModel = Depends(get_current_user)):
