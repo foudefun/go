@@ -34,7 +34,9 @@ if not DB_PATH.is_absolute():
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 UPLOADS_DIR = DB_PATH.parent / "uploads"
 EXERCISE_UPLOADS_DIR = UPLOADS_DIR / "exercises"
+ACTIVITY_UPLOADS_DIR = UPLOADS_DIR / "activities"
 EXERCISE_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+ACTIVITY_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 engine = create_engine(f"sqlite:///{DB_PATH.as_posix()}", connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine)
@@ -290,6 +292,7 @@ DEFAULT_ACTIVITY = {
     "physio_time": "",
     "activity_type": "",
     "activity_details": "",
+    "image": "",
     "climbing_routes": [],
     "performed_items": [],
     "used_equipment": [],
@@ -535,6 +538,7 @@ def activity_has_content(payload: dict) -> bool:
         payload.get("performed_items")
         or str(payload.get("activity_type", "") or "").strip()
         or str(payload.get("activity_details", "") or "").strip()
+        or str(payload.get("image", "") or "").strip()
         or payload.get("climbing_routes")
         or float(payload.get("load", 0) or 0) > 0
         or str(payload.get("physio_time", "") or "").strip()
@@ -582,6 +586,7 @@ def normalize_activity_entry(payload: dict) -> dict:
         "physio_time": normalize_physio_time(base.get("physio_time", "")),
         "activity_type": normalized_activity_type,
         "activity_details": str(base.get("activity_details", "") or "").strip(),
+        "image": str(base.get("image", "") or "").strip(),
         "climbing_routes": [
             normalized_route
             for item in base.get("climbing_routes", [])
@@ -656,6 +661,7 @@ def compute_session_status(payload: dict) -> str:
         payload.get("performed_items")
         or str(payload.get("activity_type", "") or "").strip()
         or str(payload.get("activity_details", "") or "").strip()
+        or str(payload.get("image", "") or "").strip()
         or payload.get("climbing_routes")
         or float(payload.get("load", 0) or 0) > 0
         or str(payload.get("physio_time", "") or "").strip()
@@ -705,6 +711,7 @@ def normalize_session_payload(payload: dict, existing: dict | None = None) -> di
         "physio_time": mirrored_activity.get("physio_time", ""),
         "activity_type": mirrored_activity.get("activity_type", ""),
         "activity_details": mirrored_activity.get("activity_details", ""),
+        "image": mirrored_activity.get("image", ""),
         "climbing_routes": mirrored_activity.get("climbing_routes", []),
         "performed_items": mirrored_activity.get("performed_items", []),
         "plan_activity_type": normalize_activity_type(base.get("plan_activity_type", "")),
@@ -912,6 +919,17 @@ def resolve_uploaded_exercise_path(image_url: str) -> Path | None:
     if not filename:
         return None
     return EXERCISE_UPLOADS_DIR / filename
+
+
+def resolve_uploaded_activity_path(image_url: str) -> Path | None:
+    prefix = "/api/uploads/activities/"
+    value = str(image_url or "").strip()
+    if not value.startswith(prefix):
+        return None
+    filename = Path(value.removeprefix(prefix)).name
+    if not filename:
+        return None
+    return ACTIVITY_UPLOADS_DIR / filename
 
 
 def set_exercise_images(row: ExerciseModel, images: list[str]) -> None:
@@ -2243,6 +2261,119 @@ def delete_exercise_image(name: str, payload: dict, current_user: UserModel = De
 def get_uploaded_exercise_image(filename: str):
     safe_filename = Path(filename).name
     target_path = EXERCISE_UPLOADS_DIR / safe_filename
+    if not target_path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+    return FileResponse(target_path)
+
+
+@app.post("/api/session/{date_str}/activities/{activity_index}/upload-image")
+def upload_activity_image(
+    date_str: str,
+    activity_index: int,
+    image_file: UploadFile = File(...),
+    current_user: UserModel = Depends(get_current_user),
+):
+    db = get_db()
+    try:
+        row = get_session_obj(db, current_user.username, date_str)
+        if not row:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+        payload = session_payload_from_row(row)
+        activities = get_session_activities(payload)
+        if not activities and activity_index == 0:
+            activities = [normalize_activity_entry(DEFAULT_ACTIVITY)]
+        if activity_index < 0 or activity_index >= len(activities):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Activity not found")
+
+        suffix = sanitize_upload_suffix(image_file.filename)
+        if not suffix:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported image format")
+
+        safe_username = "".join(ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in current_user.username).strip("_") or "user"
+        safe_date = date_str.replace("-", "")
+        target_name = f"{safe_username}_{safe_date}_activity_{activity_index + 1}_{uuid.uuid4().hex[:12]}{suffix}"
+        target_path = ACTIVITY_UPLOADS_DIR / target_name
+
+        with target_path.open("wb") as output:
+            shutil.copyfileobj(image_file.file, output)
+
+        activity = normalize_activity_entry(activities[activity_index])
+        previous_image = str(activity.get("image", "") or "").strip()
+        image_url = f"/api/uploads/activities/{target_name}"
+        activity["image"] = image_url
+        activities[activity_index] = activity
+        row.data = json.dumps(normalize_session_payload({
+            "activities": activities,
+            "draft_active_activity_index": activity_index,
+        }, payload))
+        uploaded_path = resolve_uploaded_activity_path(previous_image)
+        if uploaded_path and uploaded_path.is_file():
+            uploaded_path.unlink(missing_ok=True)
+        write_audit_log(
+            db,
+            current_user.username,
+            "upload_activity_image",
+            "session_activity",
+            f"{date_str}:{activity_index}",
+            f"Uploaded image for activity {activity_index + 1} on {date_str}",
+        )
+        db.commit()
+        return {"ok": True, "image_url": image_url, "session": session_payload_from_row(row)}
+    finally:
+        image_file.file.close()
+        db.close()
+
+
+@app.post("/api/session/{date_str}/activities/{activity_index}/delete-image")
+def delete_activity_image(
+    date_str: str,
+    activity_index: int,
+    current_user: UserModel = Depends(get_current_user),
+):
+    db = get_db()
+    try:
+        row = get_session_obj(db, current_user.username, date_str)
+        if not row:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+        payload = session_payload_from_row(row)
+        activities = get_session_activities(payload)
+        if activity_index < 0 or activity_index >= len(activities):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Activity not found")
+
+        activity = normalize_activity_entry(activities[activity_index])
+        image_url = str(activity.get("image", "") or "").strip()
+        if not image_url:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Activity image not found")
+
+        activity["image"] = ""
+        activities[activity_index] = activity
+        row.data = json.dumps(normalize_session_payload({
+            "activities": activities,
+            "draft_active_activity_index": activity_index,
+        }, payload))
+        uploaded_path = resolve_uploaded_activity_path(image_url)
+        if uploaded_path and uploaded_path.is_file():
+            uploaded_path.unlink(missing_ok=True)
+        write_audit_log(
+            db,
+            current_user.username,
+            "delete_activity_image",
+            "session_activity",
+            f"{date_str}:{activity_index}",
+            f"Deleted image for activity {activity_index + 1} on {date_str}",
+        )
+        db.commit()
+        return {"ok": True, "session": session_payload_from_row(row)}
+    finally:
+        db.close()
+
+
+@app.get("/api/uploads/activities/{filename}")
+def get_uploaded_activity_image(filename: str):
+    safe_filename = Path(filename).name
+    target_path = ACTIVITY_UPLOADS_DIR / safe_filename
     if not target_path.is_file():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
     return FileResponse(target_path)
