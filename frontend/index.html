@@ -1113,13 +1113,13 @@ UI_TEXT.fr.delete_exercise_button = "Supprimer l'exercice";
 UI_TEXT.fr.delete_exercise_warning = "Suppression sensible. Tape exactement {word} pour confirmer la suppression de \"{name}\".";
 UI_TEXT.fr.delete_confirm_word = "SUPPRIMER";
 UI_TEXT.fr.delete_activity_button = "Supprimer l'activite";
-UI_TEXT.fr.delete_activity_warning = "Suppression sensible. Tape exactement {word} pour confirmer la suppression de l'activite en cours.";
+UI_TEXT.fr.delete_activity_confirm = "Supprimer cette activité ?";
 UI_TEXT.fr.edit_activity_button = "Modifier";
 UI_TEXT.en.delete_exercise_button = "Delete exercise";
 UI_TEXT.en.delete_exercise_warning = "Sensitive deletion. Type exactly {word} to confirm deletion of \"{name}\".";
 UI_TEXT.en.delete_confirm_word = "DELETE";
 UI_TEXT.en.delete_activity_button = "Delete activity";
-UI_TEXT.en.delete_activity_warning = "Sensitive deletion. Type exactly {word} to confirm deletion of the current activity.";
+UI_TEXT.en.delete_activity_confirm = "Delete this activity?";
 UI_TEXT.en.edit_activity_button = "Edit";
 
 let currentDate = null;
@@ -4097,11 +4097,8 @@ function deleteDayActivityAtIndex(index){
       return;
     }
   }
-  const confirmationWord = t("delete_confirm_word");
-  const confirmation = window.prompt(
-    t("delete_activity_warning").replace("{word}", confirmationWord)
-  );
-  if(confirmation !== confirmationWord){
+  const confirmed = window.confirm(t("delete_activity_confirm"));
+  if(!confirmed){
     return;
   }
   const safeIndex = Math.max(0, Math.min(Number(index) || 0, Math.max(0, session.activities.length - 1)));
