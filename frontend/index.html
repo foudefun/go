@@ -2972,13 +2972,9 @@ function renderActivityImagePanel(){
     <div class="activity-image-card">
       <div>
         <label>${escapeHtml(t("activity_photo"))}</label>
-        <div class="small" style="margin-top:4px;">${escapeHtml(t("activity_photo_help"))}</div>
+        ${imageUrl ? `<div class="small" style="margin-top:4px;">${escapeHtml(t("activity_photo_help"))}</div>` : ""}
       </div>
-      <div class="activity-image-preview-wrap">
-        ${imageUrl
-          ? renderZoomableImage([imageUrl], 0, "activity-image-preview", t("activity_photo"))
-          : `<div class="activity-image-placeholder">${escapeHtml(t("no_activity_photo"))}</div>`}
-      </div>
+      ${imageUrl ? `<div class="activity-image-preview-wrap">${renderZoomableImage([imageUrl], 0, "activity-image-preview", t("activity_photo"))}</div>` : ""}
       <div class="actions">
         <input id="activityImageUpload" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
         <button type="button" onclick="uploadActivityImage()">${escapeHtml(t("upload_activity_photo"))}</button>
@@ -3074,7 +3070,7 @@ function getExerciseImageUrlsByName(name){
 function renderSessionExerciseMedia(name, altLabel){
   const imageUrls = getExerciseImageUrlsByName(name);
   if(!imageUrls.length){
-    return `<div class="session-exercise-thumb placeholder">Sans image</div>`;
+    return "";
   }
   return renderZoomableImage(imageUrls, 0, "session-exercise-thumb", altLabel || getExerciseLabel(name));
 }
@@ -3082,7 +3078,7 @@ function renderSessionExerciseMedia(name, altLabel){
 function renderExerciseDetailPreview(name, altLabel){
   const imageUrls = getExerciseImageUrlsByName(name);
   if(!imageUrls.length){
-    return `<div class="editor-exercise-preview-main placeholder">Sans image</div>`;
+    return "";
   }
   const gallery = imageUrls.length > 1
     ? `<div class="editor-exercise-gallery">${imageUrls.slice(1).map((url, index) => renderZoomableImage(imageUrls, index + 1, "session-exercise-thumb", `${altLabel || getExerciseLabel(name)} ${index + 2}`)).join("")}</div>`
@@ -5833,7 +5829,7 @@ function renderModal(){
 
   document.getElementById("content").innerHTML = `
     <h3>${currentDate}</h3>
-    <div class="card" style="margin-bottom:0;">
+    <div class="card" style="display:none; margin-bottom:0;">
       <div class="row">
         <div>
           <label>Date de l'activité</label>
@@ -5843,7 +5839,7 @@ function renderModal(){
           <button onclick="openModalForPickedDate()">Ouvrir cette date</button>
         </div>
       </div>
-      <div id="sessionAutosaveStatus" class="small" style="margin-top:8px;"></div>
+      <div id="sessionAutosaveStatus" class="small" style="display:none;"></div>
     </div>
 
     ${showRehabInfo ? `
