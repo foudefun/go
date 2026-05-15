@@ -6932,6 +6932,7 @@ function addSetToEditor(){
   performedEditor.sets = performedEditor.sets || [];
   performedEditor.sets.push(set);
   performedEditor.weight_unit = weightUnit;
+  clearPerformedSetInputDraft();
   const repsInput = document.getElementById("setReps");
   const weightInput = document.getElementById("setWeight");
   const hoursInput = document.getElementById("setDurationHours");
