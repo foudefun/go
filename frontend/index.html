@@ -5752,12 +5752,12 @@ function renderModal(){
     String(session.activity_type || "").trim()
   );
   const activitiesHtml = (session.activities || []).map((activity, index) => `
-    <div class="activity-row ${index === activeActivityIndex ? "active" : ""}">
-      <div class="activity-row-summary">
-        <div class="activity-row-title">${escapeHtml(t("activity_number").replace("{number}", String(index + 1)))}</div>
+    <div class="activity-row ${index === activeActivityIndex ? "active" : ""}" style="display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:10px; align-items:center; border:1px solid #dbe3ef; border-radius:12px; background:${index === activeActivityIndex ? "#f0fdf4" : "#fff"}; padding:10px 12px;">
+      <div class="activity-row-summary" style="min-width:0; display:grid; gap:2px;">
+        <div class="activity-row-title" style="font-weight:700; color:#0f172a; overflow-wrap:anywhere;">${escapeHtml(t("activity_number").replace("{number}", String(index + 1)))}</div>
         <div class="small">${escapeHtml(getActivityDisplaySummary(activity, index))}</div>
       </div>
-      <div class="activity-row-actions">
+      <div class="activity-row-actions" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
         <button type="button" class="${index === activeActivityIndex ? "btn-save" : "btn-cancel"}" onclick="switchToDayActivity(${index})" title="${escapeAttr(t("switch_to_activity"))}">${escapeHtml(t("edit_activity_button"))}</button>
         <button type="button" class="btn-delete" onclick="deleteDayActivityAtIndex(${index})">${escapeHtml(t("delete_activity_button"))}</button>
       </div>
@@ -5948,7 +5948,6 @@ function renderModal(){
 
     <div class="card">
       <h4>${escapeHtml(t("activities_for_day"))}</h4>
-      <div class="small">${escapeHtml(t("current_activity"))}: ${escapeHtml(t("activity_number").replace("{number}", String(activeActivityIndex + 1)))}</div>
       <div class="activity-list">
         ${activitiesHtml || `<span class="small">${escapeHtml(t("performed_summary_empty"))}</span>`}
       </div>
