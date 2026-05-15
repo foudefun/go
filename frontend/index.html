@@ -1100,6 +1100,12 @@ UI_TEXT.fr.activity_title = "Titre de l'activite";
 UI_TEXT.fr.activity_title_placeholder = "ex: MyWhoosh endurance, sortie longue, match...";
 UI_TEXT.en.activity_title = "Activity title";
 UI_TEXT.en.activity_title_placeholder = "e.g. MyWhoosh endurance, long ride, match...";
+UI_TEXT.fr.delete_exercise_button = "Supprimer l'exercice";
+UI_TEXT.fr.delete_exercise_warning = "Suppression sensible. Tape exactement {word} pour confirmer la suppression de \"{name}\".";
+UI_TEXT.fr.delete_confirm_word = "SUPPRIMER";
+UI_TEXT.en.delete_exercise_button = "Delete exercise";
+UI_TEXT.en.delete_exercise_warning = "Sensitive deletion. Type exactly {word} to confirm deletion of \"{name}\".";
+UI_TEXT.en.delete_confirm_word = "DELETE";
 
 let currentDate = null;
 let session = {};
@@ -1720,6 +1726,7 @@ async function loadExercises(forceRefresh = false){
         <div class="exercise-card-actions">
           <button onclick="editExercise('${escapeAttr(toJs(selectedExercise))}')">${escapeHtml(t("exercise_editor_detail_button"))}</button>
           <button onclick="editExercise('${escapeAttr(toJs(selectedExercise))}')">${escapeHtml(t("exercise_editor_image_button"))}</button>
+          <button class="btn-delete" onclick="delEx('${escapeAttr(selectedExercise.name)}', '${escapeAttr(getExerciseDisplayName(selectedExercise))}')">${escapeHtml(t("delete_exercise_button"))}</button>
           <button onclick="clearExerciseSelection()">${escapeHtml(t("close_button"))}</button>
         </div>
         <div class="helper-box" style="margin-top:12px;">
@@ -1883,6 +1890,7 @@ async function loadExercises(forceRefresh = false){
         <div class="actions">
           <button onclick="saveExercise()">${escapeHtml(t("save_exercise"))}</button>
           <button onclick="resetExerciseForm()">${escapeHtml(editingExercise ? t("cancel_edit") : t("close_editor_button"))}</button>
+          ${editingExercise ? `<button class="btn-delete" onclick="delEx('${escapeAttr(editingExercise.name)}', '${escapeAttr(getExerciseDisplayName(editingExercise))}')">${escapeHtml(t("delete_exercise_button"))}</button>` : ""}
         </div>
       </div>
     `;
@@ -5384,10 +5392,13 @@ async function deleteExerciseImage(imageUrl){
 async function delEx(name, displayName = ""){
   const safeName = String(name || "").trim();
   const safeDisplayName = String(displayName || safeName).trim();
+  const confirmationWord = t("delete_confirm_word");
   const confirmation = window.prompt(
-    `Suppression sensible.\nTape exactement SUPPRIMER pour confirmer la suppression de \"${safeDisplayName}\".`
+    t("delete_exercise_warning")
+      .replace("{word}", confirmationWord)
+      .replace("{name}", safeDisplayName)
   );
-  if(confirmation !== "SUPPRIMER"){
+  if(confirmation !== confirmationWord){
     return;
   }
   await api(`/exercises/${encodeURIComponent(safeName)}`, { method:"DELETE" });
