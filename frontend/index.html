@@ -4063,8 +4063,24 @@ function deleteCurrentActivity(){
   syncSessionGeneralDraft();
   commitSessionViewToActiveActivity();
   session.activities = Array.isArray(session.activities) ? session.activities : [];
+  const currentDraftActivity = normalizeDayActivityClient({
+    exercises: session.exercises,
+    note: session.note,
+    status: session.status,
+    load: session.load,
+    physio_time: session.physio_time,
+    title: session.activity_title,
+    activity_type: session.activity_type,
+    activity_details: session.activity_details,
+    image: session.image,
+    climbing_routes: session.climbing_routes,
+    performed_items: session.performed_items,
+    used_equipment: session.used_equipment,
+  });
   if(!session.activities.length){
-    return;
+    if(!activityHasContentClient(currentDraftActivity)){
+      return;
+    }
   }
   const confirmationWord = t("delete_confirm_word");
   const confirmation = window.prompt(
@@ -4073,7 +4089,9 @@ function deleteCurrentActivity(){
   if(confirmation !== confirmationWord){
     return;
   }
-  session.activities.splice(activeActivityIndex, 1);
+  if(session.activities.length){
+    session.activities.splice(activeActivityIndex, 1);
+  }
   const nextIndex = session.activities.length ? Math.max(0, Math.min(activeActivityIndex, session.activities.length - 1)) : 0;
   loadActivityIntoSessionView(nextIndex);
   performedEditor = blankPerformedEditor();
@@ -5717,6 +5735,7 @@ function renderModal(){
     String(session.note || "").trim() ||
     String(session.activity_type || "").trim()
   );
+  const canDeleteCurrentActivity = Boolean((session.activities || []).length || hasSavedActivity);
   const activitiesHtml = (session.activities || []).map((activity, index) => `
     <button type="button" class="${index === activeActivityIndex ? "btn-save" : "btn-cancel"}" onclick="switchToDayActivity(${index})" title="${escapeAttr(t("switch_to_activity"))}">
       ${escapeHtml(getActivityDisplaySummary(activity, index))}
@@ -5911,7 +5930,7 @@ function renderModal(){
       <div class="actions" style="margin-top:10px;">
         ${activitiesHtml || `<span class="small">${escapeHtml(t("performed_summary_empty"))}</span>`}
         <button class="btn-add" type="button" onclick="addDayActivity()">${escapeHtml(t("add_new_activity"))}</button>
-        ${(session.activities || []).length ? `<button class="btn-delete" type="button" onclick="deleteCurrentActivity()">${escapeHtml(t("delete_activity_button"))}</button>` : ""}
+        ${canDeleteCurrentActivity ? `<button class="btn-delete" type="button" onclick="deleteCurrentActivity()">${escapeHtml(t("delete_activity_button"))}</button>` : ""}
       </div>
     </div>
 
