@@ -1103,9 +1103,13 @@ UI_TEXT.en.activity_title_placeholder = "e.g. MyWhoosh endurance, long ride, mat
 UI_TEXT.fr.delete_exercise_button = "Supprimer l'exercice";
 UI_TEXT.fr.delete_exercise_warning = "Suppression sensible. Tape exactement {word} pour confirmer la suppression de \"{name}\".";
 UI_TEXT.fr.delete_confirm_word = "SUPPRIMER";
+UI_TEXT.fr.delete_activity_button = "Supprimer l'activite";
+UI_TEXT.fr.delete_activity_warning = "Suppression sensible. Tape exactement {word} pour confirmer la suppression de l'activite en cours.";
 UI_TEXT.en.delete_exercise_button = "Delete exercise";
 UI_TEXT.en.delete_exercise_warning = "Sensitive deletion. Type exactly {word} to confirm deletion of \"{name}\".";
 UI_TEXT.en.delete_confirm_word = "DELETE";
+UI_TEXT.en.delete_activity_button = "Delete activity";
+UI_TEXT.en.delete_activity_warning = "Sensitive deletion. Type exactly {word} to confirm deletion of the current activity.";
 
 let currentDate = null;
 let session = {};
@@ -4055,6 +4059,29 @@ function addDayActivity(){
   requestAnimationFrame(() => scrollToPerformedEditor());
 }
 
+function deleteCurrentActivity(){
+  syncSessionGeneralDraft();
+  commitSessionViewToActiveActivity();
+  session.activities = Array.isArray(session.activities) ? session.activities : [];
+  if(!session.activities.length){
+    return;
+  }
+  const confirmationWord = t("delete_confirm_word");
+  const confirmation = window.prompt(
+    t("delete_activity_warning").replace("{word}", confirmationWord)
+  );
+  if(confirmation !== confirmationWord){
+    return;
+  }
+  session.activities.splice(activeActivityIndex, 1);
+  const nextIndex = session.activities.length ? Math.max(0, Math.min(activeActivityIndex, session.activities.length - 1)) : 0;
+  loadActivityIntoSessionView(nextIndex);
+  performedEditor = blankPerformedEditor();
+  performedExerciseSearch = "";
+  captureSessionDraft();
+  renderModal();
+}
+
 function syncPerformedEditorDraft(){
   if(!performedEditor) return;
   const exerciseSelect = document.getElementById("performedExerciseSelect");
@@ -5884,6 +5911,7 @@ function renderModal(){
       <div class="actions" style="margin-top:10px;">
         ${activitiesHtml || `<span class="small">${escapeHtml(t("performed_summary_empty"))}</span>`}
         <button class="btn-add" type="button" onclick="addDayActivity()">${escapeHtml(t("add_new_activity"))}</button>
+        ${(session.activities || []).length ? `<button class="btn-delete" type="button" onclick="deleteCurrentActivity()">${escapeHtml(t("delete_activity_button"))}</button>` : ""}
       </div>
     </div>
 
