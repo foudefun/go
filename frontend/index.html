@@ -4116,6 +4116,21 @@ function clearPerformedSetInputDraft(){
   performedEditor.draft_watts = "";
 }
 
+function resetPerformedSetInputsDom(){
+  const repsInput = document.getElementById("setReps");
+  const weightInput = document.getElementById("setWeight");
+  const hoursInput = document.getElementById("setDurationHours");
+  const minutesInput = document.getElementById("setDurationMinutes");
+  const secondsInput = document.getElementById("setDurationSeconds");
+  const wattsInput = document.getElementById("setWatts");
+  if(repsInput) repsInput.value = "";
+  if(weightInput) weightInput.value = "";
+  if(hoursInput) hoursInput.value = "";
+  if(minutesInput) minutesInput.value = "";
+  if(secondsInput) secondsInput.value = "";
+  if(wattsInput) wattsInput.value = "";
+}
+
 function updatePerformedWeightUnit(value){
   if(!performedEditor){
     performedEditor = blankPerformedEditor();
@@ -4643,6 +4658,7 @@ function addSetToEditor(){
   if(secondsInput) secondsInput.value = "";
   if(wattsInput) wattsInput.value = "";
   renderModal();
+  requestAnimationFrame(resetPerformedSetInputsDom);
 }
 
 function removeEditorSet(index){
@@ -6946,6 +6962,7 @@ function addSetToEditor(){
   if(secondsInput) secondsInput.value = "";
   if(wattsInput) wattsInput.value = "";
   renderModal();
+  requestAnimationFrame(resetPerformedSetInputsDom);
 }
 
 installSemanticButtonStyling();
