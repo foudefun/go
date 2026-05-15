@@ -5750,7 +5750,7 @@ function renderModal(){
     session.image ? t("activity_photo").toLowerCase() : "",
   ].filter(Boolean);
   const performedItemsHtml = (session.performed_items || []).map((item, index) => `
-    <details class="performed-card" ${hasSavedActivity ? "open" : ""}>
+    <details class="performed-card">
       <summary class="performed-header">
         <div class="performed-header-main">
           <div>
