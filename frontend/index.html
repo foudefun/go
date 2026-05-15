@@ -83,6 +83,13 @@ textarea { min-height:80px; }
 .session-toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; }
 .session-toolbar.compact { gap:6px; }
 .session-stack { display:grid; gap:14px; }
+.activity-list { display:grid; gap:8px; margin-top:10px; }
+.activity-row { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:10px; align-items:center; border:1px solid #dbe3ef; border-radius:12px; background:#fff; padding:10px 12px; }
+.activity-row.active { border-color:#86efac; background:#f0fdf4; }
+.activity-row-summary { min-width:0; display:grid; gap:2px; }
+.activity-row-title { font-weight:700; color:#0f172a; overflow-wrap:anywhere; }
+.activity-row-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.activity-row-actions button { min-width:92px; }
 .category-chip-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
 .category-chip { border:1px solid #cbd5e1; background:#f8fafc; color:#334155; border-radius:999px; padding:7px 12px; font-size:13px; font-weight:600; cursor:pointer; }
 .category-chip.active { background:#0f172a; color:#fff; border-color:#0f172a; }
@@ -286,6 +293,8 @@ label { display:block; font-size:13px; }
   .exercise-review-layout, .exercise-edit-preview-layout { grid-template-columns:1fr; }
   .exercise-review-media { max-width:none; position:static; }
   .session-toolbar, .performed-header, .session-exercise-detail { flex-direction:column; grid-template-columns:1fr; }
+  .activity-row { grid-template-columns:1fr; }
+  .activity-row-actions { justify-content:flex-start; }
   .performed-header-aside { grid-template-columns:76px minmax(0, 1fr); gap:8px; }
   .performed-header .session-exercise-thumb,
   .performed-header .session-exercise-thumb.placeholder { width:76px; height:76px; }
@@ -1105,11 +1114,13 @@ UI_TEXT.fr.delete_exercise_warning = "Suppression sensible. Tape exactement {wor
 UI_TEXT.fr.delete_confirm_word = "SUPPRIMER";
 UI_TEXT.fr.delete_activity_button = "Supprimer l'activite";
 UI_TEXT.fr.delete_activity_warning = "Suppression sensible. Tape exactement {word} pour confirmer la suppression de l'activite en cours.";
+UI_TEXT.fr.edit_activity_button = "Modifier";
 UI_TEXT.en.delete_exercise_button = "Delete exercise";
 UI_TEXT.en.delete_exercise_warning = "Sensitive deletion. Type exactly {word} to confirm deletion of \"{name}\".";
 UI_TEXT.en.delete_confirm_word = "DELETE";
 UI_TEXT.en.delete_activity_button = "Delete activity";
 UI_TEXT.en.delete_activity_warning = "Sensitive deletion. Type exactly {word} to confirm deletion of the current activity.";
+UI_TEXT.en.edit_activity_button = "Edit";
 
 let currentDate = null;
 let session = {};
@@ -4060,6 +4071,10 @@ function addDayActivity(){
 }
 
 function deleteCurrentActivity(){
+  deleteDayActivityAtIndex(activeActivityIndex);
+}
+
+function deleteDayActivityAtIndex(index){
   syncSessionGeneralDraft();
   commitSessionViewToActiveActivity();
   session.activities = Array.isArray(session.activities) ? session.activities : [];
@@ -4089,10 +4104,11 @@ function deleteCurrentActivity(){
   if(confirmation !== confirmationWord){
     return;
   }
+  const safeIndex = Math.max(0, Math.min(Number(index) || 0, Math.max(0, session.activities.length - 1)));
   if(session.activities.length){
-    session.activities.splice(activeActivityIndex, 1);
+    session.activities.splice(safeIndex, 1);
   }
-  const nextIndex = session.activities.length ? Math.max(0, Math.min(activeActivityIndex, session.activities.length - 1)) : 0;
+  const nextIndex = session.activities.length ? Math.max(0, Math.min(activeActivityIndex > safeIndex ? activeActivityIndex - 1 : activeActivityIndex, session.activities.length - 1)) : 0;
   loadActivityIntoSessionView(nextIndex);
   performedEditor = blankPerformedEditor();
   performedExerciseSearch = "";
@@ -5735,11 +5751,17 @@ function renderModal(){
     String(session.note || "").trim() ||
     String(session.activity_type || "").trim()
   );
-  const canDeleteCurrentActivity = Boolean((session.activities || []).length || hasSavedActivity);
   const activitiesHtml = (session.activities || []).map((activity, index) => `
-    <button type="button" class="${index === activeActivityIndex ? "btn-save" : "btn-cancel"}" onclick="switchToDayActivity(${index})" title="${escapeAttr(t("switch_to_activity"))}">
-      ${escapeHtml(getActivityDisplaySummary(activity, index))}
-    </button>
+    <div class="activity-row ${index === activeActivityIndex ? "active" : ""}">
+      <div class="activity-row-summary">
+        <div class="activity-row-title">${escapeHtml(t("activity_number").replace("{number}", String(index + 1)))}</div>
+        <div class="small">${escapeHtml(getActivityDisplaySummary(activity, index))}</div>
+      </div>
+      <div class="activity-row-actions">
+        <button type="button" class="${index === activeActivityIndex ? "btn-save" : "btn-cancel"}" onclick="switchToDayActivity(${index})" title="${escapeAttr(t("switch_to_activity"))}">${escapeHtml(t("edit_activity_button"))}</button>
+        <button type="button" class="btn-delete" onclick="deleteDayActivityAtIndex(${index})">${escapeHtml(t("delete_activity_button"))}</button>
+      </div>
+    </div>
   `).join("");
   const performedSummaryParts = [
     String(session.activity_title || "").trim(),
@@ -5927,10 +5949,11 @@ function renderModal(){
     <div class="card">
       <h4>${escapeHtml(t("activities_for_day"))}</h4>
       <div class="small">${escapeHtml(t("current_activity"))}: ${escapeHtml(t("activity_number").replace("{number}", String(activeActivityIndex + 1)))}</div>
-      <div class="actions" style="margin-top:10px;">
+      <div class="activity-list">
         ${activitiesHtml || `<span class="small">${escapeHtml(t("performed_summary_empty"))}</span>`}
+      </div>
+      <div class="actions" style="margin-top:10px;">
         <button class="btn-add" type="button" onclick="addDayActivity()">${escapeHtml(t("add_new_activity"))}</button>
-        ${canDeleteCurrentActivity ? `<button class="btn-delete" type="button" onclick="deleteCurrentActivity()">${escapeHtml(t("delete_activity_button"))}</button>` : ""}
       </div>
     </div>
 
