@@ -42,3 +42,19 @@ export function uploadExerciseImage(name, file) {
     body: formData,
   });
 }
+
+export function setPrimaryExerciseImage(name, imageUrl) {
+  return api(`/exercises/${encodeURIComponent(name)}/set-primary-image`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image_url: imageUrl }),
+  });
+}
+
+export function deleteExerciseImage(name, imageUrl) {
+  return api(`/exercises/${encodeURIComponent(name)}/delete-image`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image_url: imageUrl }),
+  });
+}

@@ -1256,6 +1256,10 @@ label {
   background: #ffe4e6;
 }
 
+.danger-action.compact {
+  width: 100%;
+}
+
 .image-dropzone {
   width: 100%;
   min-height: 108px;
@@ -1297,7 +1301,12 @@ label {
 
 .exercise-image-preview-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 10px;
+}
+
+.exercise-image-preview-item {
+  display: grid;
   gap: 8px;
 }
 
@@ -1314,6 +1323,18 @@ label {
   border-radius: 8px;
   background: #fff;
   padding: 5px;
+}
+
+.image-preview-actions {
+  display: grid;
+  gap: 6px;
+}
+
+.image-preview-actions button {
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 9px;
+  font-size: 12px;
 }
 
 .image-lightbox-backdrop {

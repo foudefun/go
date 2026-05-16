@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createExercise, deleteExercise, getExercises, mergeExerciseInto, updateExercise, uploadExerciseImage } from "../api/exerciseApi.js";
+import {
+  createExercise,
+  deleteExercise,
+  deleteExerciseImage,
+  getExercises,
+  mergeExerciseInto,
+  setPrimaryExerciseImage,
+  updateExercise,
+  uploadExerciseImage,
+} from "../api/exerciseApi.js";
 import { useAuth } from "../auth/AuthProvider.jsx";
 import {
   TRACKING_MODES,
@@ -145,11 +154,14 @@ function ExerciseEditor({
   canUploadImage,
   uploadingImage,
   imageUploadError,
+  managingImage,
   canDelete,
   onChange,
   onSave,
   onCancel,
   onUploadImage,
+  onSetPrimaryImage,
+  onDeleteImage,
   onMerge,
   onDelete,
   onViewImage,
@@ -347,9 +359,19 @@ function ExerciseEditor({
         {images.length ? (
           <div className="exercise-image-preview-list" aria-label="Current images">
             {images.map((image) => (
-              <button type="button" key={image} className="image-preview-button" onClick={() => onViewImage(image, getExerciseLabel(draft, language))}>
-                <img src={image} alt="" />
-              </button>
+              <div key={image} className="exercise-image-preview-item">
+                <button type="button" className="image-preview-button" onClick={() => onViewImage(image, getExerciseLabel(draft, language))}>
+                  <img src={image} alt="" />
+                </button>
+                <div className="image-preview-actions">
+                  <button type="button" disabled={image === images[0] || managingImage} onClick={() => onSetPrimaryImage(image)}>
+                    {image === images[0] ? "Main image" : "Set as main"}
+                  </button>
+                  <button type="button" className="danger-action compact" disabled={managingImage} onClick={() => onDeleteImage(image)}>
+                    Delete
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         ) : null}
@@ -435,6 +457,7 @@ export default function ExercisesPage() {
   const [editorOriginalName, setEditorOriginalName] = useState("");
   const [draft, setDraft] = useState(blankExercise);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [managingImage, setManagingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState("");
   const [imageViewer, setImageViewer] = useState({ image: "", title: "" });
 
@@ -537,6 +560,42 @@ export default function ExercisesPage() {
       setImageUploadError(uploadError.message);
     } finally {
       setUploadingImage(false);
+    }
+  }
+
+  async function refreshExerciseFromImageResult(result, fallbackName = editorOriginalName) {
+    const nextDraft = normalizeExerciseDraft(result.exercise || draft);
+    setDraft(nextDraft);
+    setSelectedName(nextDraft.name || fallbackName);
+    await loadExercises(nextDraft.name || fallbackName);
+  }
+
+  async function handleSetPrimaryImage(imageUrl) {
+    if (editorMode !== "edit" || !editorOriginalName || !imageUrl) return;
+    setManagingImage(true);
+    setImageUploadError("");
+    try {
+      const result = await setPrimaryExerciseImage(editorOriginalName, imageUrl);
+      await refreshExerciseFromImageResult(result);
+    } catch (imageError) {
+      setImageUploadError(imageError.message);
+    } finally {
+      setManagingImage(false);
+    }
+  }
+
+  async function handleDeleteImage(imageUrl) {
+    if (editorMode !== "edit" || !editorOriginalName || !imageUrl) return;
+    if (!window.confirm("Delete this exercise image?")) return;
+    setManagingImage(true);
+    setImageUploadError("");
+    try {
+      const result = await deleteExerciseImage(editorOriginalName, imageUrl);
+      await refreshExerciseFromImageResult(result);
+    } catch (imageError) {
+      setImageUploadError(imageError.message);
+    } finally {
+      setManagingImage(false);
     }
   }
 
@@ -647,11 +706,14 @@ export default function ExercisesPage() {
               canUploadImage={editorMode === "edit" && Boolean(editorOriginalName)}
               uploadingImage={uploadingImage}
               imageUploadError={imageUploadError}
+              managingImage={managingImage}
               canDelete={Boolean(user?.isAdmin && editorMode === "edit" && editorOriginalName)}
               onChange={setDraft}
               onSave={handleSave}
               onCancel={() => setEditorMode("")}
               onUploadImage={handleUploadExerciseImage}
+              onSetPrimaryImage={handleSetPrimaryImage}
+              onDeleteImage={handleDeleteImage}
               onMerge={handleMergeExercise}
               onDelete={handleDelete}
               onViewImage={openImageViewer}
