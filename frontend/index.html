@@ -1385,8 +1385,8 @@ function renderCalendarDayCard(dateStr, row, { today, showRehabCalendarInfo, com
   if(dateStr === today) classes.push("today");
   if(dateStr < today) classes.push("past-row");
   const planned = (row?.planned_exercises || []).map(formatExerciseName).join(", ");
-  const performed = (row?.performed_exercises || []).map(formatExerciseName).join(", ");
-  const activityBadge = renderActivityBadge(row?.activity_type || "", { compact: true });
+  const performed = getCalendarPerformedSummary(row);
+  const activityBadge = renderCalendarActivityBadges(row, { compact: true });
   const targetLine = showRehabCalendarInfo ? `<div class="small calendar-day-target">J${row?.rehab_day || "-"} · cible ${row?.target_load ?? "-"}</div>` : "";
   const physioLine = row?.physio_time ? `<div class="small">Physio: ${escapeHtml(row.physio_time)}</div>` : "";
   return `
@@ -1484,11 +1484,11 @@ async function loadCalendar(){
         html += `<tr class="${rowClass}" onclick="openDay('${s.date}')">
           <td>${s.date}</td>
           <td>J${s.rehab_day}</td>
-          <td>${renderActivityBadge(s.activity_type || "") || "-"}</td>
+          <td>${renderCalendarActivityBadges(s) || escapeHtml((s.activity_summaries || []).join(", ") || "-")}</td>
           <td>${s.target_load}</td>
           <td>${s.physio_time || "-"}</td>
           <td>${escapeHtml((s.planned_exercises || []).map(formatExerciseName).join(", ") || "-")}</td>
-          <td>${escapeHtml((s.performed_exercises || []).map(formatExerciseName).join(", ") || "-")}</td>
+          <td>${escapeHtml(getCalendarPerformedSummary(s) || "-")}</td>
         </tr>`;
       });
     html += "</tbody></table></div>";
@@ -2874,6 +2874,28 @@ function renderActivityBadge(activityType, options = {}){
   return `<span class="activity-badge${compact ? " compact" : ""}" style="background:${meta.color};">${escapeHtml(label)}</span>`;
 }
 
+function getCalendarRowActivityTypes(row){
+  const types = Array.isArray(row?.activity_types) ? row.activity_types : [];
+  if(types.length) return types.filter(Boolean);
+  return row?.activity_type ? [row.activity_type] : [];
+}
+
+function renderCalendarActivityBadges(row, options = {}){
+  const compact = Boolean(options.compact);
+  const badges = getCalendarRowActivityTypes(row)
+    .slice(0, compact ? 2 : 3)
+    .map((activityType) => renderActivityBadge(activityType, { compact }))
+    .filter(Boolean)
+    .join(" ");
+  return badges || "";
+}
+
+function getCalendarPerformedSummary(row){
+  const summaries = Array.isArray(row?.activity_summaries) ? row.activity_summaries.filter(Boolean) : [];
+  if(summaries.length) return summaries.join(", ");
+  return (row?.performed_exercises || []).map(formatExerciseName).join(", ");
+}
+
 function getLocalTodayIso(){
   const now = new Date();
   const offset = now.getTimezoneOffset();
@@ -3437,6 +3459,18 @@ function getActivityDisplaySummary(activity, index){
   ].filter(Boolean);
   const baseLabel = t("activity_number").replace("{number}", String(index + 1));
   return parts.length ? `${baseLabel} · ${parts.join(" | ")}` : baseLabel;
+}
+
+function getActivityDisplayTitle(activity, index){
+  const normalized = normalizeDayActivityClient(activity);
+  const title = String(normalized.title || "").trim();
+  if(title) return title;
+  if(normalized.activity_type) return getActivityLabel(normalized.activity_type);
+  const firstPerformed = normalized.performed_items?.[0];
+  if(firstPerformed) return getPerformedItemLabel(firstPerformed);
+  const details = String(normalized.activity_details || "").trim();
+  if(details) return details;
+  return t("activity_number").replace("{number}", String(index + 1));
 }
 
 function ensureSessionCollections(){
@@ -5806,7 +5840,7 @@ function renderModal(){
   const activitiesHtml = (session.activities || []).map((activity, index) => `
     <div class="activity-row ${index === activeActivityIndex ? "active" : ""}" style="display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:10px; align-items:center; border:1px solid #dbe3ef; border-radius:12px; background:${index === activeActivityIndex ? "#f0fdf4" : "#fff"}; padding:10px 12px;">
       <div class="activity-row-summary" style="min-width:0; display:grid; gap:2px;">
-        <div class="activity-row-title" style="font-weight:700; color:#0f172a; overflow-wrap:anywhere;">${escapeHtml(t("activity_number").replace("{number}", String(index + 1)))}</div>
+        <div class="activity-row-title" style="font-weight:700; color:#0f172a; overflow-wrap:anywhere;">${escapeHtml(getActivityDisplayTitle(activity, index))}</div>
         <div class="small">${escapeHtml(getActivityDisplaySummary(activity, index))}</div>
       </div>
       <div class="activity-row-actions" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
@@ -5985,7 +6019,7 @@ function renderModal(){
   const overviewActivitiesHtml = (session.activities || []).map((activity, index) => `
     <div class="activity-row" style="display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:10px; align-items:center; border:1px solid #dbe3ef; border-radius:12px; background:#fff; padding:10px 12px;">
       <div class="activity-row-summary" style="min-width:0; display:grid; gap:2px;">
-        <div class="activity-row-title" style="font-weight:700; color:#0f172a; overflow-wrap:anywhere;">${escapeHtml(t("activity_number").replace("{number}", String(index + 1)))}</div>
+        <div class="activity-row-title" style="font-weight:700; color:#0f172a; overflow-wrap:anywhere;">${escapeHtml(getActivityDisplayTitle(activity, index))}</div>
         <div class="small">${escapeHtml(getActivityDisplaySummary(activity, index))}</div>
       </div>
       <div class="activity-row-actions" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">

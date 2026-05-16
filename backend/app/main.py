@@ -656,6 +656,69 @@ def get_calendar_display_exercises(payload: dict) -> list[str]:
         ]
     )
 
+
+def build_calendar_activity_entries(payload: dict) -> list[dict]:
+    activities = [normalize_activity_entry(item) for item in get_session_activities(payload)]
+    if activities:
+        return [activity for activity in activities if activity_has_content(activity)]
+
+    legacy_activity = normalize_activity_entry({
+        "title": payload.get("title", ""),
+        "activity_type": payload.get("activity_type", ""),
+        "activity_details": payload.get("activity_details", ""),
+        "image": payload.get("image", ""),
+        "climbing_routes": payload.get("climbing_routes", []),
+        "performed_items": payload.get("performed_items", []),
+        "used_equipment": payload.get("used_equipment", []),
+        "load": payload.get("load", 0),
+        "physio_time": payload.get("physio_time", ""),
+        "note": payload.get("note", ""),
+    })
+    return [legacy_activity] if activity_has_content(legacy_activity) else []
+
+
+def get_calendar_activity_summaries(payload: dict) -> list[str]:
+    summaries: list[str] = []
+    for activity in build_calendar_activity_entries(payload):
+        title = str(activity.get("title", "") or "").strip()
+        activity_type = str(activity.get("activity_type", "") or "").strip()
+        details = str(activity.get("activity_details", "") or "").strip()
+        type_label = ACTIVITY_LABELS.get(activity_type, {}).get("fr", "") if activity_type else ""
+        performed_count = len(activity.get("performed_items", []) or [])
+        climbing_count = len(activity.get("climbing_routes", []) or [])
+        if title:
+            summaries.append(title)
+            continue
+        if details and not type_label:
+            summaries.append(details)
+            continue
+        if type_label and details:
+            summaries.append(f"{type_label} | {details}")
+            continue
+        if type_label:
+            if performed_count:
+                summaries.append(f"{type_label} | {performed_count} ex.")
+            elif climbing_count:
+                summaries.append(f"{type_label} | {climbing_count} voie(s)")
+            else:
+                summaries.append(type_label)
+            continue
+        if performed_count:
+            summaries.append(f"{performed_count} ex.")
+        elif climbing_count:
+            summaries.append(f"{climbing_count} voie(s)")
+    return unique_names(summaries)
+
+
+def get_calendar_activity_types(payload: dict) -> list[str]:
+    return unique_names(
+        [
+            str(activity.get("activity_type", "") or "").strip()
+            for activity in build_calendar_activity_entries(payload)
+            if str(activity.get("activity_type", "") or "").strip()
+        ]
+    )
+
 def compute_session_status(payload: dict) -> str:
     activities = get_session_activities(payload)
     if activities and any(activity_has_content(activity) for activity in activities):
@@ -3151,6 +3214,8 @@ def get_calendar(
             row = get_session_obj(db, current_user.username, date_str)
             payload = session_payload_from_row(row)
             activities = get_session_activities(payload)
+            activity_summaries = get_calendar_activity_summaries(payload)
+            activity_types = get_calendar_activity_types(payload)
             target = get_target_for_date(date_str)
             display_exercises = get_calendar_display_exercises(payload)
             planned_exercises = unique_names(
@@ -3177,6 +3242,8 @@ def get_calendar(
                 "sport_allowed": target["sport_allowed"],
                 "physio_time": payload.get("physio_time", ""),
                 "activity_type": payload.get("activity_type", ""),
+                "activity_types": activity_types,
+                "activity_summaries": activity_summaries,
                 "activity_details": payload.get("activity_details", ""),
                 "climbing_routes": payload.get("climbing_routes", []),
                 "exercises": display_exercises,
