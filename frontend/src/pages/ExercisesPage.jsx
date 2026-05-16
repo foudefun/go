@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { createExercise, deleteExercise, getExercises, updateExercise } from "../api/exerciseApi.js";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createExercise, deleteExercise, getExercises, updateExercise, uploadExerciseImage } from "../api/exerciseApi.js";
 import { useAuth } from "../auth/AuthProvider.jsx";
 import {
   TRACKING_MODES,
@@ -73,7 +73,21 @@ function ExerciseDetail({ exercise, language, onEdit, onNew, onDelete, canDelete
   );
 }
 
-function ExerciseEditor({ draft, mode, saving, onChange, onSave, onCancel }) {
+function ExerciseEditor({
+  draft,
+  mode,
+  saving,
+  canUploadImage,
+  uploadingImage,
+  imageUploadError,
+  onChange,
+  onSave,
+  onCancel,
+  onUploadImage,
+}) {
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const fileInputRef = useRef(null);
+
   function updateField(field, value) {
     onChange((current) => {
       const next = { ...current, [field]: value };
@@ -83,6 +97,22 @@ function ExerciseEditor({ draft, mode, saving, onChange, onSave, onCancel }) {
       return next;
     });
   }
+
+  function handleImageFiles(files) {
+    const file = Array.from(files || []).find((candidate) => candidate.type.startsWith("image/"));
+    if (file && canUploadImage) {
+      onUploadImage(file);
+    }
+  }
+
+  function handleDrop(event) {
+    event.preventDefault();
+    setIsDraggingImage(false);
+    handleImageFiles(event.dataTransfer.files);
+  }
+
+  const imageUploadDisabled = !canUploadImage || uploadingImage;
+  const images = getExerciseImages(draft);
 
   return (
     <section className="app-panel exercise-editor-panel">
@@ -159,6 +189,58 @@ function ExerciseEditor({ draft, mode, saving, onChange, onSave, onCancel }) {
         </label>
       </div>
 
+      <div className="exercise-image-upload-grid">
+        <div>
+          <p className="field-label">Exercise image</p>
+          <button
+            type="button"
+            className={
+              isDraggingImage && !imageUploadDisabled
+                ? "image-dropzone active"
+                : imageUploadDisabled
+                  ? "image-dropzone disabled"
+                  : "image-dropzone"
+            }
+            disabled={imageUploadDisabled}
+            onClick={() => fileInputRef.current?.click()}
+            onDragEnter={(event) => {
+              event.preventDefault();
+              if (!imageUploadDisabled) setIsDraggingImage(true);
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              if (!imageUploadDisabled) setIsDraggingImage(true);
+            }}
+            onDragLeave={(event) => {
+              event.preventDefault();
+              setIsDraggingImage(false);
+            }}
+            onDrop={handleDrop}
+          >
+            <span>{uploadingImage ? "Uploading image..." : "Drop image here or choose a file"}</span>
+            <small>{canUploadImage ? "PNG, JPEG, WebP or GIF" : "Save the exercise before uploading images."}</small>
+          </button>
+          <input
+            ref={fileInputRef}
+            className="visually-hidden"
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            onChange={(event) => {
+              handleImageFiles(event.target.files);
+              event.target.value = "";
+            }}
+          />
+          {imageUploadError ? <p className="form-error-text">{imageUploadError}</p> : null}
+        </div>
+        {images.length ? (
+          <div className="exercise-image-preview-list" aria-label="Current images">
+            {images.map((image) => (
+              <img key={image} src={image} alt="" />
+            ))}
+          </div>
+        ) : null}
+      </div>
+
       <label>
         Description
         <textarea value={draft.description || ""} onChange={(event) => updateField("description", event.target.value)} />
@@ -197,6 +279,8 @@ export default function ExercisesPage() {
   const [editorMode, setEditorMode] = useState("");
   const [editorOriginalName, setEditorOriginalName] = useState("");
   const [draft, setDraft] = useState(blankExercise);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState("");
 
   function loadExercises(nextSelectedName = selectedName) {
     setStatus("loading");
@@ -236,12 +320,14 @@ export default function ExercisesPage() {
     setEditorMode("create");
     setEditorOriginalName("");
     setDraft(blankExercise());
+    setImageUploadError("");
   }
 
   function openEditEditor(exercise) {
     setEditorMode("edit");
     setEditorOriginalName(exercise.name);
     setDraft(normalizeExerciseDraft(exercise));
+    setImageUploadError("");
   }
 
   async function handleSave() {
@@ -275,6 +361,23 @@ export default function ExercisesPage() {
     } catch (deleteError) {
       setError(deleteError.message);
       setStatus("ready");
+    }
+  }
+
+  async function handleUploadExerciseImage(file) {
+    if (editorMode !== "edit" || !editorOriginalName) return;
+    setUploadingImage(true);
+    setImageUploadError("");
+    try {
+      const result = await uploadExerciseImage(editorOriginalName, file);
+      const nextDraft = normalizeExerciseDraft(result.exercise || { ...draft, image: result.image_url });
+      setDraft(nextDraft);
+      setSelectedName(nextDraft.name || editorOriginalName);
+      await loadExercises(nextDraft.name || editorOriginalName);
+    } catch (uploadError) {
+      setImageUploadError(uploadError.message);
+    } finally {
+      setUploadingImage(false);
     }
   }
 
@@ -353,9 +456,13 @@ export default function ExercisesPage() {
               draft={draft}
               mode={editorMode}
               saving={status === "saving"}
+              canUploadImage={editorMode === "edit" && Boolean(editorOriginalName)}
+              uploadingImage={uploadingImage}
+              imageUploadError={imageUploadError}
               onChange={setDraft}
               onSave={handleSave}
               onCancel={() => setEditorMode("")}
+              onUploadImage={handleUploadExerciseImage}
             />
           ) : (
             <ExerciseDetail

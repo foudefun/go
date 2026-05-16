@@ -1145,6 +1145,93 @@ label {
   font-size: 14px;
 }
 
+.exercise-image-upload-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 220px);
+  gap: 12px;
+  align-items: start;
+}
+
+.field-label {
+  display: block;
+  margin: 0 0 6px;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.image-dropzone {
+  width: 100%;
+  min-height: 108px;
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  border: 1px dashed #9fb0c8;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #172033;
+  padding: 16px;
+  text-align: center;
+}
+
+.image-dropzone span,
+.image-dropzone small {
+  display: block;
+}
+
+.image-dropzone span {
+  font-weight: 800;
+}
+
+.image-dropzone small {
+  color: #667085;
+  font-weight: 700;
+}
+
+.image-dropzone.active {
+  border-color: #0f766e;
+  background: #ecfdf5;
+  color: #0f766e;
+}
+
+.image-dropzone.disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.exercise-image-preview-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 8px;
+}
+
+.exercise-image-preview-list img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  border: 1px solid #dce4f0;
+  border-radius: 8px;
+  background: #fff;
+  padding: 5px;
+}
+
+.form-error-text {
+  margin: 8px 0 0;
+  color: #b42318;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .equipment-image {
   width: 54px;
   height: 54px;
@@ -1637,6 +1724,7 @@ label {
   .admin-layout,
   .exercise-library-layout,
   .exercise-detail-panel,
+  .exercise-image-upload-grid,
   .equipment-detail-panel,
   .equipment-owned-layout,
   .equipment-taxonomy-grid {

@@ -25,3 +25,12 @@ export function deleteExercise(name) {
     method: "DELETE",
   });
 }
+
+export function uploadExerciseImage(name, file) {
+  const formData = new FormData();
+  formData.append("image_file", file);
+  return api(`/exercises/${encodeURIComponent(name)}/upload-image`, {
+    method: "POST",
+    body: formData,
+  });
+}
