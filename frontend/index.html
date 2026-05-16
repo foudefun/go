@@ -1393,6 +1393,7 @@ function renderCalendarDayCard(dateStr, row, { today, showRehabCalendarInfo, com
       <div class="calendar-day-number">${new Date(`${dateStr}T00:00:00`).getDate()}</div>
       <div class="calendar-day-lines">
         <div class="calendar-day-activity">${activityBadge || ""}</div>
+        ${activityTypeSummary ? `<div class="small">${escapeHtml(activityTypeSummary)}</div>` : ""}
         ${targetLine}
         ${physioLine}
         <div class="small">Prévu: ${escapeHtml(planned || "-")}</div>
@@ -1555,6 +1556,7 @@ function renderCalendarDayCard(dateStr, row, { today, showRehabCalendarInfo, com
   if(dateStr < today) classes.push("past-row");
   const planned = (row?.planned_exercises || []).map(formatExerciseName).join(", ");
   const activityBadge = renderCalendarActivityBadges(row, { compact: true });
+  const activityTypeSummary = getCalendarActivityTypeSummary(row, { compact: true });
   const targetLine = (showRehabCalendarInfo && shouldShowRehabHistoryForDate(dateStr))
     ? `<div class="small calendar-day-target">J${row?.rehab_day || "-"} · cible ${row?.target_load ?? "-"}</div>`
     : "";
@@ -1564,6 +1566,7 @@ function renderCalendarDayCard(dateStr, row, { today, showRehabCalendarInfo, com
       <div class="calendar-day-number">${new Date(`${dateStr}T00:00:00`).getDate()}</div>
       <div class="calendar-day-lines">
         <div class="calendar-day-activity">${activityBadge || ""}</div>
+        ${activityTypeSummary ? `<div class="small">${escapeHtml(activityTypeSummary)}</div>` : ""}
         ${targetLine}
         ${physioLine}
         <div class="small">Prévu: ${escapeHtml(planned || "-")}</div>
@@ -2884,6 +2887,15 @@ function renderCalendarActivityBadges(row, options = {}){
     .filter(Boolean)
     .join(" ");
   return badges || "";
+}
+
+function getCalendarActivityTypeSummary(row, options = {}){
+  const compact = Boolean(options.compact);
+  return getCalendarRowActivityTypes(row)
+    .slice(0, compact ? 3 : 4)
+    .map((activityType) => compact ? getActivityShortLabel(activityType) : getActivityLabel(activityType))
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function getCalendarPerformedSummary(row){
