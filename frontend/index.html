@@ -184,7 +184,7 @@ textarea { min-height:80px; }
 .calendar-day-number { font-weight:700; }
 .calendar-day-lines { display:grid; gap:4px; }
 .calendar-day-lines .small { font-size:12px; line-height:1.35; }
-.calendar-day-activity { display:flex; align-items:flex-start; min-height:24px; }
+.calendar-day-activity { display:flex; align-items:flex-start; flex-wrap:wrap; gap:4px; min-height:24px; }
 .calendar-day-target { font-weight:600; color:#475569; }
 .activity-badge { display:inline-flex; align-items:center; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; color:#0f172a; width:max-content; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .activity-badge.compact { padding:3px 8px; font-size:11px; line-height:1.1; border:1px solid rgba(15,23,42,0.08); }
@@ -6101,7 +6101,7 @@ function renderModal(){
             <label>${escapeHtml(t("real_day_load"))}</label>
             <input id="load" value="${session.load || 0}" oninput="captureSessionDraft()">
           </div>
-          <div>
+          <div style="${session.physio_time ? "" : "display:none;"}">
             <label>${escapeHtml(t("physio_time_label"))}</label>
             <input id="physioTime" type="time" value="${session.physio_time || ""}" onchange="captureSessionDraft()">
           </div>
