@@ -141,7 +141,7 @@ function buildSavePayload(session, activeIndex) {
   };
 }
 
-export default function DaySessionModal({ date, onClose, onSaved }) {
+export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpen = false }) {
   const [session, setSession] = useState(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [status, setStatus] = useState("loading");
@@ -158,11 +158,16 @@ export default function DaySessionModal({ date, onClose, onSaved }) {
       .then((payload) => {
         if (!isMounted) return;
         const normalized = normalizeSession(payload);
-        setSession(normalized);
+        const nextActivities = createNewOnOpen ? [...(normalized.activities || []), blankActivity()] : normalized.activities;
+        const nextSession = { ...normalized, activities: nextActivities };
+        setSession(nextSession);
         setActiveIndex(
           Math.max(
             0,
-            Math.min(normalized.draft_active_activity_index || 0, Math.max(normalized.activities.length - 1, 0)),
+            Math.min(
+              createNewOnOpen ? nextActivities.length - 1 : nextSession.draft_active_activity_index || 0,
+              Math.max(nextActivities.length - 1, 0),
+            ),
           ),
         );
         setStatus("ready");
@@ -175,7 +180,7 @@ export default function DaySessionModal({ date, onClose, onSaved }) {
     return () => {
       isMounted = false;
     };
-  }, [date]);
+  }, [date, createNewOnOpen]);
 
   useEffect(() => {
     let isMounted = true;

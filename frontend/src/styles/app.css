@@ -269,6 +269,18 @@ label {
   flex-wrap: wrap;
 }
 
+.activity-add-controls {
+  display: flex;
+  align-items: end;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.activity-add-controls label {
+  min-width: 180px;
+}
+
 .month-controls label {
   width: 180px;
 }
@@ -1505,6 +1517,14 @@ label {
   .calendar-toolbar,
   .summary-grid {
     align-items: stretch;
+  }
+
+  .module-header {
+    flex-direction: column;
+  }
+
+  .activity-add-controls {
+    justify-content: flex-start;
   }
 
   .topbar {

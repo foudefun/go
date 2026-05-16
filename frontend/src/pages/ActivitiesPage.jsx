@@ -1,21 +1,46 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCalendar } from "../api/calendarApi.js";
+import DaySessionModal from "../sessions/components/DaySessionModal.jsx";
+
+function formatLocalDateIso(dateValue) {
+  const year = dateValue.getFullYear();
+  const month = String(dateValue.getMonth() + 1).padStart(2, "0");
+  const day = String(dateValue.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getLocalTodayIso() {
+  return formatLocalDateIso(new Date());
+}
 
 export default function ActivitiesPage() {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
+  const [status, setStatus] = useState("loading");
+  const [activityDate, setActivityDate] = useState(getLocalTodayIso());
+  const [selectedDate, setSelectedDate] = useState("");
 
-  useEffect(() => {
-    let isMounted = true;
+  function loadActivityRows({ mountedRef } = {}) {
+    setStatus("loading");
+    setError("");
     getCalendar({ daysBack: 45, daysForward: 7 })
       .then((payload) => {
-        if (isMounted) setRows(Array.isArray(payload) ? payload : []);
+        if (mountedRef && !mountedRef.current) return;
+        setRows(Array.isArray(payload) ? payload : []);
+        setStatus("ready");
       })
       .catch((activityError) => {
-        if (isMounted) setError(activityError.message);
+        if (mountedRef && !mountedRef.current) return;
+        setError(activityError.message);
+        setStatus("error");
       });
+  }
+
+  useEffect(() => {
+    const mountedRef = { current: true };
+    loadActivityRows({ mountedRef });
     return () => {
-      isMounted = false;
+      mountedRef.current = false;
     };
   }, []);
 
@@ -42,11 +67,26 @@ export default function ActivitiesPage() {
           <p className="eyebrow">Training</p>
           <h1>Activities</h1>
         </div>
-        <a className="secondary-action" href="/legacy.html">
-          Add Activity
-        </a>
+        <div className="activity-add-controls">
+          <label>
+            Date
+            <input
+              type="date"
+              value={activityDate}
+              onChange={(event) => setActivityDate(event.target.value || getLocalTodayIso())}
+            />
+          </label>
+          <button
+            className="primary-action"
+            type="button"
+            onClick={() => setSelectedDate(activityDate || getLocalTodayIso())}
+          >
+            Add Activity
+          </button>
+        </div>
       </section>
       {error ? <div className="error-banner">{error}</div> : null}
+      {status === "loading" ? <div className="empty-state">Loading activities...</div> : null}
       <section className="card-grid">
         {activities.map((activity) => (
           <article className="app-panel activity-card" key={activity.id}>
@@ -55,8 +95,18 @@ export default function ActivitiesPage() {
             <small>{activity.types || "Activity"}</small>
           </article>
         ))}
-        {!activities.length && !error ? <div className="app-panel empty-state">No recent activities loaded.</div> : null}
+        {!activities.length && status !== "loading" && !error ? (
+          <div className="app-panel empty-state">No recent activities loaded.</div>
+        ) : null}
       </section>
+      {selectedDate ? (
+        <DaySessionModal
+          date={selectedDate}
+          createNewOnOpen
+          onClose={() => setSelectedDate("")}
+          onSaved={() => loadActivityRows()}
+        />
+      ) : null}
     </main>
   );
 }
