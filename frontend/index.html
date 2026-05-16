@@ -1393,7 +1393,7 @@ function renderCalendarDayCard(dateStr, row, { today, showRehabCalendarInfo, com
       <div class="calendar-day-number">${new Date(`${dateStr}T00:00:00`).getDate()}</div>
       <div class="calendar-day-lines">
         <div class="calendar-day-activity">${activityBadge || ""}</div>
-        ${activityTypeSummary ? `<div class="small">${escapeHtml(activityTypeSummary)}</div>` : ""}
+        ${activitySummary ? `<div class="small" style="font-weight:700; line-height:1.25;">${escapeHtml(activitySummary)}</div>` : ""}
         ${targetLine}
         ${physioLine}
         <div class="small">Prévu: ${escapeHtml(planned || "-")}</div>
@@ -1556,6 +1556,7 @@ function renderCalendarDayCard(dateStr, row, { today, showRehabCalendarInfo, com
   if(dateStr < today) classes.push("past-row");
   const planned = (row?.planned_exercises || []).map(formatExerciseName).join(", ");
   const activityBadge = renderCalendarActivityBadges(row, { compact: true });
+  const activitySummary = getCalendarCompactActivitySummary(row);
   const activityTypeSummary = getCalendarActivityTypeSummary(row, { compact: true });
   const targetLine = (showRehabCalendarInfo && shouldShowRehabHistoryForDate(dateStr))
     ? `<div class="small calendar-day-target">J${row?.rehab_day || "-"} · cible ${row?.target_load ?? "-"}</div>`
@@ -1566,7 +1567,7 @@ function renderCalendarDayCard(dateStr, row, { today, showRehabCalendarInfo, com
       <div class="calendar-day-number">${new Date(`${dateStr}T00:00:00`).getDate()}</div>
       <div class="calendar-day-lines">
         <div class="calendar-day-activity">${activityBadge || ""}</div>
-        ${activityTypeSummary ? `<div class="small">${escapeHtml(activityTypeSummary)}</div>` : ""}
+        ${activitySummary ? `<div class="small" style="font-weight:700; line-height:1.25;">${escapeHtml(activitySummary)}</div>` : ""}
         ${targetLine}
         ${physioLine}
         <div class="small">Prévu: ${escapeHtml(planned || "-")}</div>
@@ -2898,6 +2899,17 @@ function getCalendarActivityTypeSummary(row, options = {}){
     .join(" · ");
 }
 
+function getCalendarCompactActivitySummary(row){
+  const summaries = Array.isArray(row?.activity_summaries) ? row.activity_summaries.filter(Boolean) : [];
+  if(summaries.length){
+    return summaries.slice(0, 2).join(" · ");
+  }
+  const typeSummary = getCalendarActivityTypeSummary(row, { compact: true });
+  if(typeSummary) return typeSummary;
+  const count = Number(row?.activity_count || 0);
+  return count > 1 ? `${count} activités` : "";
+}
+
 function getCalendarPerformedSummary(row){
   const summaries = Array.isArray(row?.activity_summaries) ? row.activity_summaries.filter(Boolean) : [];
   if(summaries.length) return summaries.join(", ");
@@ -2911,7 +2923,7 @@ function getLocalTodayIso(){
 }
 
 function shouldShowRehabHistoryForDate(dateStr){
-  return authState?.username === "JST" && String(dateStr || "").trim() < getLocalTodayIso();
+  return authState?.username === "JST" && String(dateStr || "").trim() <= "2026-05-14";
 }
 
 function formatLocalDateIso(dateValue){
