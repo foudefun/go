@@ -12,8 +12,8 @@ What this gives you:
 
 - backend runs `uvicorn --reload`
 - backend code is mounted from `backend/app`
-- frontend files are mounted directly from `frontend`
-- most frontend edits only need a browser refresh
+- frontend runs the Vite React dev server
+- React edits hot-reload in the browser
 - most backend Python edits auto-reload without rebuilding
 
 Open:
@@ -21,10 +21,14 @@ Open:
 - frontend: `http://localhost`
 - backend: `http://localhost:8000`
 
-If you change `frontend/nginx.conf`, restart the frontend container:
+The previous static app is still available at:
+
+- legacy tracker: `http://localhost/legacy.html`
+
+If you change frontend dependencies or Docker settings, rebuild the frontend container:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml restart frontend
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build frontend
 ```
 
 To stop local development:

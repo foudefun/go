@@ -16,6 +16,7 @@ from xml.etree import ElementTree as ET
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import Boolean, Column, Float, Integer, String, Text, UniqueConstraint, create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
@@ -138,6 +139,97 @@ class AuditLogModel(Base):
     summary = Column(Text)
     created_at = Column(String, nullable=False)
 
+class ClimbingAreaModel(Base):
+    __tablename__ = "climbing_areas"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False, unique=True)
+    country = Column(String)
+    region = Column(String)
+    description = Column(Text)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class ClimbingCragModel(Base):
+    __tablename__ = "climbing_crags"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    area_id = Column(Integer, nullable=False)
+    name = Column(String, nullable=False)
+    latitude = Column(Float)
+    longitude = Column(Float)
+    approach_notes = Column(Text)
+    description = Column(Text)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class ClimbingSectorModel(Base):
+    __tablename__ = "climbing_sectors"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    crag_id = Column(Integer, nullable=False)
+    name = Column(String, nullable=False)
+    aspect = Column(String)
+    approach_minutes = Column(Integer)
+    description = Column(Text)
+    safety_note = Column(Text)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class ClimbingTopoImageModel(Base):
+    __tablename__ = "climbing_topo_images"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sector_id = Column(Integer, nullable=False)
+    title = Column(String, nullable=False)
+    image_url = Column(Text, nullable=False)
+    width = Column(Integer, nullable=False)
+    height = Column(Integer, nullable=False)
+    source = Column(Text)
+    attribution = Column(Text)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class ClimbingRouteModel(Base):
+    __tablename__ = "climbing_routes"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sector_id = Column(Integer, nullable=False)
+    topo_image_id = Column(Integer, nullable=False)
+    name = Column(String, nullable=False)
+    grade = Column(String)
+    length_m = Column(Float)
+    pitches = Column(Integer)
+    style = Column(String)
+    description = Column(Text)
+    notes = Column(Text)
+    danger_flag = Column(Boolean, nullable=False, default=False)
+    color = Column(String)
+    polyline_json = Column(Text, nullable=False)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class ClimbingCalibrationSessionModel(Base):
+    __tablename__ = "climbing_calibration_sessions"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, nullable=False)
+    sector_id = Column(Integer, nullable=False)
+    topo_image_id = Column(Integer, nullable=False)
+    name = Column(String)
+    transform_type = Column(String, nullable=False, default="affine")
+    transform_json = Column(Text, nullable=False)
+    opacity = Column(Float, nullable=False, default=0.75)
+    route_visibility_json = Column(Text)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class ClimbingCalibrationPointModel(Base):
+    __tablename__ = "climbing_calibration_points"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    calibration_session_id = Column(Integer, nullable=False)
+    order_index = Column(Integer, nullable=False)
+    label = Column(String)
+    topo_x = Column(Float, nullable=False)
+    topo_y = Column(Float, nullable=False)
+    camera_x = Column(Float, nullable=False)
+    camera_y = Column(Float, nullable=False)
+
 Base.metadata.create_all(engine)
 
 def ensure_columns():
@@ -255,6 +347,7 @@ BASE_CONFIG = {
     "start_load": 10,
     "increment": 5,
     "weight": 75,
+    "shoe_size": 42,
     "increment_every_days": 2,
     "sport_after_days": 30,
 }
@@ -374,6 +467,7 @@ def normalize_activity_type(value) -> str:
         "vtt",
         "hockey",
         "escalade",
+        "outdoor_climbing",
         "musculation",
         "yoga",
         "pilates",
@@ -387,10 +481,30 @@ ACTIVITY_LABELS = {
     "vtt": {"fr": "VTT", "en": "MTB"},
     "hockey": {"fr": "Hockey", "en": "Hockey"},
     "escalade": {"fr": "Escalade", "en": "Climbing"},
+    "outdoor_climbing": {"fr": "Escalade outdoor", "en": "Outdoor Climbing"},
     "musculation": {"fr": "Musculation", "en": "Strength"},
     "yoga": {"fr": "Yoga", "en": "Yoga"},
     "pilates": {"fr": "Pilates", "en": "Pilates"},
 }
+
+class NormalizedCoordinate(BaseModel):
+    x: float = Field(ge=0, le=1)
+    y: float = Field(ge=0, le=1)
+
+class CalibrationPointPayload(BaseModel):
+    label: str = ""
+    topo: NormalizedCoordinate
+    camera: NormalizedCoordinate
+
+class CalibrationSessionPayload(BaseModel):
+    topo_image_id: int
+    name: str = ""
+    transform_type: str = "affine"
+    transform: dict = Field(default_factory=dict)
+    points: list[CalibrationPointPayload] = Field(default_factory=list)
+    opacity: float = Field(default=0.75, ge=0, le=1)
+    route_visibility: dict[str, bool] = Field(default_factory=dict)
+    is_active: bool = True
 
 def normalize_climbing_route(item: dict) -> dict:
     if not isinstance(item, dict):
@@ -616,7 +730,7 @@ def normalize_activity_entry(payload: dict) -> dict:
         ],
     }
     normalized["status"] = "done" if activity_has_content(normalized) else "todo"
-    if normalized["activity_type"] != "escalade":
+    if normalized["activity_type"] not in {"escalade", "outdoor_climbing"}:
         normalized["climbing_routes"] = []
     if normalized["activity_type"] != "musculation":
         normalized["performed_items"] = []
@@ -1799,6 +1913,7 @@ def normalize_config(config: dict):
 
     for key in ("start_load", "increment", "weight", "increment_every_days", "sport_after_days"):
         normalized[key] = int(normalized[key])
+    normalized["shoe_size"] = round(float(normalized["shoe_size"]), 1)
     return normalized
 
 def hash_password(password: str, salt: str) -> str:
@@ -2188,6 +2303,179 @@ def seed_default_user():
 
 seed_default_user()
 
+def seed_climbing_data():
+    db = SessionLocal()
+    try:
+        existing = db.query(ClimbingAreaModel).filter_by(name="Val d'Azur").first()
+        if existing:
+            return
+
+        now = datetime.now(timezone.utc).isoformat()
+        area = ClimbingAreaModel(
+            name="Val d'Azur",
+            country="CH",
+            region="Fictional Alps",
+            description="Fictional seed area for the outdoor climbing topo MVP.",
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(area)
+        db.commit()
+        db.refresh(area)
+
+        crag = ClimbingCragModel(
+            area_id=area.id,
+            name="Roc du Signal",
+            latitude=46.5284,
+            longitude=6.6322,
+            approach_notes="Twenty minute forest approach from the old mill parking.",
+            description="Compact limestone wall with easy visual landmarks for manual calibration.",
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(crag)
+        db.commit()
+        db.refresh(crag)
+
+        sector = ClimbingSectorModel(
+            crag_id=crag.id,
+            name="South Face",
+            aspect="S",
+            approach_minutes=20,
+            description="Sunny single-pitch sector used as sample data for the topo overlay.",
+            safety_note="Fictional data. Overlay is indicative and not safety-critical route guidance.",
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(sector)
+        db.commit()
+        db.refresh(sector)
+
+        topo = ClimbingTopoImageModel(
+            sector_id=sector.id,
+            title="South Face overview",
+            image_url="/assets/climbing/fictional-sector-topo.svg",
+            width=1200,
+            height=900,
+            source="Seed placeholder",
+            attribution="Generated placeholder topo for MVP development",
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(topo)
+        db.commit()
+        db.refresh(topo)
+
+        routes = [
+            {
+                "name": "Sun Ladder",
+                "grade": "5b",
+                "length_m": 18,
+                "pitches": 1,
+                "style": "sport",
+                "color": "#f97316",
+                "polyline": [{"x": 0.16, "y": 0.86}, {"x": 0.18, "y": 0.70}, {"x": 0.21, "y": 0.53}, {"x": 0.24, "y": 0.34}, {"x": 0.26, "y": 0.16}],
+                "description": "Friendly warm-up following positive holds.",
+            },
+            {
+                "name": "Mistral Arete",
+                "grade": "5c",
+                "length_m": 21,
+                "pitches": 1,
+                "style": "sport",
+                "color": "#22c55e",
+                "polyline": [{"x": 0.25, "y": 0.88}, {"x": 0.29, "y": 0.72}, {"x": 0.33, "y": 0.57}, {"x": 0.35, "y": 0.39}, {"x": 0.37, "y": 0.18}],
+                "description": "Arete climbing with a thoughtful middle section.",
+            },
+            {
+                "name": "Blue Hour",
+                "grade": "6a",
+                "length_m": 22,
+                "pitches": 1,
+                "style": "sport",
+                "color": "#2563eb",
+                "polyline": [{"x": 0.33, "y": 0.89}, {"x": 0.36, "y": 0.75}, {"x": 0.40, "y": 0.62}, {"x": 0.44, "y": 0.45}, {"x": 0.45, "y": 0.22}],
+                "description": "Technical face line on small edges.",
+            },
+            {
+                "name": "Pocket Radio",
+                "grade": "6a+",
+                "length_m": 24,
+                "pitches": 1,
+                "style": "sport",
+                "color": "#a855f7",
+                "polyline": [{"x": 0.43, "y": 0.88}, {"x": 0.45, "y": 0.72}, {"x": 0.49, "y": 0.55}, {"x": 0.52, "y": 0.38}, {"x": 0.54, "y": 0.15}],
+                "description": "Pocketed wall with a precise finish.",
+            },
+            {
+                "name": "Quiet Thunder",
+                "grade": "6b",
+                "length_m": 25,
+                "pitches": 1,
+                "style": "trad",
+                "color": "#e11d48",
+                "danger_flag": True,
+                "polyline": [{"x": 0.54, "y": 0.90}, {"x": 0.56, "y": 0.76}, {"x": 0.59, "y": 0.60}, {"x": 0.61, "y": 0.42}, {"x": 0.63, "y": 0.19}],
+                "description": "Fictional mixed-protection line. Caution marker included for UI testing.",
+                "notes": "Check gear placements carefully.",
+            },
+            {
+                "name": "La Traverse",
+                "grade": "6b+",
+                "length_m": 28,
+                "pitches": 1,
+                "style": "sport",
+                "color": "#06b6d4",
+                "polyline": [{"x": 0.60, "y": 0.87}, {"x": 0.65, "y": 0.74}, {"x": 0.69, "y": 0.58}, {"x": 0.70, "y": 0.40}, {"x": 0.72, "y": 0.20}],
+                "description": "Diagonal movement into a compact headwall.",
+            },
+            {
+                "name": "Golden Lichen",
+                "grade": "6c",
+                "length_m": 26,
+                "pitches": 1,
+                "style": "sport",
+                "color": "#ca8a04",
+                "polyline": [{"x": 0.70, "y": 0.88}, {"x": 0.73, "y": 0.72}, {"x": 0.76, "y": 0.54}, {"x": 0.79, "y": 0.35}, {"x": 0.81, "y": 0.14}],
+                "description": "Sustained face climbing.",
+            },
+            {
+                "name": "Last Train",
+                "grade": "7a",
+                "length_m": 27,
+                "pitches": 1,
+                "style": "multipitch",
+                "color": "#111827",
+                "polyline": [{"x": 0.80, "y": 0.90}, {"x": 0.82, "y": 0.74}, {"x": 0.85, "y": 0.59}, {"x": 0.87, "y": 0.39}, {"x": 0.89, "y": 0.15}],
+                "description": "Steeper finish used to test label clutter.",
+            },
+        ]
+
+        for route in routes:
+            db.add(
+                ClimbingRouteModel(
+                    sector_id=sector.id,
+                    topo_image_id=topo.id,
+                    name=route["name"],
+                    grade=route["grade"],
+                    length_m=route["length_m"],
+                    pitches=route["pitches"],
+                    style=route["style"],
+                    description=route.get("description", ""),
+                    notes=route.get("notes", ""),
+                    danger_flag=bool(route.get("danger_flag", False)),
+                    color=route["color"],
+                    polyline_json=json.dumps(route["polyline"], ensure_ascii=False),
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+        db.commit()
+    finally:
+        db.close()
+
+seed_climbing_data()
+
 def load_config():
     db = SessionLocal()
     try:
@@ -2252,6 +2540,274 @@ def get_target_for_date(date_str: str):
         "target_pct_bw": pct_bw,
         "sport_allowed": sport_allowed,
     }
+
+def parse_json_field(value, fallback):
+    raw = str(value or "").strip()
+    if not raw:
+        return fallback
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return fallback
+
+def serialize_climbing_area(row: ClimbingAreaModel) -> dict:
+    return {
+        "id": row.id,
+        "name": row.name,
+        "country": row.country or "",
+        "region": row.region or "",
+        "description": row.description or "",
+    }
+
+def serialize_climbing_crag(row: ClimbingCragModel) -> dict:
+    return {
+        "id": row.id,
+        "area_id": row.area_id,
+        "name": row.name,
+        "latitude": row.latitude,
+        "longitude": row.longitude,
+        "approach_notes": row.approach_notes or "",
+        "description": row.description or "",
+    }
+
+def serialize_climbing_sector(row: ClimbingSectorModel) -> dict:
+    return {
+        "id": row.id,
+        "crag_id": row.crag_id,
+        "name": row.name,
+        "aspect": row.aspect or "",
+        "approach_minutes": row.approach_minutes,
+        "description": row.description or "",
+        "safety_note": row.safety_note or "",
+    }
+
+def serialize_climbing_topo(row: ClimbingTopoImageModel) -> dict:
+    return {
+        "id": row.id,
+        "sector_id": row.sector_id,
+        "title": row.title,
+        "image_url": row.image_url,
+        "width": row.width,
+        "height": row.height,
+        "source": row.source or "",
+        "attribution": row.attribution or "",
+    }
+
+def serialize_climbing_route(row: ClimbingRouteModel) -> dict:
+    return {
+        "id": row.id,
+        "sector_id": row.sector_id,
+        "topo_image_id": row.topo_image_id,
+        "name": row.name,
+        "grade": row.grade or "",
+        "length_m": row.length_m,
+        "pitches": row.pitches,
+        "style": row.style or "",
+        "description": row.description or "",
+        "notes": row.notes or "",
+        "danger_flag": bool(row.danger_flag),
+        "color": row.color or "#f97316",
+        "polyline": parse_json_field(row.polyline_json, []),
+    }
+
+def serialize_climbing_calibration(db, row: ClimbingCalibrationSessionModel | None) -> dict | None:
+    if not row:
+        return None
+    points = db.query(ClimbingCalibrationPointModel).filter_by(
+        calibration_session_id=row.id
+    ).order_by(ClimbingCalibrationPointModel.order_index).all()
+    return {
+        "id": row.id,
+        "username": row.username,
+        "sector_id": row.sector_id,
+        "topo_image_id": row.topo_image_id,
+        "name": row.name or "",
+        "transform_type": row.transform_type,
+        "transform": parse_json_field(row.transform_json, {}),
+        "opacity": row.opacity,
+        "route_visibility": parse_json_field(row.route_visibility_json, {}),
+        "is_active": bool(row.is_active),
+        "created_at": row.created_at,
+        "updated_at": row.updated_at,
+        "points": [
+            {
+                "id": point.id,
+                "label": point.label or "",
+                "topo": {"x": point.topo_x, "y": point.topo_y},
+                "camera": {"x": point.camera_x, "y": point.camera_y},
+            }
+            for point in points
+        ],
+    }
+
+def require_climbing_sector(db, sector_id: int) -> ClimbingSectorModel:
+    sector = db.query(ClimbingSectorModel).filter_by(id=sector_id).first()
+    if not sector:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Climbing sector not found")
+    return sector
+
+@app.get("/api/v1/climbing/areas")
+def list_climbing_areas(_: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        rows = db.query(ClimbingAreaModel).order_by(ClimbingAreaModel.name).all()
+        return [serialize_climbing_area(row) for row in rows]
+    finally:
+        db.close()
+
+@app.get("/api/v1/climbing/areas/{area_id}/crags")
+def list_climbing_crags(area_id: int, _: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        area = db.query(ClimbingAreaModel).filter_by(id=area_id).first()
+        if not area:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Climbing area not found")
+        rows = db.query(ClimbingCragModel).filter_by(area_id=area_id).order_by(ClimbingCragModel.name).all()
+        return [serialize_climbing_crag(row) for row in rows]
+    finally:
+        db.close()
+
+@app.get("/api/v1/climbing/crags/{crag_id}/sectors")
+def list_climbing_sectors(crag_id: int, _: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        crag = db.query(ClimbingCragModel).filter_by(id=crag_id).first()
+        if not crag:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Climbing crag not found")
+        rows = db.query(ClimbingSectorModel).filter_by(crag_id=crag_id).order_by(ClimbingSectorModel.name).all()
+        return [serialize_climbing_sector(row) for row in rows]
+    finally:
+        db.close()
+
+@app.get("/api/v1/climbing/sectors/{sector_id}/topo-images")
+def list_climbing_topo_images(sector_id: int, _: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        require_climbing_sector(db, sector_id)
+        rows = db.query(ClimbingTopoImageModel).filter_by(sector_id=sector_id).order_by(ClimbingTopoImageModel.id).all()
+        return [serialize_climbing_topo(row) for row in rows]
+    finally:
+        db.close()
+
+@app.get("/api/v1/climbing/sectors/{sector_id}/routes")
+def list_climbing_routes(sector_id: int, _: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        require_climbing_sector(db, sector_id)
+        rows = db.query(ClimbingRouteModel).filter_by(sector_id=sector_id).order_by(ClimbingRouteModel.id).all()
+        return [serialize_climbing_route(row) for row in rows]
+    finally:
+        db.close()
+
+@app.get("/api/v1/climbing/sectors/{sector_id}/topo")
+def get_climbing_sector_topo(sector_id: int, current_user: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        sector = require_climbing_sector(db, sector_id)
+        crag = db.query(ClimbingCragModel).filter_by(id=sector.crag_id).first()
+        area = db.query(ClimbingAreaModel).filter_by(id=crag.area_id).first() if crag else None
+        topo_images = db.query(ClimbingTopoImageModel).filter_by(sector_id=sector_id).order_by(ClimbingTopoImageModel.id).all()
+        routes = db.query(ClimbingRouteModel).filter_by(sector_id=sector_id).order_by(ClimbingRouteModel.id).all()
+        calibration = db.query(ClimbingCalibrationSessionModel).filter_by(
+            username=current_user.username,
+            sector_id=sector_id,
+            is_active=True,
+        ).order_by(ClimbingCalibrationSessionModel.updated_at.desc()).first()
+        return {
+            "area": serialize_climbing_area(area) if area else None,
+            "crag": serialize_climbing_crag(crag) if crag else None,
+            "sector": serialize_climbing_sector(sector),
+            "topo_images": [serialize_climbing_topo(row) for row in topo_images],
+            "routes": [serialize_climbing_route(row) for row in routes],
+            "latest_calibration": serialize_climbing_calibration(db, calibration),
+        }
+    finally:
+        db.close()
+
+@app.get("/api/v1/climbing/sectors/{sector_id}/calibrations")
+def list_climbing_calibrations(sector_id: int, current_user: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        require_climbing_sector(db, sector_id)
+        rows = db.query(ClimbingCalibrationSessionModel).filter_by(
+            username=current_user.username,
+            sector_id=sector_id,
+        ).order_by(ClimbingCalibrationSessionModel.updated_at.desc()).all()
+        return [serialize_climbing_calibration(db, row) for row in rows]
+    finally:
+        db.close()
+
+@app.post("/api/v1/climbing/sectors/{sector_id}/calibrations")
+def save_climbing_calibration(
+    sector_id: int,
+    payload: CalibrationSessionPayload,
+    current_user: UserModel = Depends(get_current_user),
+):
+    if len(payload.points) < 3:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least 3 calibration point pairs are required")
+    transform_type = str(payload.transform_type or "affine").strip().lower()
+    if transform_type not in {"affine", "homography"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported transform type")
+
+    db = get_db()
+    try:
+        require_climbing_sector(db, sector_id)
+        topo = db.query(ClimbingTopoImageModel).filter_by(id=payload.topo_image_id, sector_id=sector_id).first()
+        if not topo:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Topo image not found for sector")
+
+        now = datetime.now(timezone.utc).isoformat()
+        if payload.is_active:
+            active_rows = db.query(ClimbingCalibrationSessionModel).filter_by(
+                username=current_user.username,
+                sector_id=sector_id,
+                is_active=True,
+            ).all()
+            for active_row in active_rows:
+                active_row.is_active = False
+                active_row.updated_at = now
+
+        row = ClimbingCalibrationSessionModel(
+            username=current_user.username,
+            sector_id=sector_id,
+            topo_image_id=payload.topo_image_id,
+            name=str(payload.name or "").strip() or f"Calibration {now[:10]}",
+            transform_type=transform_type,
+            transform_json=json.dumps(payload.transform, ensure_ascii=False),
+            opacity=float(payload.opacity),
+            route_visibility_json=json.dumps(payload.route_visibility, ensure_ascii=False),
+            is_active=bool(payload.is_active),
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+
+        for index, point in enumerate(payload.points):
+            db.add(
+                ClimbingCalibrationPointModel(
+                    calibration_session_id=row.id,
+                    order_index=index,
+                    label=str(point.label or "").strip(),
+                    topo_x=point.topo.x,
+                    topo_y=point.topo.y,
+                    camera_x=point.camera.x,
+                    camera_y=point.camera.y,
+                )
+            )
+        write_audit_log(
+            db,
+            current_user.username,
+            "save_climbing_calibration",
+            "climbing_sector",
+            str(sector_id),
+            f"Saved {transform_type} calibration with {len(payload.points)} point pairs",
+        )
+        db.commit()
+        return {"ok": True, "calibration": serialize_climbing_calibration(db, row)}
+    finally:
+        db.close()
 
 @app.post("/api/auth/login")
 def login(payload: dict):

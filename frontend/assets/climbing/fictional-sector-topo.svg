@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" role="img" aria-label="Fictional climbing sector topo placeholder">
+  <rect width="1200" height="900" fill="#eef2f7"/>
+  <path d="M104 838 C126 684 142 540 196 386 C262 202 360 112 472 88 C622 56 742 96 858 172 C1008 270 1070 438 1100 838 Z" fill="#c7b9a3"/>
+  <path d="M188 838 C210 696 234 548 286 408 C346 246 426 152 530 116 C654 72 766 122 856 214 C964 326 1010 486 1032 838 Z" fill="#d7cbb9"/>
+  <path d="M104 838 C174 795 238 775 308 804 C384 836 464 782 542 812 C620 842 694 786 780 812 C874 846 974 808 1100 838 Z" fill="#8a765f" opacity=".45"/>
+  <path d="M306 132 C292 250 280 356 246 470 C214 578 210 690 176 838" fill="none" stroke="#9f8d76" stroke-width="12" opacity=".45"/>
+  <path d="M458 100 C430 238 422 372 448 510 C466 606 456 722 428 838" fill="none" stroke="#8f7c66" stroke-width="10" opacity=".42"/>
+  <path d="M628 92 C610 236 636 386 604 526 C580 634 602 734 594 838" fill="none" stroke="#8f7c66" stroke-width="14" opacity=".36"/>
+  <path d="M824 178 C794 302 820 432 812 552 C804 666 842 744 858 838" fill="none" stroke="#8f7c66" stroke-width="11" opacity=".4"/>
+  <g fill="#6b5f4e" opacity=".42">
+    <circle cx="332" cy="272" r="12"/>
+    <circle cx="500" cy="380" r="9"/>
+    <circle cx="684" cy="310" r="11"/>
+    <circle cx="742" cy="496" r="8"/>
+    <circle cx="914" cy="390" r="10"/>
+    <circle cx="244" cy="586" r="8"/>
+    <circle cx="578" cy="650" r="10"/>
+  </g>
+  <path d="M0 838 H1200 V900 H0 Z" fill="#425044"/>
+  <path d="M0 844 C110 810 180 856 282 836 C394 814 466 874 586 840 C714 804 820 868 944 834 C1046 806 1114 832 1200 812 V900 H0 Z" fill="#2f3f35"/>
+  <text x="60" y="72" fill="#334155" font-family="Arial, sans-serif" font-size="34" font-weight="700">Roc du Signal - South Face</text>
+  <text x="60" y="112" fill="#64748b" font-family="Arial, sans-serif" font-size="20">Fictional placeholder topo for MVP route overlay calibration</text>
+</svg>

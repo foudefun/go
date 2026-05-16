@@ -16,6 +16,11 @@ services:
       REHAB_DB_PATH: /app/data/dev.sqlite
 
   frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    environment:
+      VITE_API_PROXY_TARGET: http://backend:8000
     volumes:
-      - ./frontend:/usr/share/nginx/html
-      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend:/app
+      - /app/node_modules

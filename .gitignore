@@ -16,6 +16,7 @@ __pycache__/
 
 # Node / JS temp
 node_modules/
+frontend/dist/
 *.tsbuildinfo
 
 # Local databases and journals
