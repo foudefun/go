@@ -244,9 +244,6 @@ export default function AdminPage() {
           <p className="eyebrow">Admin</p>
           <h1>Administration</h1>
         </div>
-        <a className="secondary-action" href="/legacy.html">
-          Legacy Admin
-        </a>
       </section>
 
       {status === "loading" ? <div className="app-panel empty-state">Loading admin data...</div> : null}

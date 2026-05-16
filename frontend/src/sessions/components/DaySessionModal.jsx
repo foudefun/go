@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getExercises } from "../../api/exerciseApi.js";
-import { getSession, saveSession } from "../../api/sessionApi.js";
+import { deleteActivityImage, getSession, saveSession, uploadActivityImage } from "../../api/sessionApi.js";
 import {
   ACTIVITY_TYPES,
   getActivityTypeLabel,
@@ -161,6 +161,55 @@ function buildActivityFromPlan(session) {
   });
 }
 
+function ActivityImagePanel({ activity, canManage, uploading, error, onUpload, onDelete }) {
+  const fileRef = useRef(null);
+  const imageUrl = String(activity?.image || "").trim();
+
+  function handleFile(file) {
+    if (file && canManage) {
+      onUpload(file);
+    }
+  }
+
+  return (
+    <section className="activity-image-panel">
+      <div>
+        <p className="eyebrow">Photo</p>
+        <h3>Activity image</h3>
+      </div>
+      {imageUrl ? (
+        <a className="activity-image-link" href={imageUrl} target="_blank" rel="noreferrer">
+          <img src={imageUrl} alt="Activity" />
+        </a>
+      ) : (
+        <div className="activity-image-placeholder">No activity image</div>
+      )}
+      <div className="compact-actions">
+        <button type="button" disabled={!canManage || uploading} onClick={() => fileRef.current?.click()}>
+          {uploading ? "Uploading..." : imageUrl ? "Replace image" : "Upload image"}
+        </button>
+        {imageUrl ? (
+          <button type="button" className="danger-action" disabled={!canManage || uploading} onClick={onDelete}>
+            Delete image
+          </button>
+        ) : null}
+      </div>
+      <input
+        ref={fileRef}
+        className="visually-hidden"
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        onChange={(event) => {
+          handleFile(event.target.files?.[0]);
+          event.target.value = "";
+        }}
+      />
+      {!canManage ? <span className="visually-muted">Save the activity before uploading an image.</span> : null}
+      {error ? <div className="error-banner">{error}</div> : null}
+    </section>
+  );
+}
+
 function buildSavePayload(session, activeIndex, draftActivity = null) {
   const activities = (session.activities || []).map(normalizeActivity).filter(activityHasContent);
   let requestedIndex = activeIndex;
@@ -212,6 +261,8 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
   const [exerciseList, setExerciseList] = useState([]);
   const [exerciseStatus, setExerciseStatus] = useState("idle");
   const [exerciseError, setExerciseError] = useState("");
+  const [imageStatus, setImageStatus] = useState("idle");
+  const [imageError, setImageError] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -304,6 +355,21 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
     setActiveIndex(savedActivities.length ? 0 : 0);
   }
 
+  function deleteSelectedActivity() {
+    if (activeIndex === null || !session?.activities?.[activeIndex]) return;
+    const activity = session.activities[activeIndex];
+    if (!window.confirm(`Delete "${getActivityTitle(activity, activeIndex)}"?`)) return;
+    setSession((current) => {
+      if (!current) return current;
+      const activities = current.activities.filter((_, index) => index !== activeIndex);
+      return { ...current, activities, draft_active_activity_index: Math.max(0, Math.min(activeIndex, activities.length - 1)) };
+    });
+    setActiveIndex((current) => {
+      const nextLength = Math.max((session.activities || []).length - 1, 0);
+      return nextLength ? Math.max(0, Math.min(current, nextLength - 1)) : 0;
+    });
+  }
+
   function startFromPlan() {
     if (!session) return;
     setDraftActivity(buildActivityFromPlan(session));
@@ -322,6 +388,47 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
     } catch (saveError) {
       setStatus("ready");
       setError(saveError.message);
+    }
+  }
+
+  function applySessionPayload(payload) {
+    const normalized = normalizeSession(payload);
+    const nextActivities = (normalized.activities || []).filter(activityHasContent);
+    setSession({ ...normalized, activities: nextActivities });
+    setActiveIndex(Math.max(0, Math.min(normalized.draft_active_activity_index || 0, Math.max(nextActivities.length - 1, 0))));
+    setDraftActivity(null);
+  }
+
+  async function handleActivityImageUpload(file) {
+    if (!file || activeIndex === null || !session) return;
+    setImageStatus("uploading");
+    setImageError("");
+    try {
+      await saveSession(date, buildSavePayload(session, activeIndex, draftActivity));
+      const result = await uploadActivityImage(date, activeIndex, file);
+      applySessionPayload(result.session);
+      onSaved?.();
+    } catch (uploadError) {
+      setImageError(uploadError.message);
+    } finally {
+      setImageStatus("idle");
+    }
+  }
+
+  async function handleActivityImageDelete() {
+    if (activeIndex === null || !activeActivity.image || !session) return;
+    if (!window.confirm("Delete this activity image?")) return;
+    setImageStatus("uploading");
+    setImageError("");
+    try {
+      await saveSession(date, buildSavePayload(session, activeIndex, draftActivity));
+      const result = await deleteActivityImage(date, activeIndex);
+      applySessionPayload(result.session);
+      onSaved?.();
+    } catch (deleteError) {
+      setImageError(deleteError.message);
+    } finally {
+      setImageStatus("idle");
     }
   }
 
@@ -450,6 +557,15 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
                     />
                   </label>
 
+                  <ActivityImagePanel
+                    activity={activeActivity}
+                    canManage={activeIndex !== null}
+                    uploading={imageStatus === "uploading"}
+                    error={imageError}
+                    onUpload={handleActivityImageUpload}
+                    onDelete={handleActivityImageDelete}
+                  />
+
                   {isActiveStrengthActivity ? (
                     <StrengthEditor
                       activity={activeActivity}
@@ -484,14 +600,16 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
                     Cancel new activity
                   </button>
                 ) : null}
+                {activeIndex !== null && savedActivities[activeIndex] ? (
+                  <button type="button" className="danger-action" onClick={deleteSelectedActivity}>
+                    Delete activity
+                  </button>
+                ) : null}
                 {!planExists && !showPlanEditor ? (
                   <button type="button" onClick={() => setShowPlanEditor(true)}>
                     Add plan
                   </button>
                 ) : null}
-                <a className="secondary-action" href="/legacy.html">
-                  Advanced Editor
-                </a>
               </div>
             </section>
           </div>

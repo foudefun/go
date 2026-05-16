@@ -155,9 +155,6 @@ export default function OutdoorClimbingPage() {
           <p className="eyebrow">Outdoor Climbing</p>
           <h1>Topo Overlay</h1>
         </div>
-        <a className="secondary-action" href="/legacy.html">
-          Training Log
-        </a>
       </section>
 
       <section className="climbing-workspace">

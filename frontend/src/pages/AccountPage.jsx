@@ -148,9 +148,6 @@ export default function AccountPage() {
             <button type="button" className="primary-action" onClick={handleSave} disabled={status === "saving"}>
               {status === "saving" ? t("Saving...") : t("Save Account Settings")}
             </button>
-            <a className="secondary-action" href="/legacy.html">
-              {t("Legacy Settings")}
-            </a>
           </div>
         </div>
       </section>

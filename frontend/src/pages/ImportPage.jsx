@@ -282,9 +282,6 @@ export default function ImportPage() {
           <p className="eyebrow">Data</p>
           <h1>Import</h1>
         </div>
-        <a className="secondary-action" href="/legacy.html">
-          Legacy Import
-        </a>
       </section>
 
       <section className="calendar-toolbar app-panel import-mode-toolbar">

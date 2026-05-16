@@ -47,7 +47,6 @@ const FR = {
   Import: "Import",
   Inactive: "Inactive",
   Language: "Langue",
-  "Legacy Settings": "Ancien réglage",
   Logout: "Déconnexion",
   "Loading account settings...": "Chargement des paramètres du compte...",
   "Loading equipment...": "Chargement de l'équipement...",
