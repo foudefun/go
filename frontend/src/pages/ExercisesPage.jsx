@@ -162,28 +162,6 @@ function ExerciseEditor({
           <input value={draft.display_name_en || ""} onChange={(event) => updateField("display_name_en", event.target.value)} />
         </label>
         <label>
-          Category
-          <select
-            multiple
-            className="multi-select"
-            value={selectedCategories}
-            onChange={(event) =>
-              updateField(
-                "category",
-                Array.from(event.target.selectedOptions)
-                  .map((option) => option.value)
-                  .join(", "),
-              )
-            }
-          >
-            {categories.map((categoryName) => (
-              <option key={categoryName} value={categoryName}>
-                {categoryName}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
           Movement family
           <input value={draft.movement_family || ""} onChange={(event) => updateField("movement_family", event.target.value)} />
         </label>
@@ -218,7 +196,7 @@ function ExerciseEditor({
       </div>
 
       <div className="category-choice-panel">
-        <p className="field-label">Category choices</p>
+        <p className="field-label">Category</p>
         <div className="category-choice-list">
           {categories.map((categoryName) => (
             <label key={categoryName} className="category-choice">

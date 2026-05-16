@@ -1160,10 +1160,6 @@ label {
   font-weight: 800;
 }
 
-.multi-select {
-  min-height: 116px;
-}
-
 .category-choice-panel {
   display: grid;
   gap: 8px;
