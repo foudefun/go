@@ -379,6 +379,17 @@ def normalize_activity_type(value) -> str:
     normalized = str(value or "").strip().lower()
     return normalized if normalized in allowed else ""
 
+ACTIVITY_LABELS = {
+    "course_a_pied": {"fr": "Course", "en": "Running"},
+    "velo": {"fr": "Vélo", "en": "Cycling"},
+    "vtt": {"fr": "VTT", "en": "MTB"},
+    "hockey": {"fr": "Hockey", "en": "Hockey"},
+    "escalade": {"fr": "Escalade", "en": "Climbing"},
+    "musculation": {"fr": "Musculation", "en": "Strength"},
+    "yoga": {"fr": "Yoga", "en": "Yoga"},
+    "pilates": {"fr": "Pilates", "en": "Pilates"},
+}
+
 def normalize_climbing_route(item: dict) -> dict:
     if not isinstance(item, dict):
         return {}
