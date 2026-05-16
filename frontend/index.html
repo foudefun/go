@@ -184,7 +184,7 @@ textarea { min-height:80px; }
 .calendar-day-number { font-weight:700; }
 .calendar-day-lines { display:grid; gap:4px; }
 .calendar-day-lines .small { font-size:12px; line-height:1.35; }
-.calendar-day-activity { display:flex; align-items:flex-start; flex-wrap:wrap; gap:4px; min-height:24px; }
+.calendar-day-activity { display:grid; justify-items:start; gap:4px; min-height:24px; }
 .calendar-day-target { font-weight:600; color:#475569; }
 .activity-badge { display:inline-flex; align-items:center; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; color:#0f172a; width:max-content; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .activity-badge.compact { padding:3px 8px; font-size:11px; line-height:1.1; border:1px solid rgba(15,23,42,0.08); }
@@ -1555,7 +1555,6 @@ function renderCalendarDayCard(dateStr, row, { today, showRehabCalendarInfo, com
   if(dateStr < today) classes.push("past-row");
   const planned = (row?.planned_exercises || []).map(formatExerciseName).join(", ");
   const activityBadge = renderCalendarActivityBadges(row, { compact: true });
-  const activityTypeSummary = getCalendarActivityTypeSummary(row, { compact: true });
   const targetLine = (showRehabCalendarInfo && shouldShowRehabHistoryForDate(dateStr))
     ? `<div class="small calendar-day-target">J${row?.rehab_day || "-"} · cible ${row?.target_load ?? "-"}</div>`
     : "";
@@ -1565,7 +1564,6 @@ function renderCalendarDayCard(dateStr, row, { today, showRehabCalendarInfo, com
       <div class="calendar-day-number">${new Date(`${dateStr}T00:00:00`).getDate()}</div>
       <div class="calendar-day-lines">
         <div class="calendar-day-activity">${activityBadge || ""}</div>
-        ${activityTypeSummary ? `<div class="small" style="font-weight:700; line-height:1.25;">${escapeHtml(activityTypeSummary)}</div>` : ""}
         ${targetLine}
         ${physioLine}
         <div class="small">Prévu: ${escapeHtml(planned || "-")}</div>
@@ -2873,9 +2871,21 @@ function renderActivityBadge(activityType, options = {}){
 }
 
 function getCalendarRowActivityTypes(row){
-  const types = Array.isArray(row?.activity_types) ? row.activity_types : [];
-  if(types.length) return types.filter(Boolean);
-  return row?.activity_type ? [row.activity_type] : [];
+  const types = Array.isArray(row?.activity_types) ? row.activity_types.filter(Boolean) : [];
+  const primary = row?.activity_type ? String(row.activity_type).trim() : "";
+  const ordered = [];
+  const seen = new Set();
+  if(primary){
+    ordered.push(primary);
+    seen.add(primary);
+  }
+  types.forEach((type) => {
+    const value = String(type || "").trim();
+    if(!value || seen.has(value)) return;
+    ordered.push(value);
+    seen.add(value);
+  });
+  return ordered;
 }
 
 function renderCalendarActivityBadges(row, options = {}){
