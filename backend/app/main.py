@@ -3,6 +3,7 @@ import csv
 import hashlib
 import hmac
 import json
+import math
 import os
 import secrets
 import shutil
@@ -10,6 +11,7 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from io import BytesIO, StringIO
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -1253,6 +1255,229 @@ def infer_activity_type_from_fit(sport: str, sub_sport: str) -> str:
             return "vtt"
         return "velo"
     return ""
+
+
+def parse_activity_datetime(value: str | None) -> datetime | None:
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        return None
+    if raw_value.endswith("Z"):
+        raw_value = f"{raw_value[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(raw_value)
+    except ValueError:
+        return None
+    return parsed
+
+
+def xml_local_name(tag: str) -> str:
+    return str(tag or "").rsplit("}", 1)[-1].lower()
+
+
+def iter_xml(root, *names: str):
+    wanted = {name.lower() for name in names}
+    for element in root.iter():
+        if xml_local_name(element.tag) in wanted:
+            yield element
+
+
+def first_xml_text(root, *names: str) -> str:
+    for element in iter_xml(root, *names):
+        value = str(element.text or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def numeric_xml_values(root, *names: str) -> list[float]:
+    values: list[float] = []
+    for element in iter_xml(root, *names):
+        value = normalize_optional_float(element.text)
+        if value is not None:
+            values.append(value)
+    return values
+
+
+def nested_numeric_xml_values(root, parent_name: str, child_name: str = "Value") -> list[float]:
+    values: list[float] = []
+    for parent in iter_xml(root, parent_name):
+        value = normalize_optional_float(first_xml_text(parent, child_name))
+        if value is not None:
+            values.append(value)
+    return values
+
+
+def average(values: list[float]) -> float | None:
+    cleaned = [value for value in values if value is not None]
+    if not cleaned:
+        return None
+    return sum(cleaned) / len(cleaned)
+
+
+def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    radius_m = 6371000
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+    a = math.sin(delta_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+    return radius_m * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def infer_activity_type_from_text(value: str, *, has_power: bool = False, has_cadence: bool = False) -> str:
+    normalized = str(value or "").strip().lower()
+    if any(token in normalized for token in ("run", "running", "course", "jog")):
+        return "course_a_pied"
+    if any(token in normalized for token in ("mtb", "vtt", "mountain bike")):
+        return "vtt"
+    if any(token in normalized for token in ("bike", "biking", "cycling", "cycle", "velo", "vélo", "mywhoosh", "zwift")):
+        return "velo"
+    if has_power or has_cadence:
+        return "velo"
+    return ""
+
+
+def parse_tcx_activity_file(content: bytes, filename: str = "") -> dict:
+    try:
+        root = ET.fromstring(content)
+    except ET.ParseError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unable to read this TCX file") from exc
+
+    activity = next(iter_xml(root, "Activity"), root)
+    sport = str(activity.attrib.get("Sport", "") or "")
+    start_time = parse_activity_datetime(first_xml_text(activity, "Id"))
+    lap_starts = [parse_activity_datetime(element.attrib.get("StartTime")) for element in iter_xml(activity, "Lap")]
+    track_times = [parse_activity_datetime(str(element.text or "")) for element in iter_xml(activity, "Time")]
+    timestamps = [value for value in ([start_time] + lap_starts + track_times) if isinstance(value, datetime)]
+    if not start_time and timestamps:
+        start_time = min(timestamps)
+    if not start_time:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This TCX file does not contain a valid activity date")
+
+    duration_values = numeric_xml_values(activity, "TotalTimeSeconds")
+    duration_seconds = int(round(sum(duration_values))) if duration_values else None
+    if duration_seconds is None and len(track_times) >= 2:
+        valid_times = [value for value in track_times if isinstance(value, datetime)]
+        if len(valid_times) >= 2:
+            duration_seconds = max(0, int((max(valid_times) - min(valid_times)).total_seconds()))
+
+    distance_values = numeric_xml_values(activity, "DistanceMeters")
+    distance_m = max(distance_values) if distance_values else None
+    avg_hr_values = nested_numeric_xml_values(activity, "AverageHeartRateBpm")
+    max_hr_values = nested_numeric_xml_values(activity, "MaximumHeartRateBpm")
+    hr_values = nested_numeric_xml_values(activity, "HeartRateBpm")
+    cadence_values = numeric_xml_values(activity, "Cadence")
+    avg_power_values = numeric_xml_values(activity, "AvgWatts", "Watts")
+    max_power_values = numeric_xml_values(activity, "MaxWatts", "Watts")
+    calories_values = numeric_xml_values(activity, "Calories")
+
+    return {
+        "date": start_time.date().isoformat(),
+        "started_at": start_time.isoformat(),
+        "sport": sport.strip().lower(),
+        "sub_sport": "",
+        "activity_type": infer_activity_type_from_text(f"{sport} {filename}", has_power=bool(avg_power_values), has_cadence=bool(cadence_values)),
+        "duration_seconds": duration_seconds,
+        "duration": format_duration_hms(duration_seconds),
+        "distance_m": distance_m,
+        "distance_km": round(distance_m / 1000, 2) if distance_m is not None else None,
+        "avg_power": average(avg_power_values),
+        "max_power": max(max_power_values) if max_power_values else None,
+        "avg_hr": average(avg_hr_values) or average(hr_values),
+        "max_hr": max(max_hr_values or hr_values) if (max_hr_values or hr_values) else None,
+        "avg_cadence": average(cadence_values),
+        "calories": sum(calories_values) if calories_values else None,
+        "record_count": len(track_times),
+        "source_label": f"Import TCX: {sport.strip() or 'activity'}",
+        "source_file": str(filename or "").strip(),
+    }
+
+
+def parse_gpx_activity_file(content: bytes, filename: str = "") -> dict:
+    try:
+        root = ET.fromstring(content)
+    except ET.ParseError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unable to read this GPX file") from exc
+
+    name = first_xml_text(root, "name")
+    points = []
+    timestamps = []
+    hr_values: list[float] = []
+    cadence_values: list[float] = []
+    power_values: list[float] = []
+    for point in iter_xml(root, "trkpt"):
+        lat = normalize_optional_float(point.attrib.get("lat"))
+        lon = normalize_optional_float(point.attrib.get("lon"))
+        if lat is not None and lon is not None:
+            points.append((lat, lon))
+        for time_element in iter_xml(point, "time"):
+            parsed_time = parse_activity_datetime(time_element.text)
+            if parsed_time:
+                timestamps.append(parsed_time)
+                break
+        hr_values.extend(numeric_xml_values(point, "hr", "heartrate", "heartRate"))
+        cadence_values.extend(numeric_xml_values(point, "cad", "cadence"))
+        power_values.extend(numeric_xml_values(point, "power", "watts"))
+
+    if not timestamps:
+        metadata_time = parse_activity_datetime(first_xml_text(root, "time"))
+        if metadata_time:
+            timestamps.append(metadata_time)
+    if not timestamps:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This GPX file does not contain a valid activity date")
+
+    distance_m = 0.0
+    for index in range(1, len(points)):
+        distance_m += haversine_m(points[index - 1][0], points[index - 1][1], points[index][0], points[index][1])
+    if not points:
+        distance_m = None
+
+    duration_seconds = None
+    if len(timestamps) >= 2:
+        duration_seconds = max(0, int((max(timestamps) - min(timestamps)).total_seconds()))
+
+    activity_type = infer_activity_type_from_text(f"{name} {filename}", has_power=bool(power_values), has_cadence=bool(cadence_values))
+    return {
+        "date": min(timestamps).date().isoformat(),
+        "started_at": min(timestamps).isoformat(),
+        "sport": activity_type,
+        "sub_sport": "",
+        "activity_type": activity_type,
+        "duration_seconds": duration_seconds,
+        "duration": format_duration_hms(duration_seconds),
+        "distance_m": distance_m,
+        "distance_km": round(distance_m / 1000, 2) if distance_m is not None else None,
+        "avg_power": average(power_values),
+        "max_power": max(power_values) if power_values else None,
+        "avg_hr": average(hr_values),
+        "max_hr": max(hr_values) if hr_values else None,
+        "avg_cadence": average(cadence_values),
+        "calories": None,
+        "record_count": len(points),
+        "source_label": f"Import GPX: {name or activity_type or 'activity'}",
+        "source_file": str(filename or "").strip(),
+    }
+
+
+def detect_activity_file_format(filename: str, selected_format: str = "") -> str:
+    normalized_format = str(selected_format or "").strip().lower()
+    if normalized_format in {"fit", "tcx", "gpx"}:
+        return normalized_format
+    suffix = Path(str(filename or "")).suffix.lower()
+    if suffix in {".fit", ".tcx", ".gpx"}:
+        return suffix[1:]
+    return ""
+
+
+def parse_activity_file(content: bytes, filename: str = "", selected_format: str = "") -> dict:
+    detected_format = detect_activity_file_format(filename, selected_format)
+    if detected_format == "fit":
+        return parse_fit_activity_file(content, filename)
+    if detected_format == "tcx":
+        return parse_tcx_activity_file(content, filename)
+    if detected_format == "gpx":
+        return parse_gpx_activity_file(content, filename)
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please upload a FIT, TCX, or GPX activity file")
 
 
 def parse_fit_activity_file(content: bytes, filename: str = "") -> dict:
@@ -3095,28 +3320,25 @@ def import_program(payload: dict, current_user: UserModel = Depends(get_current_
 @app.post("/api/import/activity-file")
 async def import_activity_file(
     file: UploadFile = File(...),
-    format: str = Form("fit"),
+    format: str = Form("auto"),
     activity_type_override: str = Form(""),
     date_override: str = Form(""),
     title: str = Form(""),
     note: str = Form(""),
     current_user: UserModel = Depends(get_current_user),
 ):
-    selected_format = str(format or "fit").strip().lower()
-    if selected_format != "fit":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only FIT activity import is supported for now")
-
     filename = str(file.filename or "").strip()
     if not filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="An activity file is required")
-    if Path(filename).suffix.lower() != ".fit":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please upload a .fit file")
+    selected_format = detect_activity_file_format(filename, format)
+    if selected_format not in {"fit", "tcx", "gpx"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please upload a FIT, TCX, or GPX activity file")
 
     content = await file.read()
     if not content:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The uploaded file is empty")
 
-    parsed_activity = parse_fit_activity_file(content, filename)
+    parsed_activity = parse_activity_file(content, filename, selected_format)
 
     db = get_db()
     try:
