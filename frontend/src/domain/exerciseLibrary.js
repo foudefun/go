@@ -46,8 +46,13 @@ export function normalizeExerciseDraft(exercise = {}) {
   return next;
 }
 
-export function getExerciseLabel(exercise = {}) {
+export function getExerciseLabel(exercise = {}, language = "en") {
+  const localizedName =
+    language === "fr"
+      ? String(exercise.display_name_fr || "").trim()
+      : String(exercise.display_name_en || "").trim();
   return (
+    localizedName ||
     String(exercise.display_name || "").trim() ||
     String(exercise.display_name_en || "").trim() ||
     String(exercise.display_name_fr || "").trim() ||
@@ -103,5 +108,5 @@ export function filterExercises(exercises = [], filters = {}) {
       if (!query) return true;
       return getExerciseSearchText(exercise).includes(query);
     })
-    .sort((left, right) => getExerciseLabel(left).localeCompare(getExerciseLabel(right)));
+    .sort((left, right) => getExerciseLabel(left, filters.language).localeCompare(getExerciseLabel(right, filters.language)));
 }

@@ -17,15 +17,15 @@ function getExerciseImages(exercise) {
   return images.length ? images : exercise?.image ? [exercise.image] : [];
 }
 
-function ExerciseImage({ exercise, large = false }) {
+function ExerciseImage({ exercise, language = "en", large = false }) {
   const image = getExerciseImages(exercise)[0];
   if (!image) {
     return <div className={large ? "exercise-image placeholder large" : "exercise-image placeholder"}>No image</div>;
   }
-  return <img className={large ? "exercise-image large" : "exercise-image"} src={image} alt={getExerciseLabel(exercise)} />;
+  return <img className={large ? "exercise-image large" : "exercise-image"} src={image} alt={getExerciseLabel(exercise, language)} />;
 }
 
-function ExerciseDetail({ exercise, onEdit, onNew, onDelete, canDelete }) {
+function ExerciseDetail({ exercise, language, onEdit, onNew, onDelete, canDelete }) {
   if (!exercise) {
     return (
       <section className="app-panel exercise-detail-panel">
@@ -36,11 +36,11 @@ function ExerciseDetail({ exercise, onEdit, onNew, onDelete, canDelete }) {
 
   return (
     <section className="app-panel exercise-detail-panel">
-      <ExerciseImage exercise={exercise} large />
+      <ExerciseImage exercise={exercise} language={language} large />
       <div className="exercise-detail-content">
         <div>
           <p className="eyebrow">{exercise.category || "Exercise"}</p>
-          <h2>{getExerciseLabel(exercise)}</h2>
+          <h2>{getExerciseLabel(exercise, language)}</h2>
           <span className="visually-muted">{exercise.name}</span>
         </div>
         <div className="exercise-badge-row">
@@ -186,6 +186,7 @@ function ExerciseEditor({ draft, mode, saving, onChange, onSave, onCancel }) {
 
 export default function ExercisesPage() {
   const { user } = useAuth();
+  const language = user?.language === "fr" ? "fr" : "en";
   const [exercises, setExercises] = useState([]);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
@@ -219,8 +220,8 @@ export default function ExercisesPage() {
 
   const categories = useMemo(() => getExerciseCategories(exercises), [exercises]);
   const filteredExercises = useMemo(
-    () => filterExercises(exercises, { query, category, trackingMode }),
-    [exercises, query, category, trackingMode],
+    () => filterExercises(exercises, { query, category, trackingMode, language }),
+    [exercises, query, category, trackingMode, language],
   );
   const selectedExercise = useMemo(
     () =>
@@ -264,7 +265,7 @@ export default function ExercisesPage() {
   }
 
   async function handleDelete(exercise) {
-    if (!window.confirm(`Delete "${getExerciseLabel(exercise)}"?`)) return;
+    if (!window.confirm(`Delete "${getExerciseLabel(exercise, language)}"?`)) return;
     setStatus("saving");
     setError("");
     try {
@@ -335,9 +336,9 @@ export default function ExercisesPage() {
                 key={exercise.name}
                 onClick={() => setSelectedName(exercise.name)}
               >
-                <ExerciseImage exercise={exercise} />
+                <ExerciseImage exercise={exercise} language={language} />
                 <span>
-                  <strong>{getExerciseLabel(exercise)}</strong>
+                  <strong>{getExerciseLabel(exercise, language)}</strong>
                   <small>{exercise.category || "Uncategorized"} - {exercise.tracking_mode === "time_watts" ? "time / watts" : "reps / weight"}</small>
                 </span>
               </button>
@@ -359,6 +360,7 @@ export default function ExercisesPage() {
           ) : (
             <ExerciseDetail
               exercise={selectedExercise}
+              language={language}
               onEdit={openEditEditor}
               onNew={openCreateEditor}
               onDelete={handleDelete}

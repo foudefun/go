@@ -53,6 +53,8 @@ test("filters exercises by query, category, and tracking mode", () => {
 
 test("returns display labels and category filters", () => {
   assert.equal(getExerciseLabel({ name: "front_squat" }), "front squat");
+  assert.equal(getExerciseLabel({ display_name: "Squat", display_name_en: "Back Squat", display_name_fr: "Squat arrière" }, "en"), "Back Squat");
+  assert.equal(getExerciseLabel({ display_name: "Squat", display_name_en: "Back Squat", display_name_fr: "Squat arrière" }, "fr"), "Squat arrière");
   assert.deepEqual(
     getExerciseCategories([{ category: "legs" }, { category: "" }, { category: "pull" }, { category: "legs" }]),
     ["legs", "pull"],
