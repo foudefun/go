@@ -643,7 +643,6 @@ const UI_TEXT = {
     bodyweight_pct: "% poids",
     difference: "Diff",
     day_activity: "Activité du jour",
-    real_day_load: "Charge réelle du jour",
     physio_time_label: "Heure physio",
     validate_session: "Valider cette session",
     validation_help: "La séance comptera dans le calendrier seulement après validation.",
@@ -948,7 +947,6 @@ const UI_TEXT = {
     bodyweight_pct: "% body weight",
     difference: "Diff",
     day_activity: "Activity of the day",
-    real_day_load: "Actual load for the day",
     physio_time_label: "Physio time",
     validate_session: "Validate this session",
     validation_help: "The session will count in the calendar only after validation.",
@@ -3145,7 +3143,6 @@ function activityHasContentClient(rawActivity){
     String(activity.activity_details || "").trim() ||
     String(activity.image || "").trim() ||
     (activity.climbing_routes && activity.climbing_routes.length) ||
-    Number(activity.load || 0) > 0 ||
     String(activity.physio_time || "").trim() ||
     String(activity.note || "").trim()
   );
@@ -3561,7 +3558,6 @@ function computeSessionStatus(){
     (session.activity_type && session.activity_type.trim()) ||
     (session.activity_details && session.activity_details.trim()) ||
     (session.climbing_routes && session.climbing_routes.length) ||
-    Number(session.load || 0) > 0 ||
     (session.physio_time && session.physio_time.trim()) ||
     (session.note && session.note.trim())
   );
@@ -5432,10 +5428,6 @@ function renderModal(){
 
     <div class="row">
       <div>
-        <label>Load réel</label>
-        <input id="load" value="${session.load || 0}">
-      </div>
-      <div>
         <label>Status</label>
         <select id="status">
           <option value="todo">todo</option>
@@ -5489,7 +5481,6 @@ function removeEx(i){
 async function save(){
   session.note = document.getElementById("note").value;
   session.status = document.getElementById("status").value;
-  session.load = parseFloat(document.getElementById("load").value) || 0;
   session.physio_time = document.getElementById("physioTime").value || "";
 
   await api(`/session/${currentDate}`, {
@@ -5627,7 +5618,6 @@ function renderModal(){
     String(session.activity_details || "").trim() ||
     String(session.image || "").trim() ||
     (session.climbing_routes || []).length ||
-    Number(session.load || 0) ||
     String(session.note || "").trim() ||
     String(session.activity_type || "").trim()
   );
@@ -5894,10 +5884,6 @@ function renderModal(){
           <div>
             <label>${escapeHtml(t("activity_details"))}</label>
             <input id="activityDetails" placeholder="ex: 45 min, zone 2, match, sortie longue..." value="${escapeAttr(session.activity_details || "")}" oninput="captureSessionDraft()">
-          </div>
-          <div>
-            <label>${escapeHtml(t("real_day_load"))}</label>
-            <input id="load" value="${session.load || 0}" oninput="captureSessionDraft()">
           </div>
           <div style="${session.physio_time ? "" : "display:none;"}">
             <label>${escapeHtml(t("physio_time_label"))}</label>
