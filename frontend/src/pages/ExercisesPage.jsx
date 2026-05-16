@@ -18,12 +18,21 @@ function getExerciseImages(exercise) {
   return images.length ? images : exercise?.image ? [exercise.image] : [];
 }
 
-function ExerciseImage({ exercise, language = "en", large = false }) {
+function ExerciseImage({ exercise, language = "en", large = false, onViewImage }) {
   const image = getExerciseImages(exercise)[0];
   if (!image) {
     return <div className={large ? "exercise-image placeholder large" : "exercise-image placeholder"}>No image</div>;
   }
-  return <img className={large ? "exercise-image large" : "exercise-image"} src={image} alt={getExerciseLabel(exercise, language)} />;
+  const label = getExerciseLabel(exercise, language);
+  const imageElement = <img className={large ? "exercise-image large" : "exercise-image"} src={image} alt={label} />;
+  if (!onViewImage) {
+    return imageElement;
+  }
+  return (
+    <button type="button" className={large ? "image-view-button large" : "image-view-button"} onClick={() => onViewImage(image, label)}>
+      {imageElement}
+    </button>
+  );
 }
 
 function getExerciseFamilyKey(exercise = {}) {
@@ -44,7 +53,24 @@ function getExerciseOptionLabel(exercise, language) {
   return variant ? `${label} - ${variant}` : label;
 }
 
-function ExerciseDetail({ exercise, exercises, language, onEdit, onNew, onDelete, canDelete }) {
+function ImageLightbox({ image, title, onClose }) {
+  if (!image) return null;
+  return (
+    <div className="modal-backdrop image-lightbox-backdrop" role="presentation" onClick={onClose}>
+      <section className="image-lightbox" role="dialog" aria-modal="true" aria-label={title || "Exercise image"} onClick={(event) => event.stopPropagation()}>
+        <header>
+          <strong>{title || "Exercise image"}</strong>
+          <button type="button" onClick={onClose}>
+            Close
+          </button>
+        </header>
+        <img src={image} alt={title || "Exercise image"} />
+      </section>
+    </div>
+  );
+}
+
+function ExerciseDetail({ exercise, exercises, language, onEdit, onNew, onDelete, onViewImage, canDelete }) {
   const relatedExercises = getRelatedExercises(exercise, exercises);
 
   if (!exercise) {
@@ -57,7 +83,7 @@ function ExerciseDetail({ exercise, exercises, language, onEdit, onNew, onDelete
 
   return (
     <section className="app-panel exercise-detail-panel">
-      <ExerciseImage exercise={exercise} language={language} large />
+      <ExerciseImage exercise={exercise} language={language} large onViewImage={onViewImage} />
       <div className="exercise-detail-content">
         <div>
           <p className="eyebrow">{exercise.category || "Exercise"}</p>
@@ -126,6 +152,7 @@ function ExerciseEditor({
   onUploadImage,
   onMerge,
   onDelete,
+  onViewImage,
 }) {
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [mergeTargetName, setMergeTargetName] = useState("");
@@ -320,7 +347,9 @@ function ExerciseEditor({
         {images.length ? (
           <div className="exercise-image-preview-list" aria-label="Current images">
             {images.map((image) => (
-              <img key={image} src={image} alt="" />
+              <button type="button" key={image} className="image-preview-button" onClick={() => onViewImage(image, getExerciseLabel(draft, language))}>
+                <img src={image} alt="" />
+              </button>
             ))}
           </div>
         ) : null}
@@ -407,6 +436,7 @@ export default function ExercisesPage() {
   const [draft, setDraft] = useState(blankExercise);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState("");
+  const [imageViewer, setImageViewer] = useState({ image: "", title: "" });
 
   function loadExercises(nextSelectedName = selectedName) {
     setStatus("loading");
@@ -532,6 +562,10 @@ export default function ExercisesPage() {
     }
   }
 
+  function openImageViewer(image, title) {
+    setImageViewer({ image, title });
+  }
+
   return (
     <main className="page-shell">
       <section className="module-header">
@@ -620,6 +654,7 @@ export default function ExercisesPage() {
               onUploadImage={handleUploadExerciseImage}
               onMerge={handleMergeExercise}
               onDelete={handleDelete}
+              onViewImage={openImageViewer}
             />
           ) : (
             <ExerciseDetail
@@ -629,11 +664,13 @@ export default function ExercisesPage() {
               onEdit={openEditEditor}
               onNew={openCreateEditor}
               onDelete={handleDelete}
+              onViewImage={openImageViewer}
               canDelete={Boolean(user?.isAdmin && selectedExercise?.name)}
             />
           )}
         </div>
       </section>
+      <ImageLightbox image={imageViewer.image} title={imageViewer.title} onClose={() => setImageViewer({ image: "", title: "" })} />
     </main>
   );
 }
