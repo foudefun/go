@@ -4144,6 +4144,18 @@ function deleteDayActivityAtIndex(index){
     session.activities.splice(safeIndex, 1);
   }
   if(!session.activities.length){
+    session.exercises = [];
+    session.note = "";
+    session.status = "todo";
+    session.load = 0;
+    session.physio_time = "";
+    session.activity_title = "";
+    session.activity_type = "";
+    session.activity_details = "";
+    session.image = "";
+    session.climbing_routes = [];
+    session.performed_items = [];
+    session.used_equipment = [];
     dayModalView = "overview";
   }
   const nextIndex = session.activities.length ? Math.max(0, Math.min(activeActivityIndex > safeIndex ? activeActivityIndex - 1 : activeActivityIndex, session.activities.length - 1)) : 0;
