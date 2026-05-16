@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createExercise, deleteExercise, getExercises, updateExercise, uploadExerciseImage } from "../api/exerciseApi.js";
+import { createExercise, deleteExercise, getExercises, mergeExerciseInto, updateExercise, uploadExerciseImage } from "../api/exerciseApi.js";
 import { useAuth } from "../auth/AuthProvider.jsx";
 import {
   TRACKING_MODES,
@@ -26,7 +26,27 @@ function ExerciseImage({ exercise, language = "en", large = false }) {
   return <img className={large ? "exercise-image large" : "exercise-image"} src={image} alt={getExerciseLabel(exercise, language)} />;
 }
 
-function ExerciseDetail({ exercise, language, onEdit, onNew, onDelete, canDelete }) {
+function getExerciseFamilyKey(exercise = {}) {
+  return String(exercise.movement_family || "").trim() || String(exercise.name || "").trim();
+}
+
+function getRelatedExercises(exercise, exercises = []) {
+  const familyKey = getExerciseFamilyKey(exercise);
+  if (!exercise?.name || !familyKey) return [];
+  return exercises
+    .filter((candidate) => candidate.name !== exercise.name && getExerciseFamilyKey(candidate) === familyKey)
+    .sort((left, right) => getExerciseLabel(left).localeCompare(getExerciseLabel(right)));
+}
+
+function getExerciseOptionLabel(exercise, language) {
+  const variant = String(exercise.variant_label || "").trim();
+  const label = getExerciseLabel(exercise, language);
+  return variant ? `${label} - ${variant}` : label;
+}
+
+function ExerciseDetail({ exercise, exercises, language, onEdit, onNew, onDelete, canDelete }) {
+  const relatedExercises = getRelatedExercises(exercise, exercises);
+
   if (!exercise) {
     return (
       <section className="app-panel exercise-detail-panel">
@@ -51,6 +71,21 @@ function ExerciseDetail({ exercise, language, onEdit, onNew, onDelete, canDelete
           {exercise.variant_label ? <span>{exercise.variant_label}</span> : null}
         </div>
         {exercise.description ? <p>{exercise.description}</p> : <p className="visually-muted">No description yet.</p>}
+        <div className="exercise-management-panel">
+          <strong>Close variants</strong>
+          <p>Linked through similar movement, without merging exercise records.</p>
+          {relatedExercises.length ? (
+            <div className="category-choice-list">
+              {relatedExercises.map((relatedExercise) => (
+                <button type="button" className="category-choice as-button" key={relatedExercise.name} onClick={() => onEdit(relatedExercise)}>
+                  {getExerciseOptionLabel(relatedExercise, language)}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span className="visually-muted">No close variants linked yet.</span>
+          )}
+        </div>
         <div className="day-modal-actions">
           <button type="button" className="primary-action" onClick={() => onEdit(exercise)}>
             Edit Details
@@ -79,15 +114,21 @@ function ExerciseEditor({
   mode,
   saving,
   categories = [],
+  exercises = [],
+  language,
   canUploadImage,
   uploadingImage,
   imageUploadError,
+  canDelete,
   onChange,
   onSave,
   onCancel,
   onUploadImage,
+  onMerge,
+  onDelete,
 }) {
   const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const [mergeTargetName, setMergeTargetName] = useState("");
   const fileInputRef = useRef(null);
 
   function updateField(field, value) {
@@ -116,6 +157,20 @@ function ExerciseEditor({
   const imageUploadDisabled = !canUploadImage || uploadingImage;
   const images = getExerciseImages(draft);
   const selectedCategories = getExerciseCategoryList(draft);
+  const sortedExerciseOptions = useMemo(
+    () =>
+      exercises
+        .filter((exercise) => exercise.name !== draft.name)
+        .sort((left, right) => getExerciseOptionLabel(left, language).localeCompare(getExerciseOptionLabel(right, language))),
+    [draft.name, exercises, language],
+  );
+  const relatedExercises = useMemo(() => getRelatedExercises(draft, exercises), [draft, exercises]);
+  const hasCurrentMovementFamily =
+    draft.movement_family && !sortedExerciseOptions.some((exercise) => exercise.name === draft.movement_family);
+
+  useEffect(() => {
+    setMergeTargetName("");
+  }, [draft.name]);
 
   function toggleCategory(categoryName) {
     const nextCategories = selectedCategories.includes(categoryName)
@@ -163,7 +218,15 @@ function ExerciseEditor({
         </label>
         <label>
           Movement family
-          <input value={draft.movement_family || ""} onChange={(event) => updateField("movement_family", event.target.value)} />
+          <select value={draft.movement_family || ""} onChange={(event) => updateField("movement_family", event.target.value)}>
+            <option value="">Standalone exercise</option>
+            {hasCurrentMovementFamily ? <option value={draft.movement_family}>{draft.movement_family}</option> : null}
+            {sortedExerciseOptions.map((exercise) => (
+              <option key={exercise.name} value={exercise.name}>
+                {getExerciseOptionLabel(exercise, language)}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Variant
@@ -276,13 +339,54 @@ function ExerciseEditor({
         <input value={draft.document || ""} onChange={(event) => updateField("document", event.target.value)} />
       </label>
 
+      {mode === "edit" ? (
+        <div className="exercise-management-panel">
+          <div>
+            <strong>Exercise management</strong>
+            <p>Use similar movement to group variants. Use merge only when two records are truly the same exercise.</p>
+          </div>
+          <div>
+            <p className="field-label">Close variants</p>
+            {relatedExercises.length ? (
+              <div className="category-choice-list">
+                {relatedExercises.map((exercise) => (
+                  <span key={exercise.name} className="category-choice">
+                    {getExerciseOptionLabel(exercise, language)}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="visually-muted">No close variants linked yet.</span>
+            )}
+          </div>
+          <div className="merge-control-row">
+            <label>
+              Merge this exercise into
+              <select value={mergeTargetName} onChange={(event) => setMergeTargetName(event.target.value)}>
+                <option value="">Choose target exercise</option>
+                {sortedExerciseOptions.map((exercise) => (
+                  <option key={exercise.name} value={exercise.name}>
+                    {getExerciseOptionLabel(exercise, language)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="button" className="secondary-action" disabled={!mergeTargetName || saving} onClick={() => onMerge(draft, mergeTargetName)}>
+              Merge
+            </button>
+          </div>
+          {canDelete ? (
+            <button type="button" className="danger-action" disabled={saving} onClick={() => onDelete(draft)}>
+              Delete exercise
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="day-modal-actions">
         <button type="button" className="primary-action" onClick={onSave} disabled={saving || !draft.name}>
           {saving ? "Saving..." : "Save Exercise"}
         </button>
-        <a className="secondary-action" href="/legacy.html">
-          Advanced Exercise Tools
-        </a>
       </div>
     </section>
   );
@@ -378,6 +482,9 @@ export default function ExercisesPage() {
     setError("");
     try {
       await deleteExercise(exercise.name);
+      setEditorMode("");
+      setEditorOriginalName("");
+      setDraft(blankExercise());
       setSelectedName("");
       await loadExercises("");
     } catch (deleteError) {
@@ -400,6 +507,28 @@ export default function ExercisesPage() {
       setImageUploadError(uploadError.message);
     } finally {
       setUploadingImage(false);
+    }
+  }
+
+  async function handleMergeExercise(sourceExercise, targetName) {
+    const sourceName = sourceExercise?.name || editorOriginalName;
+    const targetExercise = exercises.find((exercise) => exercise.name === targetName);
+    if (!sourceName || !targetName || sourceName === targetName) return;
+    const sourceLabel = getExerciseLabel(sourceExercise, language);
+    const targetLabel = getExerciseLabel(targetExercise, language);
+    if (!window.confirm(`Merge "${sourceLabel}" into "${targetLabel}"? Existing calendar references will move to the target exercise.`)) return;
+    setStatus("saving");
+    setError("");
+    try {
+      const result = await mergeExerciseInto(sourceName, targetName);
+      const nextName = result.exercise?.name || targetName;
+      setEditorMode("");
+      setEditorOriginalName("");
+      setDraft(blankExercise());
+      await loadExercises(nextName);
+    } catch (mergeError) {
+      setError(mergeError.message);
+      setStatus("ready");
     }
   }
 
@@ -479,17 +608,23 @@ export default function ExercisesPage() {
               mode={editorMode}
               saving={status === "saving"}
               categories={categories}
+              exercises={exercises}
+              language={language}
               canUploadImage={editorMode === "edit" && Boolean(editorOriginalName)}
               uploadingImage={uploadingImage}
               imageUploadError={imageUploadError}
+              canDelete={Boolean(user?.isAdmin && editorMode === "edit" && editorOriginalName)}
               onChange={setDraft}
               onSave={handleSave}
               onCancel={() => setEditorMode("")}
               onUploadImage={handleUploadExerciseImage}
+              onMerge={handleMergeExercise}
+              onDelete={handleDelete}
             />
           ) : (
             <ExerciseDetail
               exercise={selectedExercise}
+              exercises={exercises}
               language={language}
               onEdit={openEditEditor}
               onNew={openCreateEditor}

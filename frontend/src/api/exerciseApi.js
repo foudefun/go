@@ -26,6 +26,14 @@ export function deleteExercise(name) {
   });
 }
 
+export function mergeExerciseInto(sourceName, targetName) {
+  return api(`/exercises/${encodeURIComponent(sourceName)}/merge-into`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ target_name: targetName }),
+  });
+}
+
 export function uploadExerciseImage(name, file) {
   const formData = new FormData();
   formData.append("image_file", file);
