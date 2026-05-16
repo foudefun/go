@@ -1,5 +1,6 @@
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthProvider.jsx";
+import { useTranslation } from "./i18n/translations.js";
 import OutdoorClimbingPage from "./climbing/pages/OutdoorClimbingPage.jsx";
 import AccountPage from "./pages/AccountPage.jsx";
 import ActivitiesPage from "./pages/ActivitiesPage.jsx";
@@ -12,30 +13,31 @@ import LoginPage from "./pages/LoginPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 
 const tabs = [
-  { to: "/calendar", label: "Calendar" },
-  { to: "/activities", label: "Activities" },
-  { to: "/exercises", label: "Exercises" },
-  { to: "/equipment", label: "Equipment" },
-  { to: "/outdoor-climbing", label: "Outdoor Climbing" },
-  { to: "/import", label: "Import" },
-  { to: "/account", label: "Account" },
+  { to: "/calendar", labelKey: "Calendar" },
+  { to: "/activities", labelKey: "Activities" },
+  { to: "/exercises", labelKey: "Exercises" },
+  { to: "/equipment", labelKey: "Equipment" },
+  { to: "/outdoor-climbing", labelKey: "Outdoor Climbing" },
+  { to: "/import", labelKey: "Import" },
+  { to: "/account", labelKey: "Account" },
 ];
 
 function AppLayout() {
   const { user, logout } = useAuth();
-  const visibleTabs = user?.isAdmin ? [...tabs, { to: "/admin", label: "Admin" }] : tabs;
+  const { t } = useTranslation();
+  const visibleTabs = user?.isAdmin ? [...tabs, { to: "/admin", labelKey: "Admin" }] : tabs;
 
   return (
     <>
       <header className="topbar">
         <div className="brand-lockup">
           <strong>Let&apos;s GO</strong>
-          <span>Training tracker</span>
+          <span>{t("Training tracker")}</span>
         </div>
         <nav className="nav-cluster app-tabs" aria-label="Primary">
           {visibleTabs.map((tab) => (
             <NavLink key={tab.to} to={tab.to}>
-              {tab.label}
+              {t(tab.labelKey)}
             </NavLink>
           ))}
         </nav>
@@ -45,7 +47,7 @@ function AppLayout() {
             {user?.isAdmin ? " - admin" : ""}
           </span>
           <button type="button" onClick={logout}>
-            Logout
+            {t("Logout")}
           </button>
         </div>
       </header>
@@ -78,13 +80,14 @@ function AppLayout() {
 
 export default function App() {
   const { isAuthenticated, isBootstrapping } = useAuth();
+  const { t } = useTranslation();
 
   if (isBootstrapping) {
     return (
       <main className="auth-shell">
         <section className="auth-card">
           <h1>Let&apos;s GO</h1>
-          <p>Loading your session...</p>
+          <p>{t("Loading your session...")}</p>
         </section>
       </main>
     );

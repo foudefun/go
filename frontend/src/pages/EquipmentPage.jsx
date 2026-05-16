@@ -34,19 +34,22 @@ import {
   normalizePurchaseDraft,
   slugifyEquipmentName,
 } from "../domain/equipmentLibrary.js";
+import { useTranslation } from "../i18n/translations.js";
 
 function EquipmentImage({ item, large = false }) {
+  const { t } = useTranslation();
   if (!item?.image) {
-    return <div className={large ? "equipment-image placeholder large" : "equipment-image placeholder"}>No image</div>;
+    return <div className={large ? "equipment-image placeholder large" : "equipment-image placeholder"}>{t("No image")}</div>;
   }
   return <img className={large ? "equipment-image large" : "equipment-image"} src={item.image} alt={getEquipmentLabel(item)} />;
 }
 
 function EquipmentDetail({ item, canDelete, onEdit, onNew, onDelete, onAddOwned }) {
+  const { t } = useTranslation();
   if (!item) {
     return (
       <section className="app-panel equipment-detail-panel">
-        <div className="empty-state">Choose equipment to inspect it.</div>
+        <div className="empty-state">{t("Choose equipment to inspect it.")}</div>
       </section>
     );
   }
@@ -56,7 +59,7 @@ function EquipmentDetail({ item, canDelete, onEdit, onNew, onDelete, onAddOwned 
       <EquipmentImage item={item} large />
       <div className="exercise-detail-content">
         <div>
-          <p className="eyebrow">{item.category || "Equipment"}</p>
+          <p className="eyebrow">{item.category || t("Equipment")}</p>
           <h2>{getEquipmentLabel(item)}</h2>
           <span className="visually-muted">{item.name}</span>
         </div>
@@ -65,25 +68,25 @@ function EquipmentDetail({ item, canDelete, onEdit, onNew, onDelete, onAddOwned 
           {item.model_name ? <span>{item.model_name}</span> : null}
           {item.category ? <span>{item.category}</span> : null}
         </div>
-        {item.description ? <p>{item.description}</p> : <p className="visually-muted">No description yet.</p>}
+        {item.description ? <p>{item.description}</p> : <p className="visually-muted">{t("No description yet.")}</p>}
         <div className="day-modal-actions">
           <button type="button" className="primary-action" onClick={() => onAddOwned(item)}>
-            Add To My Gear
+            {t("Add To My Gear")}
           </button>
           <button type="button" className="secondary-action" onClick={() => onEdit(item)}>
-            Edit Details
+            {t("Edit Details")}
           </button>
           <button type="button" className="secondary-action" onClick={onNew}>
-            New Equipment
+            {t("New Equipment")}
           </button>
           {item.link ? (
             <a className="secondary-action" href={item.link} target="_blank" rel="noreferrer">
-              Open Link
+              {t("Open Link")}
             </a>
           ) : null}
           {canDelete ? (
             <button type="button" onClick={() => onDelete(item)}>
-              Delete
+              {t("Delete")}
             </button>
           ) : null}
         </div>
@@ -93,6 +96,7 @@ function EquipmentDetail({ item, canDelete, onEdit, onNew, onDelete, onAddOwned 
 }
 
 function EquipmentEditor({ draft, mode, brands, models, saving, onChange, onSave, onCancel }) {
+  const { t } = useTranslation();
   const brandModels = modelsForBrand(models, draft.brand_id);
 
   function updateField(field, value) {
@@ -113,27 +117,27 @@ function EquipmentEditor({ draft, mode, brands, models, saving, onChange, onSave
     <section className="app-panel equipment-editor-panel">
       <header className="strength-editor-header">
         <div>
-          <p className="eyebrow">{mode === "create" ? "New" : "Editing"}</p>
-          <h2>{mode === "create" ? "Add Equipment" : "Edit Equipment"}</h2>
+          <p className="eyebrow">{mode === "create" ? t("New") : t("Editing")}</p>
+          <h2>{mode === "create" ? t("Add Equipment") : t("Edit Equipment")}</h2>
         </div>
         <button type="button" onClick={onCancel}>
-          Close
+          {t("Close")}
         </button>
       </header>
 
       <div className="form-grid">
         <label>
-          Technical name
+          {t("Technical name")}
           <input value={draft.name || ""} onChange={(event) => updateField("name", event.target.value)} placeholder="solution_comp_pair" />
         </label>
         <label>
-          Category
+          {t("Category")}
           <input value={draft.category || ""} onChange={(event) => updateField("category", event.target.value)} placeholder="shoes, rope, belay..." />
         </label>
         <label>
-          Brand
+          {t("Brand")}
           <select value={draft.brand_id || ""} onChange={(event) => updateField("brand_id", event.target.value)}>
-            <option value="">Choose brand</option>
+            <option value="">{t("Choose brand")}</option>
             {brands.map((brand) => (
               <option value={brand.id} key={brand.id}>
                 {brand.name}
@@ -142,9 +146,9 @@ function EquipmentEditor({ draft, mode, brands, models, saving, onChange, onSave
           </select>
         </label>
         <label>
-          Model
+          {t("Model")}
           <select value={draft.model_id || ""} onChange={(event) => updateField("model_id", event.target.value)}>
-            <option value="">Choose model</option>
+            <option value="">{t("Choose model")}</option>
             {brandModels.map((model) => (
               <option value={model.id} key={model.id}>
                 {model.name}
@@ -153,23 +157,23 @@ function EquipmentEditor({ draft, mode, brands, models, saving, onChange, onSave
           </select>
         </label>
         <label>
-          Image URL
+          {t("Image URL")}
           <input value={draft.image || ""} onChange={(event) => updateField("image", event.target.value)} placeholder="https://..." />
         </label>
         <label>
-          Reference link
+          {t("Reference link")}
           <input value={draft.link || ""} onChange={(event) => updateField("link", event.target.value)} placeholder="https://..." />
         </label>
       </div>
 
       <label>
-        Description
+        {t("Description")}
         <textarea value={draft.description || ""} onChange={(event) => updateField("description", event.target.value)} />
       </label>
 
       <div className="day-modal-actions">
         <button type="button" className="primary-action" onClick={onSave} disabled={saving || !draft.name || !draft.brand_id || !draft.model_id}>
-          {saving ? "Saving..." : "Save Equipment"}
+          {saving ? t("Saving...") : t("Save Equipment")}
         </button>
       </div>
     </section>
@@ -177,13 +181,14 @@ function EquipmentEditor({ draft, mode, brands, models, saving, onChange, onSave
 }
 
 function OwnedGearPanel({ equipment, purchases, saving, onAdd, onEdit, onDelete, draft, editingId, onDraftChange, onSave, onCancel }) {
+  const { t } = useTranslation();
   return (
     <section className="equipment-owned-layout">
       <div className="app-panel equipment-owned-list">
         <div className="exercise-list-header">
-          <strong>{purchases.length} owned item(s)</strong>
+          <strong>{t("Owned item count", { count: purchases.length })}</strong>
           <button type="button" className="primary-action" onClick={onAdd}>
-            Add Owned Gear
+            {t("Add Owned Gear")}
           </button>
         </div>
         <div className="exercise-list-scroll">
@@ -192,40 +197,40 @@ function OwnedGearPanel({ equipment, purchases, saving, onAdd, onEdit, onDelete,
               <EquipmentImage item={purchase} />
               <div>
                 <strong>{purchase.display_name || purchase.equipment_name}</strong>
-                <span>{purchase.purchase_date || "No date"}{purchase.purchase_price ? ` - ${purchase.purchase_price}` : ""}</span>
+                <span>{purchase.purchase_date || t("No date")}{purchase.purchase_price ? ` - ${purchase.purchase_price}` : ""}</span>
                 {purchase.note ? <small>{purchase.note}</small> : null}
               </div>
               <div className="compact-actions">
                 <button type="button" onClick={() => onEdit(purchase)}>
-                  Edit
+                  {t("Edit")}
                 </button>
                 <button type="button" onClick={() => onDelete(purchase)}>
-                  Delete
+                  {t("Delete")}
                 </button>
               </div>
             </article>
           ))}
-          {!purchases.length ? <div className="empty-state compact">No owned gear yet.</div> : null}
+          {!purchases.length ? <div className="empty-state compact">{t("No owned gear yet.")}</div> : null}
         </div>
       </div>
 
       <section className="app-panel equipment-editor-panel">
         <header className="strength-editor-header">
           <div>
-            <p className="eyebrow">My Gear</p>
-            <h2>{editingId ? "Edit Owned Gear" : "Add Owned Gear"}</h2>
+            <p className="eyebrow">{t("My Gear")}</p>
+            <h2>{editingId ? t("Edit Owned Gear") : t("Add Owned Gear")}</h2>
           </div>
           {editingId ? (
             <button type="button" onClick={onCancel}>
-              Cancel
+                {t("Cancel")}
             </button>
           ) : null}
         </header>
         <div className="form-grid">
           <label>
-            Equipment
+            {t("Equipment")}
             <select value={draft.equipment_id || ""} onChange={(event) => onDraftChange((current) => ({ ...current, equipment_id: event.target.value }))}>
-              <option value="">Choose equipment</option>
+              <option value="">{t("Choose equipment")}</option>
               {equipment.map((item) => (
                 <option key={item.id} value={item.id}>
                   {getEquipmentLabel(item)}
@@ -234,11 +239,11 @@ function OwnedGearPanel({ equipment, purchases, saving, onAdd, onEdit, onDelete,
             </select>
           </label>
           <label>
-            Purchase date
+            {t("Purchase date")}
             <input type="date" value={draft.purchase_date || ""} onChange={(event) => onDraftChange((current) => ({ ...current, purchase_date: event.target.value }))} />
           </label>
           <label>
-            Purchase price
+            {t("Purchase price")}
             <input
               type="number"
               min="0"
@@ -249,11 +254,11 @@ function OwnedGearPanel({ equipment, purchases, saving, onAdd, onEdit, onDelete,
           </label>
         </div>
         <label>
-          Notes
+          {t("Notes")}
           <textarea value={draft.note || ""} onChange={(event) => onDraftChange((current) => ({ ...current, note: event.target.value }))} />
         </label>
         <button type="button" className="primary-action" onClick={onSave} disabled={saving || !draft.equipment_id || !draft.purchase_date}>
-          {saving ? "Saving..." : "Save Owned Gear"}
+          {saving ? t("Saving...") : t("Save Owned Gear")}
         </button>
       </section>
     </section>
@@ -281,6 +286,7 @@ function TaxonomyPanel({
   onCancelBrand,
   onCancelModel,
 }) {
+  const { t } = useTranslation();
   const brandModels = modelsForBrand(models, modelDraft.brand_id || brands[0]?.id);
 
   return (
@@ -288,24 +294,24 @@ function TaxonomyPanel({
       <div className="app-panel equipment-editor-panel">
         <header className="strength-editor-header">
           <div>
-            <p className="eyebrow">Brands</p>
-            <h2>{editingBrandId ? "Edit Brand" : "Add Brand"}</h2>
+            <p className="eyebrow">{t("Brands")}</p>
+            <h2>{editingBrandId ? t("Edit Brand") : t("Add Brand")}</h2>
           </div>
           {editingBrandId ? (
             <button type="button" onClick={onCancelBrand}>
-              Cancel
+              {t("Cancel")}
             </button>
           ) : null}
         </header>
         <div className="form-grid">
           <label>
-            Brand name
+            {t("Brand name")}
             <input value={brandDraft.name || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, name: event.target.value }))} />
           </label>
           <label>
-            Country
+            {t("Country")}
             <select value={brandDraft.country_id || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, country_id: event.target.value }))}>
-              <option value="">No country</option>
+              <option value="">{t("No country")}</option>
               {countries.map((country) => (
                 <option value={country.id} key={country.id}>
                   {country.name}
@@ -314,7 +320,7 @@ function TaxonomyPanel({
             </select>
           </label>
           <label>
-            Established
+            {t("Established")}
             <input
               type="number"
               min="1500"
@@ -324,47 +330,47 @@ function TaxonomyPanel({
             />
           </label>
           <label>
-            Created at
+            {t("Created at")}
             <input type="date" value={brandDraft.created_at || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, created_at: event.target.value }))} />
           </label>
           <label>
-            Website
+            {t("Website")}
             <input value={brandDraft.website_url || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, website_url: event.target.value }))} placeholder="https://..." />
           </label>
           <label>
-            Logo URL
+            {t("Logo URL")}
             <input value={brandDraft.logo_url || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, logo_url: event.target.value }))} placeholder="https://..." />
           </label>
         </div>
         <label>
-          Description
+          {t("Description")}
           <textarea value={brandDraft.description || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, description: event.target.value }))} />
         </label>
         <label>
-          History
+          {t("History")}
           <textarea value={brandDraft.history || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, history: event.target.value }))} />
         </label>
         <label className="toggle-row">
           <input type="checkbox" checked={brandDraft.is_active !== false} onChange={(event) => onBrandDraftChange((current) => ({ ...current, is_active: event.target.checked }))} />
-          Active
+          {t("Active")}
         </label>
         <button type="button" className="primary-action" onClick={onSaveBrand} disabled={saving || !brandDraft.name}>
-          {saving ? "Saving..." : "Save Brand"}
+          {saving ? t("Saving...") : t("Save Brand")}
         </button>
         <div className="taxonomy-list">
           {brands.map((brand) => (
             <article key={brand.id} className="taxonomy-row">
               <div>
                 <strong>{brand.name}</strong>
-                <small>{[brand.country_name, brand.year_established, brand.is_active === false ? "Inactive" : ""].filter(Boolean).join(" - ") || brand.created_at}</small>
+                <small>{[brand.country_name, brand.year_established, brand.is_active === false ? t("Inactive") : ""].filter(Boolean).join(" - ") || brand.created_at}</small>
               </div>
               <div className="compact-actions">
                 <button type="button" onClick={() => onEditBrand(brand)}>
-                  Edit
+                  {t("Edit")}
                 </button>
                 {canDelete ? (
                   <button type="button" onClick={() => onDeleteBrand(brand)}>
-                    Delete
+                    {t("Delete")}
                   </button>
                 ) : null}
               </div>
@@ -376,20 +382,20 @@ function TaxonomyPanel({
       <div className="app-panel equipment-editor-panel">
         <header className="strength-editor-header">
           <div>
-            <p className="eyebrow">Models</p>
-            <h2>{editingModelId ? "Edit Model" : "Add Model"}</h2>
+            <p className="eyebrow">{t("Models")}</p>
+            <h2>{editingModelId ? t("Edit Model") : t("Add Model")}</h2>
           </div>
           {editingModelId ? (
             <button type="button" onClick={onCancelModel}>
-              Cancel
+                {t("Cancel")}
             </button>
           ) : null}
         </header>
         <div className="form-grid">
           <label>
-            Brand
+            {t("Brand")}
             <select value={modelDraft.brand_id || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, brand_id: event.target.value }))}>
-              <option value="">Choose brand</option>
+              <option value="">{t("Choose brand")}</option>
               {brands.map((brand) => (
                 <option value={brand.id} key={brand.id}>
                   {brand.name}
@@ -398,20 +404,20 @@ function TaxonomyPanel({
             </select>
           </label>
           <label>
-            Model name
+            {t("Model name")}
             <input value={modelDraft.name || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, name: event.target.value }))} />
           </label>
           <label>
-            Created at
+            {t("Created at")}
             <input type="date" value={modelDraft.created_at || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, created_at: event.target.value }))} />
           </label>
         </div>
         <label>
-          History
+          {t("History")}
           <textarea value={modelDraft.history || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, history: event.target.value }))} />
         </label>
         <button type="button" className="primary-action" onClick={onSaveModel} disabled={saving || !modelDraft.brand_id || !modelDraft.name}>
-          {saving ? "Saving..." : "Save Model"}
+          {saving ? t("Saving...") : t("Save Model")}
         </button>
         <div className="taxonomy-list">
           {brandModels.map((model) => (
@@ -422,17 +428,17 @@ function TaxonomyPanel({
               </div>
               <div className="compact-actions">
                 <button type="button" onClick={() => onEditModel(model)}>
-                  Edit
+                  {t("Edit")}
                 </button>
                 {canDelete ? (
                   <button type="button" onClick={() => onDeleteModel(model)}>
-                    Delete
+                    {t("Delete")}
                   </button>
                 ) : null}
               </div>
             </article>
           ))}
-          {!brandModels.length ? <div className="empty-state compact">No model for the selected brand yet.</div> : null}
+          {!brandModels.length ? <div className="empty-state compact">{t("No model for the selected brand yet.")}</div> : null}
         </div>
       </div>
     </section>
@@ -441,6 +447,7 @@ function TaxonomyPanel({
 
 export default function EquipmentPage() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [countries, setCountries] = useState([]);
   const [brands, setBrands] = useState([]);
   const [models, setModels] = useState([]);
@@ -530,7 +537,7 @@ export default function EquipmentPage() {
   }
 
   async function removeEquipment(item) {
-    if (!window.confirm(`Delete "${getEquipmentLabel(item)}"?`)) return;
+    if (!window.confirm(`${t("Delete")} "${getEquipmentLabel(item)}"?`)) return;
     setStatus("saving");
     setError("");
     try {
@@ -573,7 +580,7 @@ export default function EquipmentPage() {
   }
 
   async function removePurchase(purchase) {
-    if (!window.confirm(`Delete owned gear "${purchase.display_name || purchase.equipment_name}"?`)) return;
+    if (!window.confirm(`${t("Delete")} "${purchase.display_name || purchase.equipment_name}"?`)) return;
     setStatus("saving");
     setError("");
     try {
@@ -626,7 +633,7 @@ export default function EquipmentPage() {
   }
 
   async function removeBrand(brand) {
-    if (!window.confirm(`Delete brand "${brand.name}"?`)) return;
+    if (!window.confirm(`${t("Delete")} "${brand.name}"?`)) return;
     setStatus("saving");
     setError("");
     try {
@@ -639,7 +646,7 @@ export default function EquipmentPage() {
   }
 
   async function removeModel(model) {
-    if (!window.confirm(`Delete model "${model.name}"?`)) return;
+    if (!window.confirm(`${t("Delete")} "${model.name}"?`)) return;
     setStatus("saving");
     setError("");
     try {
@@ -655,15 +662,15 @@ export default function EquipmentPage() {
     <main className="page-shell">
       <section className="module-header">
         <div>
-          <p className="eyebrow">Gear</p>
-          <h1>Equipment</h1>
+          <p className="eyebrow">{t("Gear")}</p>
+          <h1>{t("Equipment")}</h1>
         </div>
         <div className="day-modal-actions">
           <button type="button" className="primary-action" onClick={() => openEquipmentEditor()}>
-            Add Equipment
+            {t("Add Equipment")}
           </button>
           <button type="button" className="secondary-action" onClick={() => openPurchaseEditor()}>
-            Add Owned Gear
+            {t("Add Owned Gear")}
           </button>
         </div>
       </section>
@@ -671,25 +678,25 @@ export default function EquipmentPage() {
       <section className="calendar-toolbar app-panel equipment-toolbar">
         <div className="view-switch">
           <button type="button" className={view === "catalog" ? "active" : ""} onClick={() => setView("catalog")}>
-            Catalog
+            {t("Catalog")}
           </button>
           <button type="button" className={view === "owned" ? "active" : ""} onClick={() => setView("owned")}>
-            My Gear
+            {t("My Gear")}
           </button>
           <button type="button" className={view === "taxonomy" ? "active" : ""} onClick={() => setView("taxonomy")}>
-            Brands
+            {t("Brands")}
           </button>
         </div>
         {view === "catalog" ? (
           <>
             <label>
-              Search
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Brand, model, category..." />
+              {t("Search")}
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`${t("Brand")}, ${t("Model")}, ${t("Category")}...`} />
             </label>
             <label>
-              Brand
+              {t("Brand")}
               <select value={brandId} onChange={(event) => setBrandId(event.target.value)}>
-                <option value="">All brands</option>
+                <option value="">{t("All brands")}</option>
                 {brands.map((brand) => (
                   <option value={brand.id} key={brand.id}>
                     {brand.name}
@@ -698,9 +705,9 @@ export default function EquipmentPage() {
               </select>
             </label>
             <label>
-              Category
+              {t("Category")}
               <select value={category} onChange={(event) => setCategory(event.target.value)}>
-                <option value="">All categories</option>
+                <option value="">{t("All categories")}</option>
                 {categories.map((categoryName) => (
                   <option value={categoryName} key={categoryName}>
                     {categoryName}
@@ -713,7 +720,7 @@ export default function EquipmentPage() {
       </section>
 
       {error ? <div className="error-banner">{error}</div> : null}
-      {status === "loading" ? <div className="app-panel empty-state">Loading equipment...</div> : null}
+      {status === "loading" ? <div className="app-panel empty-state">{t("Loading equipment...")}</div> : null}
 
       {view === "catalog" ? (
         <section className="exercise-library-layout">
@@ -733,11 +740,11 @@ export default function EquipmentPage() {
                   <EquipmentImage item={item} />
                   <span>
                     <strong>{getEquipmentLabel(item)}</strong>
-                    <small>{item.category || "Uncategorized"} - {item.brand_name || "No brand"}</small>
+                    <small>{item.category || t("Uncategorized")} - {item.brand_name || t("No brand")}</small>
                   </span>
                 </button>
               ))}
-              {!filteredEquipment.length && status !== "loading" ? <div className="empty-state compact">No equipment matches this filter.</div> : null}
+              {!filteredEquipment.length && status !== "loading" ? <div className="empty-state compact">{t("No equipment matches this filter.")}</div> : null}
             </div>
           </div>
 
