@@ -185,6 +185,7 @@ textarea { min-height:80px; }
 .calendar-day-lines { display:grid; gap:4px; }
 .calendar-day-lines .small { font-size:12px; line-height:1.35; }
 .calendar-day-activity { display:grid; justify-items:start; gap:4px; min-height:24px; }
+.calendar-day-activity-badge { display:block; }
 .calendar-day-target { font-weight:600; color:#475569; }
 .activity-badge { display:inline-flex; align-items:center; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; color:#0f172a; width:max-content; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .activity-badge.compact { padding:3px 8px; font-size:11px; line-height:1.1; border:1px solid rgba(15,23,42,0.08); }
@@ -2892,9 +2893,12 @@ function renderCalendarActivityBadges(row, options = {}){
   const compact = Boolean(options.compact);
   const badges = getCalendarRowActivityTypes(row)
     .slice(0, compact ? 2 : 3)
-    .map((activityType) => renderActivityBadge(activityType, { compact }))
+    .map((activityType) => {
+      const badge = renderActivityBadge(activityType, { compact });
+      return badge ? `<div class="calendar-day-activity-badge">${badge}</div>` : "";
+    })
     .filter(Boolean)
-    .join(" ");
+    .join("");
   return badges || "";
 }
 
