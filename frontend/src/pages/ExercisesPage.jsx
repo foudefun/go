@@ -6,6 +6,7 @@ import {
   WEIGHT_UNITS,
   blankExercise,
   filterExercises,
+  getExerciseCategoryList,
   getExerciseCategories,
   getExerciseLabel,
   normalizeExerciseDraft,
@@ -77,6 +78,7 @@ function ExerciseEditor({
   draft,
   mode,
   saving,
+  categories = [],
   canUploadImage,
   uploadingImage,
   imageUploadError,
@@ -113,6 +115,14 @@ function ExerciseEditor({
 
   const imageUploadDisabled = !canUploadImage || uploadingImage;
   const images = getExerciseImages(draft);
+  const selectedCategories = getExerciseCategoryList(draft);
+
+  function toggleCategory(categoryName) {
+    const nextCategories = selectedCategories.includes(categoryName)
+      ? selectedCategories.filter((value) => value !== categoryName)
+      : [...selectedCategories, categoryName];
+    updateField("category", nextCategories.join(", "));
+  }
 
   return (
     <section className="app-panel exercise-editor-panel">
@@ -153,7 +163,25 @@ function ExerciseEditor({
         </label>
         <label>
           Category
-          <input value={draft.category || ""} onChange={(event) => updateField("category", event.target.value)} placeholder="legs, pull, conditioning..." />
+          <select
+            multiple
+            className="multi-select"
+            value={selectedCategories}
+            onChange={(event) =>
+              updateField(
+                "category",
+                Array.from(event.target.selectedOptions)
+                  .map((option) => option.value)
+                  .join(", "),
+              )
+            }
+          >
+            {categories.map((categoryName) => (
+              <option key={categoryName} value={categoryName}>
+                {categoryName}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Movement family
@@ -187,6 +215,22 @@ function ExerciseEditor({
           Primary image URL
           <input value={draft.image || ""} onChange={(event) => updateField("image", event.target.value)} placeholder="/api/uploads/exercises/..." />
         </label>
+      </div>
+
+      <div className="category-choice-panel">
+        <p className="field-label">Category choices</p>
+        <div className="category-choice-list">
+          {categories.map((categoryName) => (
+            <label key={categoryName} className="category-choice">
+              <input
+                type="checkbox"
+                checked={selectedCategories.includes(categoryName)}
+                onChange={() => toggleCategory(categoryName)}
+              />
+              <span>{categoryName}</span>
+            </label>
+          ))}
+        </div>
       </div>
 
       <div className="exercise-image-upload-grid">
@@ -456,6 +500,7 @@ export default function ExercisesPage() {
               draft={draft}
               mode={editorMode}
               saving={status === "saving"}
+              categories={categories}
               canUploadImage={editorMode === "edit" && Boolean(editorOriginalName)}
               uploadingImage={uploadingImage}
               imageUploadError={imageUploadError}

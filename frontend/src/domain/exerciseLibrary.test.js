@@ -42,7 +42,7 @@ test("normalizes exercise drafts for API writes", () => {
 
 test("filters exercises by query, category, and tracking mode", () => {
   const exercises = [
-    { name: "squat", display_name: "Back Squat", category: "legs", tracking_mode: "reps_weight" },
+    { name: "squat", display_name: "Back Squat", category: "legs, glutes", tracking_mode: "reps_weight" },
     { name: "bike", display_name: "Bike Intervals", category: "conditioning", tracking_mode: "time_watts" },
   ];
 
@@ -56,7 +56,7 @@ test("returns display labels and category filters", () => {
   assert.equal(getExerciseLabel({ display_name: "Squat", display_name_en: "Back Squat", display_name_fr: "Squat arrière" }, "en"), "Back Squat");
   assert.equal(getExerciseLabel({ display_name: "Squat", display_name_en: "Back Squat", display_name_fr: "Squat arrière" }, "fr"), "Squat arrière");
   assert.deepEqual(
-    getExerciseCategories([{ category: "legs" }, { category: "" }, { category: "pull" }, { category: "legs" }]),
-    ["legs", "pull"],
+    getExerciseCategories([{ category: "legs, glutes" }, { category: "" }, { category: "pull" }, { category: "legs" }]),
+    ["glutes", "legs", "pull"],
   );
 });

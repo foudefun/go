@@ -86,12 +86,18 @@ export function getExerciseSearchText(exercise = {}) {
     .toLowerCase();
 }
 
+export function getExerciseCategoryList(exercise = {}) {
+  return String(exercise.category || "")
+    .split(",")
+    .map((category) => category.trim())
+    .filter(Boolean);
+}
+
 export function getExerciseCategories(exercises = []) {
   return Array.from(
     new Set(
       (Array.isArray(exercises) ? exercises : [])
-        .map((exercise) => String(exercise.category || "").trim())
-        .filter(Boolean),
+        .flatMap((exercise) => getExerciseCategoryList(exercise)),
     ),
   ).sort((left, right) => left.localeCompare(right));
 }
@@ -103,7 +109,7 @@ export function filterExercises(exercises = [], filters = {}) {
 
   return (Array.isArray(exercises) ? exercises : [])
     .filter((exercise) => {
-      if (category && exercise.category !== category) return false;
+      if (category && !getExerciseCategoryList(exercise).includes(category)) return false;
       if (trackingMode && exercise.tracking_mode !== trackingMode) return false;
       if (!query) return true;
       return getExerciseSearchText(exercise).includes(query);
