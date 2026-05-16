@@ -1,0 +1,17 @@
+id,iso_code,name_fr,name_en,is_active
+1,AT,Autriche,Austria,1
+2,BE,Belgique,Belgium,1
+3,CA,Canada,Canada,1
+4,CH,Suisse,Switzerland,1
+5,CN,Chine,China,1
+6,CZ,Tchéquie,Czechia,1
+7,DE,Allemagne,Germany,1
+8,ES,Espagne,Spain,1
+9,FR,France,France,1
+10,GB,Royaume-Uni,United Kingdom,1
+11,IT,Italie,Italy,1
+12,JP,Japon,Japan,1
+13,KR,Corée du Sud,South Korea,1
+14,PL,Pologne,Poland,1
+15,SI,Slovénie,Slovenia,1
+16,US,États-Unis,United States,1

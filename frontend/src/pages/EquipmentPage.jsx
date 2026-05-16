@@ -8,6 +8,7 @@ import {
   deleteEquipmentBrand,
   deleteEquipmentModel,
   deleteMyEquipment,
+  getCountries,
   getEquipment,
   getEquipmentBrands,
   getEquipmentModels,
@@ -261,6 +262,7 @@ function OwnedGearPanel({ equipment, purchases, saving, onAdd, onEdit, onDelete,
 
 function TaxonomyPanel({
   brands,
+  countries,
   models,
   canDelete,
   saving,
@@ -301,13 +303,50 @@ function TaxonomyPanel({
             <input value={brandDraft.name || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, name: event.target.value }))} />
           </label>
           <label>
+            Country
+            <select value={brandDraft.country_id || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, country_id: event.target.value }))}>
+              <option value="">No country</option>
+              {countries.map((country) => (
+                <option value={country.id} key={country.id}>
+                  {country.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Established
+            <input
+              type="number"
+              min="1500"
+              max={new Date().getFullYear()}
+              value={brandDraft.year_established || ""}
+              onChange={(event) => onBrandDraftChange((current) => ({ ...current, year_established: event.target.value }))}
+            />
+          </label>
+          <label>
             Created at
             <input type="date" value={brandDraft.created_at || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, created_at: event.target.value }))} />
           </label>
+          <label>
+            Website
+            <input value={brandDraft.website_url || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, website_url: event.target.value }))} placeholder="https://..." />
+          </label>
+          <label>
+            Logo URL
+            <input value={brandDraft.logo_url || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, logo_url: event.target.value }))} placeholder="https://..." />
+          </label>
         </div>
+        <label>
+          Description
+          <textarea value={brandDraft.description || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, description: event.target.value }))} />
+        </label>
         <label>
           History
           <textarea value={brandDraft.history || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, history: event.target.value }))} />
+        </label>
+        <label className="toggle-row">
+          <input type="checkbox" checked={brandDraft.is_active !== false} onChange={(event) => onBrandDraftChange((current) => ({ ...current, is_active: event.target.checked }))} />
+          Active
         </label>
         <button type="button" className="primary-action" onClick={onSaveBrand} disabled={saving || !brandDraft.name}>
           {saving ? "Saving..." : "Save Brand"}
@@ -317,7 +356,7 @@ function TaxonomyPanel({
             <article key={brand.id} className="taxonomy-row">
               <div>
                 <strong>{brand.name}</strong>
-                <small>{brand.created_at}</small>
+                <small>{[brand.country_name, brand.year_established, brand.is_active === false ? "Inactive" : ""].filter(Boolean).join(" - ") || brand.created_at}</small>
               </div>
               <div className="compact-actions">
                 <button type="button" onClick={() => onEditBrand(brand)}>
@@ -402,6 +441,7 @@ function TaxonomyPanel({
 
 export default function EquipmentPage() {
   const { user } = useAuth();
+  const [countries, setCountries] = useState([]);
   const [brands, setBrands] = useState([]);
   const [models, setModels] = useState([]);
   const [equipment, setEquipment] = useState([]);
@@ -425,11 +465,13 @@ export default function EquipmentPage() {
   function loadData(nextSelectedId = selectedEquipmentId) {
     setStatus("loading");
     setError("");
-    return Promise.all([getEquipmentBrands(), getEquipmentModels(), getEquipment(), getMyEquipment()])
-      .then(([brandRows, modelRows, equipmentRows, purchaseRows]) => {
+    return Promise.all([getCountries(), getEquipmentBrands(), getEquipmentModels(), getEquipment(), getMyEquipment()])
+      .then(([countryRows, brandRows, modelRows, equipmentRows, purchaseRows]) => {
+        const nextCountries = Array.isArray(countryRows) ? countryRows : [];
         const nextBrands = Array.isArray(brandRows) ? brandRows : [];
         const nextModels = Array.isArray(modelRows) ? modelRows : [];
         const nextEquipment = Array.isArray(equipmentRows) ? equipmentRows : [];
+        setCountries(nextCountries);
         setBrands(nextBrands);
         setModels(nextModels);
         setEquipment(nextEquipment);
@@ -448,7 +490,7 @@ export default function EquipmentPage() {
 
   useEffect(() => {
     loadData("");
-  }, []);
+  }, [user?.language]);
 
   const categories = useMemo(() => getEquipmentCategories(equipment), [equipment]);
   const filteredEquipment = useMemo(
@@ -747,6 +789,7 @@ export default function EquipmentPage() {
       {view === "taxonomy" ? (
         <TaxonomyPanel
           brands={brands}
+          countries={countries}
           models={models}
           canDelete={Boolean(user?.isAdmin)}
           saving={status === "saving"}

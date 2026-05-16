@@ -9,7 +9,15 @@ export function blankBrand() {
   return {
     id: null,
     name: "",
+    normalized_name: "",
+    country_id: "",
+    year_established: "",
+    website_url: "",
+    description: "",
+    logo_url: "",
+    is_active: true,
     created_at: todayIso(),
+    updated_at: "",
     history: "",
   };
 }
@@ -66,7 +74,15 @@ export function normalizeBrandDraft(brand = {}) {
     ...blankBrand(),
     id: brand.id ?? null,
     name: String(brand.name || "").trim(),
+    normalized_name: String(brand.normalized_name || "").trim(),
+    country_id: normalizeOptionalInt(brand.country_id) || "",
+    year_established: normalizeOptionalInt(brand.year_established) || "",
+    website_url: String(brand.website_url || "").trim(),
+    description: String(brand.description || "").trim(),
+    logo_url: String(brand.logo_url || "").trim(),
+    is_active: brand.is_active !== false,
     created_at: String(brand.created_at || "").trim() || todayIso(),
+    updated_at: String(brand.updated_at || "").trim(),
     history: String(brand.history || "").trim(),
   };
 }

@@ -12,6 +12,10 @@ export function getEquipmentBrands() {
   return api("/equipment/brands");
 }
 
+export function getCountries() {
+  return api("/countries");
+}
+
 export function createEquipmentBrand(payload) {
   return jsonRequest("/equipment/brands", "POST", payload);
 }

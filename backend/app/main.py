@@ -5,8 +5,10 @@ import hmac
 import json
 import math
 import os
+import re
 import secrets
 import shutil
+import unicodedata
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from io import BytesIO, StringIO
@@ -17,7 +19,7 @@ from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadF
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import Boolean, Column, Float, Integer, String, Text, UniqueConstraint, create_engine
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 app = FastAPI(title="Rehab Tracker V19b")
@@ -42,6 +44,13 @@ EXERCISE_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 ACTIVITY_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 engine = create_engine(f"sqlite:///{DB_PATH.as_posix()}", connect_args={"check_same_thread": False})
+
+@event.listens_for(engine, "connect")
+def enable_sqlite_foreign_keys(dbapi_connection, _):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
@@ -54,7 +63,7 @@ class SessionModel(Base):
     __tablename__ = "sessions"
     __table_args__ = (UniqueConstraint("username", "date", name="uq_sessions_username_date"),)
     id = Column(Integer, primary_key=True, autoincrement=True)
-    username = Column(String, nullable=False)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
     date = Column(String, nullable=False)
     data = Column(Text)
 
@@ -79,24 +88,40 @@ class EquipmentModel(Base):
     __tablename__ = "equipment"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False, unique=True)
-    brand_id = Column(Integer)
-    model_id = Column(Integer)
+    brand_id = Column(Integer, ForeignKey("equipment_brands.id"))
+    model_id = Column(Integer, ForeignKey("equipment_models.id"))
     category = Column(Text)
     description = Column(Text)
     image = Column(Text)
     link = Column(Text)
 
+class CountryModel(Base):
+    __tablename__ = "countries"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    iso_code = Column(String, nullable=False, unique=True)
+    name_fr = Column(String, nullable=False)
+    name_en = Column(String, nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True)
+
 class EquipmentBrandModel(Base):
     __tablename__ = "equipment_brands"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False, unique=True)
+    normalized_name = Column(String)
+    country_id = Column(Integer, ForeignKey("countries.id"))
+    year_established = Column(Integer)
+    website_url = Column(Text)
+    description = Column(Text)
+    logo_url = Column(Text)
+    is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(String, nullable=False)
+    updated_at = Column(String)
     history = Column(Text)
 
 class EquipmentModelRef(Base):
     __tablename__ = "equipment_models"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    brand_id = Column(Integer, nullable=False)
+    brand_id = Column(Integer, ForeignKey("equipment_brands.id"), nullable=False)
     name = Column(String, nullable=False)
     created_at = Column(String, nullable=False)
     history = Column(Text)
@@ -104,8 +129,8 @@ class EquipmentModelRef(Base):
 class UserEquipmentModel(Base):
     __tablename__ = "user_equipment"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    username = Column(String, nullable=False)
-    equipment_id = Column(Integer, nullable=False)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    equipment_id = Column(Integer, ForeignKey("equipment.id", ondelete="CASCADE"), nullable=False)
     purchase_date = Column(String, nullable=False)
     purchase_price = Column(Float)
     note = Column(Text)
@@ -121,7 +146,7 @@ class UserModel(Base):
 class AuthTokenModel(Base):
     __tablename__ = "auth_tokens"
     token_hash = Column(String, primary_key=True)
-    username = Column(String, nullable=False)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
     expires_at = Column(String, nullable=False)
 
 class AppConfigModel(Base):
@@ -152,7 +177,7 @@ class ClimbingAreaModel(Base):
 class ClimbingCragModel(Base):
     __tablename__ = "climbing_crags"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    area_id = Column(Integer, nullable=False)
+    area_id = Column(Integer, ForeignKey("climbing_areas.id", ondelete="CASCADE"), nullable=False)
     name = Column(String, nullable=False)
     latitude = Column(Float)
     longitude = Column(Float)
@@ -164,7 +189,7 @@ class ClimbingCragModel(Base):
 class ClimbingSectorModel(Base):
     __tablename__ = "climbing_sectors"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    crag_id = Column(Integer, nullable=False)
+    crag_id = Column(Integer, ForeignKey("climbing_crags.id", ondelete="CASCADE"), nullable=False)
     name = Column(String, nullable=False)
     aspect = Column(String)
     approach_minutes = Column(Integer)
@@ -176,7 +201,7 @@ class ClimbingSectorModel(Base):
 class ClimbingTopoImageModel(Base):
     __tablename__ = "climbing_topo_images"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    sector_id = Column(Integer, nullable=False)
+    sector_id = Column(Integer, ForeignKey("climbing_sectors.id", ondelete="CASCADE"), nullable=False)
     title = Column(String, nullable=False)
     image_url = Column(Text, nullable=False)
     width = Column(Integer, nullable=False)
@@ -189,8 +214,8 @@ class ClimbingTopoImageModel(Base):
 class ClimbingRouteModel(Base):
     __tablename__ = "climbing_routes"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    sector_id = Column(Integer, nullable=False)
-    topo_image_id = Column(Integer, nullable=False)
+    sector_id = Column(Integer, ForeignKey("climbing_sectors.id", ondelete="CASCADE"), nullable=False)
+    topo_image_id = Column(Integer, ForeignKey("climbing_topo_images.id", ondelete="CASCADE"), nullable=False)
     name = Column(String, nullable=False)
     grade = Column(String)
     length_m = Column(Float)
@@ -207,9 +232,9 @@ class ClimbingRouteModel(Base):
 class ClimbingCalibrationSessionModel(Base):
     __tablename__ = "climbing_calibration_sessions"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    username = Column(String, nullable=False)
-    sector_id = Column(Integer, nullable=False)
-    topo_image_id = Column(Integer, nullable=False)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    sector_id = Column(Integer, ForeignKey("climbing_sectors.id", ondelete="CASCADE"), nullable=False)
+    topo_image_id = Column(Integer, ForeignKey("climbing_topo_images.id", ondelete="CASCADE"), nullable=False)
     name = Column(String)
     transform_type = Column(String, nullable=False, default="affine")
     transform_json = Column(Text, nullable=False)
@@ -222,7 +247,7 @@ class ClimbingCalibrationSessionModel(Base):
 class ClimbingCalibrationPointModel(Base):
     __tablename__ = "climbing_calibration_points"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    calibration_session_id = Column(Integer, nullable=False)
+    calibration_session_id = Column(Integer, ForeignKey("climbing_calibration_sessions.id", ondelete="CASCADE"), nullable=False)
     order_index = Column(Integer, nullable=False)
     label = Column(String)
     topo_x = Column(Float, nullable=False)
@@ -329,6 +354,26 @@ def ensure_columns():
             if "model_id" not in equipment_columns:
                 conn.exec_driver_sql("ALTER TABLE equipment ADD COLUMN model_id INTEGER")
 
+        brand_columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(equipment_brands)").fetchall()}
+        if brand_columns:
+            if "normalized_name" not in brand_columns:
+                conn.exec_driver_sql("ALTER TABLE equipment_brands ADD COLUMN normalized_name VARCHAR")
+            if "country_id" not in brand_columns:
+                conn.exec_driver_sql("ALTER TABLE equipment_brands ADD COLUMN country_id INTEGER")
+            if "year_established" not in brand_columns:
+                conn.exec_driver_sql("ALTER TABLE equipment_brands ADD COLUMN year_established INTEGER")
+            if "website_url" not in brand_columns:
+                conn.exec_driver_sql("ALTER TABLE equipment_brands ADD COLUMN website_url TEXT")
+            if "description" not in brand_columns:
+                conn.exec_driver_sql("ALTER TABLE equipment_brands ADD COLUMN description TEXT")
+            if "logo_url" not in brand_columns:
+                conn.exec_driver_sql("ALTER TABLE equipment_brands ADD COLUMN logo_url TEXT")
+            if "is_active" not in brand_columns:
+                conn.exec_driver_sql("ALTER TABLE equipment_brands ADD COLUMN is_active BOOLEAN DEFAULT 1")
+            if "updated_at" not in brand_columns:
+                conn.exec_driver_sql("ALTER TABLE equipment_brands ADD COLUMN updated_at VARCHAR")
+            conn.exec_driver_sql("UPDATE equipment_brands SET is_active = 1 WHERE is_active IS NULL")
+
         user_columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(users)").fetchall()}
         if "is_admin" not in user_columns:
             conn.exec_driver_sql("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
@@ -340,7 +385,359 @@ def ensure_columns():
             {"username": DEFAULT_USERNAME},
         )
 
+SQLITE_FOREIGN_KEY_TABLES = {
+    "equipment_brands": {
+        "columns": "id, name, normalized_name, country_id, year_established, website_url, description, logo_url, is_active, created_at, updated_at, history",
+        "foreign_keys": {("country_id", "countries", "id", "NO ACTION")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR NOT NULL UNIQUE,
+                normalized_name VARCHAR,
+                country_id INTEGER,
+                year_established INTEGER,
+                website_url TEXT,
+                description TEXT,
+                logo_url TEXT,
+                is_active BOOLEAN NOT NULL,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR,
+                history TEXT,
+                FOREIGN KEY(country_id) REFERENCES countries(id)
+            )
+        """,
+    },
+    "sessions": {
+        "columns": "id, username, date, data",
+        "foreign_keys": {("username", "users", "username", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username VARCHAR NOT NULL,
+                date VARCHAR NOT NULL,
+                data TEXT,
+                FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE,
+                UNIQUE(username, date)
+            )
+        """,
+    },
+    "auth_tokens": {
+        "columns": "token_hash, username, expires_at",
+        "foreign_keys": {("username", "users", "username", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                token_hash VARCHAR PRIMARY KEY,
+                username VARCHAR NOT NULL,
+                expires_at VARCHAR NOT NULL,
+                FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
+            )
+        """,
+    },
+    "equipment_models": {
+        "columns": "id, brand_id, name, created_at, history",
+        "foreign_keys": {("brand_id", "equipment_brands", "id", "NO ACTION")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                brand_id INTEGER NOT NULL,
+                name VARCHAR NOT NULL,
+                created_at VARCHAR NOT NULL,
+                history TEXT,
+                FOREIGN KEY(brand_id) REFERENCES equipment_brands(id)
+            )
+        """,
+    },
+    "equipment": {
+        "columns": "id, name, brand_id, model_id, category, description, image, link",
+        "foreign_keys": {
+            ("brand_id", "equipment_brands", "id", "NO ACTION"),
+            ("model_id", "equipment_models", "id", "NO ACTION"),
+        },
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR NOT NULL UNIQUE,
+                brand_id INTEGER,
+                model_id INTEGER,
+                category TEXT,
+                description TEXT,
+                image TEXT,
+                link TEXT,
+                FOREIGN KEY(brand_id) REFERENCES equipment_brands(id),
+                FOREIGN KEY(model_id) REFERENCES equipment_models(id)
+            )
+        """,
+    },
+    "user_equipment": {
+        "columns": "id, username, equipment_id, purchase_date, purchase_price, note",
+        "foreign_keys": {
+            ("username", "users", "username", "CASCADE"),
+            ("equipment_id", "equipment", "id", "CASCADE"),
+        },
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username VARCHAR NOT NULL,
+                equipment_id INTEGER NOT NULL,
+                purchase_date VARCHAR NOT NULL,
+                purchase_price FLOAT,
+                note TEXT,
+                FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE,
+                FOREIGN KEY(equipment_id) REFERENCES equipment(id) ON DELETE CASCADE
+            )
+        """,
+    },
+    "climbing_crags": {
+        "columns": "id, area_id, name, latitude, longitude, approach_notes, description, created_at, updated_at",
+        "foreign_keys": {("area_id", "climbing_areas", "id", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                area_id INTEGER NOT NULL,
+                name VARCHAR NOT NULL,
+                latitude FLOAT,
+                longitude FLOAT,
+                approach_notes TEXT,
+                description TEXT,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL,
+                FOREIGN KEY(area_id) REFERENCES climbing_areas(id) ON DELETE CASCADE
+            )
+        """,
+    },
+    "climbing_sectors": {
+        "columns": "id, crag_id, name, aspect, approach_minutes, description, safety_note, created_at, updated_at",
+        "foreign_keys": {("crag_id", "climbing_crags", "id", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                crag_id INTEGER NOT NULL,
+                name VARCHAR NOT NULL,
+                aspect VARCHAR,
+                approach_minutes INTEGER,
+                description TEXT,
+                safety_note TEXT,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL,
+                FOREIGN KEY(crag_id) REFERENCES climbing_crags(id) ON DELETE CASCADE
+            )
+        """,
+    },
+    "climbing_topo_images": {
+        "columns": "id, sector_id, title, image_url, width, height, source, attribution, created_at, updated_at",
+        "foreign_keys": {("sector_id", "climbing_sectors", "id", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sector_id INTEGER NOT NULL,
+                title VARCHAR NOT NULL,
+                image_url TEXT NOT NULL,
+                width INTEGER NOT NULL,
+                height INTEGER NOT NULL,
+                source TEXT,
+                attribution TEXT,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL,
+                FOREIGN KEY(sector_id) REFERENCES climbing_sectors(id) ON DELETE CASCADE
+            )
+        """,
+    },
+    "climbing_routes": {
+        "columns": "id, sector_id, topo_image_id, name, grade, length_m, pitches, style, description, notes, danger_flag, color, polyline_json, created_at, updated_at",
+        "foreign_keys": {
+            ("sector_id", "climbing_sectors", "id", "CASCADE"),
+            ("topo_image_id", "climbing_topo_images", "id", "CASCADE"),
+        },
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sector_id INTEGER NOT NULL,
+                topo_image_id INTEGER NOT NULL,
+                name VARCHAR NOT NULL,
+                grade VARCHAR,
+                length_m FLOAT,
+                pitches INTEGER,
+                style VARCHAR,
+                description TEXT,
+                notes TEXT,
+                danger_flag BOOLEAN NOT NULL,
+                color VARCHAR,
+                polyline_json TEXT NOT NULL,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL,
+                FOREIGN KEY(sector_id) REFERENCES climbing_sectors(id) ON DELETE CASCADE,
+                FOREIGN KEY(topo_image_id) REFERENCES climbing_topo_images(id) ON DELETE CASCADE
+            )
+        """,
+    },
+    "climbing_calibration_sessions": {
+        "columns": "id, username, sector_id, topo_image_id, name, transform_type, transform_json, opacity, route_visibility_json, is_active, created_at, updated_at",
+        "foreign_keys": {
+            ("username", "users", "username", "CASCADE"),
+            ("sector_id", "climbing_sectors", "id", "CASCADE"),
+            ("topo_image_id", "climbing_topo_images", "id", "CASCADE"),
+        },
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username VARCHAR NOT NULL,
+                sector_id INTEGER NOT NULL,
+                topo_image_id INTEGER NOT NULL,
+                name VARCHAR,
+                transform_type VARCHAR NOT NULL,
+                transform_json TEXT NOT NULL,
+                opacity FLOAT NOT NULL,
+                route_visibility_json TEXT,
+                is_active BOOLEAN NOT NULL,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL,
+                FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE,
+                FOREIGN KEY(sector_id) REFERENCES climbing_sectors(id) ON DELETE CASCADE,
+                FOREIGN KEY(topo_image_id) REFERENCES climbing_topo_images(id) ON DELETE CASCADE
+            )
+        """,
+    },
+    "climbing_calibration_points": {
+        "columns": "id, calibration_session_id, order_index, label, topo_x, topo_y, camera_x, camera_y",
+        "foreign_keys": {("calibration_session_id", "climbing_calibration_sessions", "id", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                calibration_session_id INTEGER NOT NULL,
+                order_index INTEGER NOT NULL,
+                label VARCHAR,
+                topo_x FLOAT NOT NULL,
+                topo_y FLOAT NOT NULL,
+                camera_x FLOAT NOT NULL,
+                camera_y FLOAT NOT NULL,
+                FOREIGN KEY(calibration_session_id) REFERENCES climbing_calibration_sessions(id) ON DELETE CASCADE
+            )
+        """,
+    },
+}
+
+def sqlite_table_exists(cursor, table_name: str) -> bool:
+    return cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+        (table_name,),
+    ).fetchone() is not None
+
+def sqlite_foreign_key_signature(cursor, table_name: str) -> set[tuple[str, str, str, str]]:
+    return {
+        (row[3], row[2], row[4], row[6])
+        for row in cursor.execute(f"PRAGMA foreign_key_list({table_name})").fetchall()
+    }
+
+def sqlite_orphan_count(cursor, child_table: str, child_column: str, parent_table: str, parent_column: str) -> int:
+    return cursor.execute(
+        f"""
+        SELECT COUNT(*)
+        FROM {child_table} AS child
+        LEFT JOIN {parent_table} AS parent ON child.{child_column} = parent.{parent_column}
+        WHERE child.{child_column} IS NOT NULL AND parent.{parent_column} IS NULL
+        """
+    ).fetchone()[0]
+
+def migrate_sqlite_foreign_keys():
+    if engine.dialect.name != "sqlite":
+        return
+
+    dbapi_connection = engine.raw_connection()
+    cursor = dbapi_connection.cursor()
+    try:
+        tables_to_rebuild = []
+        for table_name, spec in SQLITE_FOREIGN_KEY_TABLES.items():
+            if not sqlite_table_exists(cursor, table_name):
+                continue
+            for child_column, parent_table, parent_column, _ in spec["foreign_keys"]:
+                if not sqlite_table_exists(cursor, parent_table):
+                    continue
+                orphan_count = sqlite_orphan_count(cursor, table_name, child_column, parent_table, parent_column)
+                if orphan_count:
+                    raise RuntimeError(
+                        f"Cannot add foreign key {table_name}.{child_column} -> "
+                        f"{parent_table}.{parent_column}: {orphan_count} orphaned row(s)"
+                    )
+            if not spec["foreign_keys"].issubset(sqlite_foreign_key_signature(cursor, table_name)):
+                tables_to_rebuild.append(table_name)
+
+        if not tables_to_rebuild:
+            cursor.execute("PRAGMA foreign_keys=ON")
+            problems = cursor.execute("PRAGMA foreign_key_check").fetchall()
+            if problems:
+                raise RuntimeError(f"SQLite foreign key check failed: {problems}")
+            return
+
+        cursor.execute("PRAGMA foreign_keys=OFF")
+        cursor.execute("BEGIN")
+        for table_name in tables_to_rebuild:
+            spec = SQLITE_FOREIGN_KEY_TABLES[table_name]
+            new_table = f"{table_name}__with_fks"
+            cursor.execute(f"DROP TABLE IF EXISTS {new_table}")
+            cursor.execute(spec["create_sql"].format(table=new_table))
+            cursor.execute(
+                f"INSERT INTO {new_table} ({spec['columns']}) "
+                f"SELECT {spec['columns']} FROM {table_name}"
+            )
+            cursor.execute(f"DROP TABLE {table_name}")
+            cursor.execute(f"ALTER TABLE {new_table} RENAME TO {table_name}")
+        dbapi_connection.commit()
+
+        cursor.execute("PRAGMA foreign_keys=ON")
+        problems = cursor.execute("PRAGMA foreign_key_check").fetchall()
+        if problems:
+            raise RuntimeError(f"SQLite foreign key check failed: {problems}")
+    except Exception:
+        dbapi_connection.rollback()
+        raise
+    finally:
+        cursor.close()
+        dbapi_connection.close()
+
 ensure_columns()
+migrate_sqlite_foreign_keys()
+
+DEFAULT_COUNTRIES = [
+    ("AT", "Autriche", "Austria"),
+    ("BE", "Belgique", "Belgium"),
+    ("CA", "Canada", "Canada"),
+    ("CH", "Suisse", "Switzerland"),
+    ("CN", "Chine", "China"),
+    ("CZ", "Tchéquie", "Czechia"),
+    ("DE", "Allemagne", "Germany"),
+    ("ES", "Espagne", "Spain"),
+    ("FR", "France", "France"),
+    ("GB", "Royaume-Uni", "United Kingdom"),
+    ("IT", "Italie", "Italy"),
+    ("JP", "Japon", "Japan"),
+    ("KR", "Corée du Sud", "South Korea"),
+    ("PL", "Pologne", "Poland"),
+    ("SI", "Slovénie", "Slovenia"),
+    ("US", "États-Unis", "United States"),
+]
+
+def seed_countries():
+    db = SessionLocal()
+    try:
+        existing = {row.iso_code: row for row in db.query(CountryModel).all()}
+        changed = False
+        for iso_code, name_fr, name_en in DEFAULT_COUNTRIES:
+            row = existing.get(iso_code)
+            if row:
+                if row.name_fr != name_fr or row.name_en != name_en or not row.is_active:
+                    row.name_fr = name_fr
+                    row.name_en = name_en
+                    row.is_active = True
+                    changed = True
+            else:
+                db.add(CountryModel(iso_code=iso_code, name_fr=name_fr, name_en=name_en, is_active=True))
+                changed = True
+        if changed:
+            db.commit()
+    finally:
+        db.close()
+
+seed_countries()
 
 BASE_CONFIG = {
     "start_date": "2026-04-07",
@@ -430,6 +827,26 @@ def normalize_optional_float(value):
         return float(value)
     except (TypeError, ValueError):
         return None
+
+def normalize_text_key(value: str) -> str:
+    normalized = unicodedata.normalize("NFD", str(value or "").strip().lower())
+    without_accents = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
+    return re.sub(r"[^a-z0-9]+", " ", without_accents).strip()
+
+def backfill_brand_normalized_names():
+    db = SessionLocal()
+    try:
+        changed = False
+        for row in db.query(EquipmentBrandModel).all():
+            if not row.normalized_name:
+                row.normalized_name = normalize_text_key(row.name)
+                changed = True
+        if changed:
+            db.commit()
+    finally:
+        db.close()
+
+backfill_brand_normalized_names()
 
 def normalize_tracking_mode(value) -> str:
     mode = str(value or "").strip().lower()
@@ -1007,9 +1424,28 @@ def normalize_brand_record(payload: dict) -> dict:
             created_at = date.fromisoformat(created_at_raw).isoformat()
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid brand creation date") from exc
+    name = str(payload.get("name", "") or "").strip()
+    updated_at_raw = str(payload.get("updated_at", "") or "").strip()
+    updated_at = ""
+    if updated_at_raw:
+        try:
+            updated_at = date.fromisoformat(updated_at_raw).isoformat()
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid brand update date") from exc
+    year_established = normalize_optional_int(payload.get("year_established"))
+    if year_established is not None and not (1500 <= year_established <= date.today().year):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid establishment year")
     return {
-        "name": str(payload.get("name", "") or "").strip(),
+        "name": name,
+        "normalized_name": normalize_text_key(payload.get("normalized_name") or name),
+        "country_id": normalize_optional_int(payload.get("country_id")),
+        "year_established": year_established,
+        "website_url": str(payload.get("website_url", "") or "").strip(),
+        "description": str(payload.get("description", "") or "").strip(),
+        "logo_url": str(payload.get("logo_url", "") or "").strip(),
+        "is_active": bool(payload.get("is_active", True)),
         "created_at": created_at or date.today().isoformat(),
+        "updated_at": updated_at or date.today().isoformat(),
         "history": str(payload.get("history", "") or "").strip(),
     }
 
@@ -1269,11 +1705,35 @@ def rename_exercise_references(db, old_name: str, new_name: str) -> None:
         if changed:
             row.data = json.dumps(normalize_session_payload(payload), ensure_ascii=False)
 
-def serialize_brand(row: EquipmentBrandModel) -> dict:
+def serialize_country(row: CountryModel, language: str = "fr") -> dict:
+    country_name = row.name_en if normalize_language(language) == "en" else row.name_fr
+    return {
+        "id": row.id,
+        "iso_code": row.iso_code,
+        "name": country_name,
+        "name_fr": row.name_fr,
+        "name_en": row.name_en,
+        "is_active": bool(row.is_active),
+    }
+
+def serialize_brand(row: EquipmentBrandModel, country: CountryModel | None = None, language: str = "fr") -> dict:
+    country_name = ""
+    if country:
+        country_name = country.name_en if normalize_language(language) == "en" else country.name_fr
     return {
         "id": row.id,
         "name": row.name,
+        "normalized_name": row.normalized_name or "",
+        "country_id": row.country_id,
+        "country_name": country_name,
+        "country_iso_code": country.iso_code if country else "",
+        "year_established": row.year_established,
+        "website_url": row.website_url or "",
+        "description": row.description or "",
+        "logo_url": row.logo_url or "",
+        "is_active": bool(row.is_active),
         "created_at": row.created_at,
+        "updated_at": row.updated_at or "",
         "history": row.history or "",
     }
 
@@ -3562,12 +4022,22 @@ def delete_exercise(name: str, current_user: UserModel = Depends(require_admin))
     finally:
         db.close()
 
+@app.get("/api/countries")
+def get_countries(current_user: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        rows = db.query(CountryModel).filter_by(is_active=True).order_by(CountryModel.name_fr).all()
+        return [serialize_country(row, current_user.language) for row in rows]
+    finally:
+        db.close()
+
 @app.get("/api/equipment/brands")
-def get_equipment_brands(_: UserModel = Depends(get_current_user)):
+def get_equipment_brands(current_user: UserModel = Depends(get_current_user)):
     db = get_db()
     try:
         rows = db.query(EquipmentBrandModel).order_by(EquipmentBrandModel.name).all()
-        return [serialize_brand(row) for row in rows]
+        country_map = {row.id: row for row in db.query(CountryModel).all()}
+        return [serialize_brand(row, country_map.get(row.country_id), current_user.language) for row in rows]
     finally:
         db.close()
 
@@ -3581,12 +4051,15 @@ def add_equipment_brand(payload: dict, current_user: UserModel = Depends(get_cur
         existing = db.query(EquipmentBrandModel).filter_by(name=record["name"]).first()
         if existing:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Brand already exists")
+        if record["country_id"] and not db.query(CountryModel).filter_by(id=record["country_id"], is_active=True).first():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Country not found")
         row = EquipmentBrandModel(**record)
         db.add(row)
         write_audit_log(db, current_user.username, "create_equipment_brand", "equipment_brand", record["name"], f"Created equipment brand {record['name']}")
         db.commit()
         db.refresh(row)
-        return {"ok": True, "brand": serialize_brand(row)}
+        country = db.query(CountryModel).filter_by(id=row.country_id).first() if row.country_id else None
+        return {"ok": True, "brand": serialize_brand(row, country, current_user.language)}
     finally:
         db.close()
 
@@ -3603,13 +4076,24 @@ def update_equipment_brand(brand_id: int, payload: dict, current_user: UserModel
         duplicate = db.query(EquipmentBrandModel).filter(EquipmentBrandModel.name == record["name"], EquipmentBrandModel.id != brand_id).first()
         if duplicate:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Brand already exists")
+        if record["country_id"] and not db.query(CountryModel).filter_by(id=record["country_id"], is_active=True).first():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Country not found")
         row.name = record["name"]
+        row.normalized_name = record["normalized_name"]
+        row.country_id = record["country_id"]
+        row.year_established = record["year_established"]
+        row.website_url = record["website_url"]
+        row.description = record["description"]
+        row.logo_url = record["logo_url"]
+        row.is_active = record["is_active"]
         row.created_at = record["created_at"]
+        row.updated_at = record["updated_at"]
         row.history = record["history"]
         write_audit_log(db, current_user.username, "update_equipment_brand", "equipment_brand", row.name, f"Updated equipment brand {row.name}")
         db.commit()
         db.refresh(row)
-        return {"ok": True, "brand": serialize_brand(row)}
+        country = db.query(CountryModel).filter_by(id=row.country_id).first() if row.country_id else None
+        return {"ok": True, "brand": serialize_brand(row, country, current_user.language)}
     finally:
         db.close()
 

@@ -18,7 +18,6 @@ const tabs = [
   { to: "/equipment", label: "Equipment" },
   { to: "/outdoor-climbing", label: "Outdoor Climbing" },
   { to: "/import", label: "Import" },
-  { to: "/settings", label: "Settings" },
   { to: "/account", label: "Account" },
 ];
 

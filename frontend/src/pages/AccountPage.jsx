@@ -1,7 +1,94 @@
+import { useEffect, useState } from "react";
+import { updatePreferences } from "../api/authApi.js";
+import { getConfig, updateConfig } from "../api/configApi.js";
 import { useAuth } from "../auth/AuthProvider.jsx";
+import { normalizeConfigDraft } from "../domain/settingsConfig.js";
+
+const FIELD_GROUPS = [
+  {
+    title: "Athlete Weight Context",
+    description: "Used as the bodyweight reference in training summaries.",
+    fields: [
+      { key: "weight", label: "Body Weight Reference", suffix: "kg" },
+      { key: "shoe_size", label: "Shoe Size", suffix: "EU", step: "0.5" },
+    ],
+  },
+];
+
+function SettingsField({ field, value, onChange }) {
+  return (
+    <label>
+      {field.label}
+      <div className="settings-input-row">
+        <input
+          type={field.type || "number"}
+          min={field.type === "date" ? undefined : "1"}
+          step={field.type === "date" ? undefined : field.step || "1"}
+          value={value}
+          onChange={(event) => onChange(field.key, event.target.value)}
+        />
+        {field.suffix ? <span>{field.suffix}</span> : null}
+      </div>
+    </label>
+  );
+}
 
 export default function AccountPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
+  const [language, setLanguage] = useState(user?.language || "fr");
+  const [draft, setDraft] = useState(() => normalizeConfigDraft());
+  const [status, setStatus] = useState("loading");
+  const [error, setError] = useState("");
+  const [savedMessage, setSavedMessage] = useState("");
+
+  useEffect(() => {
+    setLanguage(user?.language || "fr");
+  }, [user?.language]);
+
+  useEffect(() => {
+    let isMounted = true;
+    setStatus("loading");
+    setError("");
+    getConfig()
+      .then((config) => {
+        if (!isMounted) return;
+        setDraft(normalizeConfigDraft(config));
+        setStatus("ready");
+      })
+      .catch((loadError) => {
+        if (!isMounted) return;
+        setError(loadError.message);
+        setStatus("error");
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  function updateField(key, value) {
+    setDraft((current) => ({ ...current, [key]: value }));
+    setSavedMessage("");
+  }
+
+  async function handleSave() {
+    const payload = normalizeConfigDraft(draft);
+    setStatus("saving");
+    setError("");
+    setSavedMessage("");
+    try {
+      const [configResult] = await Promise.all([
+        updateConfig(payload),
+        updatePreferences({ language }),
+      ]);
+      setDraft(normalizeConfigDraft(configResult.config || payload));
+      await refreshUser();
+      setSavedMessage("Account settings saved.");
+      setStatus("ready");
+    } catch (saveError) {
+      setError(saveError.message);
+      setStatus("ready");
+    }
+  }
 
   return (
     <main className="page-shell">
@@ -14,6 +101,11 @@ export default function AccountPage() {
           Logout
         </button>
       </section>
+
+      {status === "loading" ? <div className="app-panel empty-state">Loading account settings...</div> : null}
+      {error ? <div className="error-banner">{error}</div> : null}
+      {savedMessage ? <div className="success-banner">{savedMessage}</div> : null}
+
       <section className="app-panel account-panel">
         <div>
           <span>Username</span>
@@ -25,7 +117,38 @@ export default function AccountPage() {
         </div>
         <div>
           <span>Language</span>
-          <strong>{user?.language || "fr"}</strong>
+          <select value={language} onChange={(event) => setLanguage(event.target.value)}>
+            <option value="fr">Français</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+      </section>
+
+      <section className="settings-layout single">
+        <div className="settings-form-column">
+          {FIELD_GROUPS.map((group) => (
+            <section className="app-panel settings-panel" key={group.title}>
+              <div>
+                <p className="eyebrow">{group.title}</p>
+                <h2>{group.title}</h2>
+                <p>{group.description}</p>
+              </div>
+              <div className="settings-field-grid">
+                {group.fields.map((field) => (
+                  <SettingsField field={field} value={draft[field.key] || ""} onChange={updateField} key={field.key} />
+                ))}
+              </div>
+            </section>
+          ))}
+
+          <div className="day-modal-actions">
+            <button type="button" className="primary-action" onClick={handleSave} disabled={status === "saving"}>
+              {status === "saving" ? "Saving..." : "Save Account Settings"}
+            </button>
+            <a className="secondary-action" href="/legacy.html">
+              Legacy Settings
+            </a>
+          </div>
         </div>
       </section>
     </main>

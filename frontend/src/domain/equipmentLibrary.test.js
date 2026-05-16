@@ -4,6 +4,7 @@ import {
   filterEquipment,
   getEquipmentCategories,
   getEquipmentLabel,
+  normalizeBrandDraft,
   modelsForBrand,
   normalizeEquipmentDraft,
   normalizePurchaseDraft,
@@ -27,6 +28,23 @@ test("normalizes equipment and purchase drafts", () => {
     link: "",
   });
   assert.equal(normalizePurchaseDraft({ equipment_id: "4", purchase_price: "129.955" }).purchase_price, 129.96);
+});
+
+test("normalizes brand metadata drafts", () => {
+  assert.deepEqual(normalizeBrandDraft({ name: " Petzl ", country_id: "4", year_established: "1975", is_active: false }), {
+    id: null,
+    name: "Petzl",
+    normalized_name: "",
+    country_id: 4,
+    year_established: 1975,
+    website_url: "",
+    description: "",
+    logo_url: "",
+    is_active: false,
+    created_at: normalizeBrandDraft().created_at,
+    updated_at: "",
+    history: "",
+  });
 });
 
 test("filters equipment by query, brand, and category", () => {
