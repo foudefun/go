@@ -103,6 +103,14 @@ function hasTarget(row) {
   return row?.target_load !== null && row?.target_load !== undefined;
 }
 
+function hasActualLoad(row) {
+  return Number(row?.actual_load || 0) > 0;
+}
+
+function shouldShowActualLoad(row) {
+  return hasTarget(row) || hasActualLoad(row);
+}
+
 function getLoadTone(row) {
   if (row?.diff === null || row?.diff === undefined) return "even";
   const diff = Number(row.diff || 0);
@@ -254,7 +262,9 @@ export default function CalendarPage() {
                   {row ? (
                     <>
                       {hasTarget(row) ? <span className="month-day-target">{row.target_load} kg target</span> : null}
-                      <span className={`month-day-load ${getLoadTone(row)}`}>{row.actual_load ?? 0} kg</span>
+                      {shouldShowActualLoad(row) ? (
+                        <span className={`month-day-load ${getLoadTone(row)}`}>{row.actual_load ?? 0} kg</span>
+                      ) : null}
                       {activityEntries.length ? (
                         <span className="month-day-activity-list">
                           {activityEntries.slice(0, 3).map((entry, index) => (
@@ -305,7 +315,7 @@ export default function CalendarPage() {
                   </strong>
                   <small>{(row.activity_summaries || []).join(" | ") || row.activity_details || "-"}</small>
                 </div>
-                <div className={`load-tone ${getLoadTone(row)}`}>{row.actual_load ?? 0} kg</div>
+                <div className={`load-tone ${getLoadTone(row)}`}>{shouldShowActualLoad(row) ? `${row.actual_load ?? 0} kg` : "-"}</div>
                 <div>{hasTarget(row) ? `${row.target_load} kg` : "-"}</div>
                 <div>{row.status || "todo"}</div>
               </button>
