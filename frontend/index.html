@@ -1556,6 +1556,7 @@ function renderCalendarDayCard(dateStr, row, { today, showRehabCalendarInfo, com
   if(dateStr < today) classes.push("past-row");
   const planned = (row?.planned_exercises || []).map(formatExerciseName).join(", ");
   const activityBadge = renderCalendarActivityBadges(row, { compact: true });
+  const activityTypeSummary = getCalendarActivityTypeSummary(row, { compact: true });
   const targetLine = (showRehabCalendarInfo && shouldShowRehabHistoryForDate(dateStr))
     ? `<div class="small calendar-day-target">J${row?.rehab_day || "-"} · cible ${row?.target_load ?? "-"}</div>`
     : "";
@@ -1565,6 +1566,7 @@ function renderCalendarDayCard(dateStr, row, { today, showRehabCalendarInfo, com
       <div class="calendar-day-number">${new Date(`${dateStr}T00:00:00`).getDate()}</div>
       <div class="calendar-day-lines">
         <div class="calendar-day-activity">${activityBadge || ""}</div>
+        ${row?.activity_count > 1 && activityTypeSummary ? `<div class="small" style="font-weight:700; line-height:1.25;">${escapeHtml(activityTypeSummary)}</div>` : ""}
         ${targetLine}
         ${physioLine}
         <div class="small">Prévu: ${escapeHtml(planned || "-")}</div>
