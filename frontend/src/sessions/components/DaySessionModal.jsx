@@ -7,6 +7,7 @@ import {
   isClimbingActivity,
   isStrengthActivity,
 } from "../../domain/activityTypes.js";
+import { useTranslation } from "../../i18n/translations.js";
 import { formatPlannedItem, normalizePlannedItems } from "../plannedItems.js";
 import { normalizeOptionalInt } from "../strengthItems.js";
 import PlannedSessionEditor from "./PlannedSessionEditor.jsx";
@@ -161,7 +162,7 @@ function buildActivityFromPlan(session) {
   });
 }
 
-function ActivityImagePanel({ activity, canManage, uploading, error, onUpload, onDelete }) {
+function ActivityImagePanel({ activity, canManage, uploading, error, onUpload, onDelete, t }) {
   const fileRef = useRef(null);
   const imageUrl = String(activity?.image || "").trim();
 
@@ -174,23 +175,23 @@ function ActivityImagePanel({ activity, canManage, uploading, error, onUpload, o
   return (
     <section className="activity-image-panel">
       <div>
-        <p className="eyebrow">Photo</p>
-        <h3>Activity image</h3>
+        <p className="eyebrow">{t("Photo")}</p>
+        <h3>{t("Activity image")}</h3>
       </div>
       {imageUrl ? (
         <a className="activity-image-link" href={imageUrl} target="_blank" rel="noreferrer">
-          <img src={imageUrl} alt="Activity" />
+          <img src={imageUrl} alt={t("Activity")} />
         </a>
       ) : (
-        <div className="activity-image-placeholder">No activity image</div>
+        <div className="activity-image-placeholder">{t("No activity image")}</div>
       )}
       <div className="compact-actions">
         <button type="button" disabled={!canManage || uploading} onClick={() => fileRef.current?.click()}>
-          {uploading ? "Uploading..." : imageUrl ? "Replace image" : "Upload image"}
+          {uploading ? t("Uploading...") : imageUrl ? t("Replace image") : t("Upload image")}
         </button>
         {imageUrl ? (
           <button type="button" className="danger-action" disabled={!canManage || uploading} onClick={onDelete}>
-            Delete image
+            {t("Delete image")}
           </button>
         ) : null}
       </div>
@@ -204,7 +205,7 @@ function ActivityImagePanel({ activity, canManage, uploading, error, onUpload, o
           event.target.value = "";
         }}
       />
-      {!canManage ? <span className="visually-muted">Save the activity before uploading an image.</span> : null}
+      {!canManage ? <span className="visually-muted">{t("Save the activity before uploading an image.")}</span> : null}
       {error ? <div className="error-banner">{error}</div> : null}
     </section>
   );
@@ -252,6 +253,7 @@ function buildSavePayload(session, activeIndex, draftActivity = null) {
 }
 
 export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpen = false }) {
+  const { t } = useTranslation();
   const [session, setSession] = useState(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [draftActivity, setDraftActivity] = useState(null);
@@ -324,9 +326,9 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
   const targetSummary = useMemo(() => {
     if (!session) return "";
     return session.target_load !== null && session.target_load !== undefined
-      ? `Target ${session.target_load} kg`
-      : "No active target";
-  }, [session]);
+      ? t("Target kg", { value: session.target_load })
+      : t("No active target");
+  }, [session, t]);
 
   function updateActiveActivity(patch) {
     if (activeIndex === null) {
@@ -358,7 +360,7 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
   function deleteSelectedActivity() {
     if (activeIndex === null || !session?.activities?.[activeIndex]) return;
     const activity = session.activities[activeIndex];
-    if (!window.confirm(`Delete "${getActivityTitle(activity, activeIndex)}"?`)) return;
+    if (!window.confirm(t('Delete "{name}"?', { name: getActivityTitle(activity, activeIndex) }))) return;
     setSession((current) => {
       if (!current) return current;
       const activities = current.activities.filter((_, index) => index !== activeIndex);
@@ -417,7 +419,7 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
 
   async function handleActivityImageDelete() {
     if (activeIndex === null || !activeActivity.image || !session) return;
-    if (!window.confirm("Delete this activity image?")) return;
+    if (!window.confirm(t("Delete this activity image?"))) return;
     setImageStatus("uploading");
     setImageError("");
     try {
@@ -434,26 +436,26 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
 
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="day-modal" role="dialog" aria-modal="true" aria-label={`Edit ${date}`} onMouseDown={(event) => event.stopPropagation()}>
+      <section className="day-modal" role="dialog" aria-modal="true" aria-label={t("Edit date", { date })} onMouseDown={(event) => event.stopPropagation()}>
         <header className="day-modal-header">
           <div>
-            <p className="eyebrow">Day Editor</p>
+            <p className="eyebrow">{t("Day Editor")}</p>
             <h2>{date}</h2>
             {session ? <span>{targetSummary}</span> : null}
           </div>
           <button type="button" onClick={onClose}>
-            Close
+            {t("Close")}
           </button>
         </header>
 
-        {status === "loading" ? <div className="empty-state">Loading day...</div> : null}
+        {status === "loading" ? <div className="empty-state">{t("Loading day...")}</div> : null}
         {error ? <div className="error-banner">{error}</div> : null}
 
         {session && status !== "loading" ? (
           <div className="day-editor-grid">
             <aside className="day-activity-list">
               <button type="button" className="primary-action" onClick={addActivity}>
-                Add Activity
+                {t("Add Activity")}
               </button>
               {savedActivities.map((activity, index) => (
                 <button
@@ -468,27 +470,27 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
               ))}
               {draftActivity ? (
                 <button type="button" className={activeIndex === null ? "activity-select active draft" : "activity-select draft"} onClick={() => setActiveIndex(null)}>
-                  <strong>New activity</strong>
-                  <span>Draft, not saved yet</span>
+                  <strong>{t("New activity")}</strong>
+                  <span>{t("Draft, not saved yet")}</span>
                 </button>
               ) : null}
-              {!savedActivities.length && !draftActivity ? <div className="empty-state compact">No activity yet.</div> : null}
+              {!savedActivities.length && !draftActivity ? <div className="empty-state compact">{t("No activity yet.")}</div> : null}
             </aside>
 
             <section className="day-form">
               {planExists && !showPlanEditor ? (
                 <section className="day-plan-summary">
                   <div>
-                    <p className="eyebrow">Plan</p>
+                    <p className="eyebrow">{t("Plan")}</p>
                     <h3>{getPlanTitle(session)}</h3>
                     <span>{getPlanSummary(session)}</span>
                   </div>
                   <div className="compact-actions">
                     <button type="button" className="primary-action" onClick={startFromPlan}>
-                      Start from plan
+                      {t("Start from plan")}
                     </button>
                     <button type="button" onClick={() => setShowPlanEditor(true)}>
-                      Edit plan
+                      {t("Edit plan")}
                     </button>
                   </div>
                 </section>
@@ -509,20 +511,20 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
                 <>
                   <div className="form-grid">
                     <label>
-                      Title
+                      {t("Title")}
                       <input
                         value={activeActivity.title || ""}
                         onChange={(event) => updateActiveActivity({ title: event.target.value })}
-                        placeholder="Morning ride, climbing session, match..."
+                        placeholder={t("Morning ride, climbing session, match...")}
                       />
                     </label>
                     <label>
-                      Activity Type
+                      {t("Activity Type")}
                       <select
                         value={activeActivity.activity_type || ""}
                         onChange={(event) => updateActiveActivity({ activity_type: event.target.value })}
                       >
-                        <option value="">Choose type</option>
+                        <option value="">{t("Choose type")}</option>
                         {ACTIVITY_TYPES.filter((activityType) => activityType.value).map((activityType) => (
                           <option key={activityType.value} value={activityType.value}>
                             {activityType.label}
@@ -531,7 +533,7 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
                       </select>
                     </label>
                     <label>
-                      Time
+                      {t("Time")}
                       <input
                         type="time"
                         value={activeActivity.physio_time || ""}
@@ -541,19 +543,19 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
                   </div>
 
                   <label>
-                    Details
+                    {t("Details")}
                     <input
                       value={activeActivity.activity_details || ""}
                       onChange={(event) => updateActiveActivity({ activity_details: event.target.value })}
-                      placeholder="Duration, zone, location, quick summary..."
+                      placeholder={t("Duration, zone, location, quick summary...")}
                     />
                   </label>
                   <label>
-                    Notes
+                    {t("Notes")}
                     <textarea
                       value={activeActivity.note || ""}
                       onChange={(event) => updateActiveActivity({ note: event.target.value })}
-                      placeholder="How it felt, context, anything useful for later."
+                      placeholder={t("How it felt, context, anything useful for later.")}
                     />
                   </label>
 
@@ -564,6 +566,7 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
                     error={imageError}
                     onUpload={handleActivityImageUpload}
                     onDelete={handleActivityImageDelete}
+                    t={t}
                   />
 
                   {isActiveStrengthActivity ? (
@@ -579,35 +582,35 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
                   {((hasAdvancedStrengthData && !isActiveStrengthActivity) || hasClimbingLogData) && (
                     <div className="notice-panel">
                       {hasAdvancedStrengthData && !isActiveStrengthActivity ? (
-                        <span>{activeActivity.performed_items.length} strength item(s) are preserved.</span>
+                        <span>{t("Strength items preserved", { count: activeActivity.performed_items.length })}</span>
                       ) : null}
-                      {hasClimbingLogData ? <span>{activeActivity.climbing_routes.length} climbing route log(s) are preserved.</span> : null}
+                      {hasClimbingLogData ? <span>{t("Climbing routes preserved", { count: activeActivity.climbing_routes.length })}</span> : null}
                     </div>
                   )}
                 </>
               ) : (
                 <section className="empty-state activity-empty-panel">
-                  Select an existing activity or add a new one.
+                  {t("Select an existing activity or add a new one.")}
                 </section>
               )}
 
               <div className="day-modal-actions">
                 <button type="button" className="primary-action" onClick={handleSave} disabled={status === "saving"}>
-                  {status === "saving" ? "Saving..." : "Save Day"}
+                  {status === "saving" ? t("Saving...") : t("Save Day")}
                 </button>
                 {draftActivity ? (
                   <button type="button" onClick={cancelDraftActivity}>
-                    Cancel new activity
+                    {t("Cancel new activity")}
                   </button>
                 ) : null}
                 {activeIndex !== null && savedActivities[activeIndex] ? (
                   <button type="button" className="danger-action" onClick={deleteSelectedActivity}>
-                    Delete activity
+                    {t("Delete activity")}
                   </button>
                 ) : null}
                 {!planExists && !showPlanEditor ? (
                   <button type="button" onClick={() => setShowPlanEditor(true)}>
-                    Add plan
+                    {t("Add plan")}
                   </button>
                 ) : null}
               </div>

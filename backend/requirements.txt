@@ -4,3 +4,5 @@ uvicorn
 sqlalchemy
 python-multipart
 fitparse
+pytest
+httpx

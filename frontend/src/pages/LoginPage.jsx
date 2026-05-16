@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useAuth } from "../auth/AuthProvider.jsx";
 import { getStoredAuth } from "../api/client.js";
+import { useTranslation } from "../i18n/translations.js";
 
 export default function LoginPage() {
   const { login, error: authError } = useAuth();
+  const { t } = useTranslation();
   const [username, setUsername] = useState(getStoredAuth().username);
   const [password, setPassword] = useState("");
   const [error, setError] = useState(authError || "");
@@ -26,10 +28,10 @@ export default function LoginPage() {
     <main className="auth-shell">
       <form className="auth-card" onSubmit={handleSubmit}>
         <h1>Let&apos;s GO</h1>
-        <p>Sign in to access the tracker.</p>
+        <p>{t("Sign in to access the tracker.")}</p>
         {error ? <div className="error-banner">{error}</div> : null}
         <label>
-          Username
+          {t("Username")}
           <input
             autoComplete="username"
             value={username}
@@ -37,7 +39,7 @@ export default function LoginPage() {
           />
         </label>
         <label>
-          Password
+          {t("Password")}
           <input
             autoComplete="current-password"
             type="password"
@@ -46,7 +48,7 @@ export default function LoginPage() {
           />
         </label>
         <button className="primary-action" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Signing in..." : "Sign in"}
+          {isSubmitting ? t("Signing in...") : t("Sign in")}
         </button>
       </form>
     </main>

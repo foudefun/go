@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCalendar } from "../api/calendarApi.js";
+import { useTranslation } from "../i18n/translations.js";
 import DaySessionModal from "../sessions/components/DaySessionModal.jsx";
 
 function formatLocalDateIso(dateValue) {
@@ -14,6 +15,7 @@ function getLocalTodayIso() {
 }
 
 export default function ActivitiesPage() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("loading");
@@ -64,12 +66,12 @@ export default function ActivitiesPage() {
     <main className="page-shell">
       <section className="module-header">
         <div>
-          <p className="eyebrow">Training</p>
-          <h1>Activities</h1>
+          <p className="eyebrow">{t("Training")}</p>
+          <h1>{t("Activities")}</h1>
         </div>
         <div className="activity-add-controls">
           <label>
-            Date
+            {t("Date")}
             <input
               type="date"
               value={activityDate}
@@ -81,22 +83,22 @@ export default function ActivitiesPage() {
             type="button"
             onClick={() => setSelectedDate(activityDate || getLocalTodayIso())}
           >
-            Add Activity
+            {t("Add Activity")}
           </button>
         </div>
       </section>
       {error ? <div className="error-banner">{error}</div> : null}
-      {status === "loading" ? <div className="empty-state">Loading activities...</div> : null}
+      {status === "loading" ? <div className="empty-state">{t("Loading activities...")}</div> : null}
       <section className="card-grid">
         {activities.map((activity) => (
           <article className="app-panel activity-card" key={activity.id}>
             <span>{activity.date}</span>
             <strong>{activity.title}</strong>
-            <small>{activity.types || "Activity"}</small>
+            <small>{activity.types || t("Activity")}</small>
           </article>
         ))}
         {!activities.length && status !== "loading" && !error ? (
-          <div className="app-panel empty-state">No recent activities loaded.</div>
+          <div className="app-panel empty-state">{t("No recent activities loaded.")}</div>
         ) : null}
       </section>
       {selectedDate ? (

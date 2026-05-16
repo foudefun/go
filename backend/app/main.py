@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine, event
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import object_session, sessionmaker, declarative_base
 
 app = FastAPI(title="Rehab Tracker V19b")
 
@@ -83,6 +83,28 @@ class ExerciseModel(Base):
     image = Column(Text)
     images_json = Column(Text)
     document = Column(Text)
+
+class ExerciseCategoryModel(Base):
+    __tablename__ = "exercise_categories"
+    name = Column(String, primary_key=True)
+    display_name_fr = Column(Text)
+    display_name_en = Column(Text)
+
+class ExerciseCategoryLinkModel(Base):
+    __tablename__ = "exercise_category_links"
+    exercise_name = Column(String, ForeignKey("exercises.name", ondelete="CASCADE"), primary_key=True)
+    category_name = Column(String, ForeignKey("exercise_categories.name", ondelete="CASCADE"), primary_key=True)
+
+class ExerciseMovementFamilyModel(Base):
+    __tablename__ = "exercise_movement_families"
+    name = Column(String, primary_key=True)
+    display_name_fr = Column(Text)
+    display_name_en = Column(Text)
+
+class ExerciseMovementFamilyLinkModel(Base):
+    __tablename__ = "exercise_movement_family_links"
+    exercise_name = Column(String, ForeignKey("exercises.name", ondelete="CASCADE"), primary_key=True)
+    family_name = Column(String, ForeignKey("exercise_movement_families.name", ondelete="CASCADE"), nullable=False)
 
 class EquipmentModel(Base):
     __tablename__ = "equipment"
@@ -404,6 +426,37 @@ SQLITE_FOREIGN_KEY_TABLES = {
                 updated_at VARCHAR,
                 history TEXT,
                 FOREIGN KEY(country_id) REFERENCES countries(id)
+            )
+        """,
+    },
+    "exercise_category_links": {
+        "columns": "exercise_name, category_name",
+        "foreign_keys": {
+            ("exercise_name", "exercises", "name", "CASCADE"),
+            ("category_name", "exercise_categories", "name", "CASCADE"),
+        },
+        "create_sql": """
+            CREATE TABLE {table} (
+                exercise_name VARCHAR NOT NULL,
+                category_name VARCHAR NOT NULL,
+                PRIMARY KEY (exercise_name, category_name),
+                FOREIGN KEY(exercise_name) REFERENCES exercises(name) ON DELETE CASCADE,
+                FOREIGN KEY(category_name) REFERENCES exercise_categories(name) ON DELETE CASCADE
+            )
+        """,
+    },
+    "exercise_movement_family_links": {
+        "columns": "exercise_name, family_name",
+        "foreign_keys": {
+            ("exercise_name", "exercises", "name", "CASCADE"),
+            ("family_name", "exercise_movement_families", "name", "CASCADE"),
+        },
+        "create_sql": """
+            CREATE TABLE {table} (
+                exercise_name VARCHAR NOT NULL PRIMARY KEY,
+                family_name VARCHAR NOT NULL,
+                FOREIGN KEY(exercise_name) REFERENCES exercises(name) ON DELETE CASCADE,
+                FOREIGN KEY(family_name) REFERENCES exercise_movement_families(name) ON DELETE CASCADE
             )
         """,
     },
@@ -1500,8 +1553,12 @@ def upsert_exercise_record(db, payload: dict) -> bool:
         exists.image = record["image"]
         exists.images_json = record["images_json"]
         exists.document = record["document"]
+        sync_exercise_taxonomy(db, exists)
     else:
-        db.add(ExerciseModel(**record))
+        row = ExerciseModel(**record)
+        db.add(row)
+        db.flush()
+        sync_exercise_taxonomy(db, row)
     return True
 
 def get_exercise_images(row: ExerciseModel) -> list[str]:
@@ -1533,14 +1590,84 @@ def split_exercise_categories(value: str) -> list[str]:
     return tokens
 
 
+def ensure_exercise_category(db, category_name: str) -> None:
+    cleaned = str(category_name or "").strip()
+    if not cleaned:
+        return
+    if not db.query(ExerciseCategoryModel).filter_by(name=cleaned).first():
+        db.add(
+            ExerciseCategoryModel(
+                name=cleaned,
+                display_name_fr=cleaned,
+                display_name_en=cleaned,
+            )
+        )
+
+
+def ensure_exercise_movement_family(db, family_name: str) -> None:
+    cleaned = str(family_name or "").strip()
+    if not cleaned:
+        return
+    if not db.query(ExerciseMovementFamilyModel).filter_by(name=cleaned).first():
+        db.add(
+            ExerciseMovementFamilyModel(
+                name=cleaned,
+                display_name_fr=cleaned,
+                display_name_en=cleaned,
+            )
+        )
+
+
+def clear_exercise_taxonomy(db, exercise_name: str) -> None:
+    cleaned = str(exercise_name or "").strip()
+    if not cleaned:
+        return
+    db.query(ExerciseCategoryLinkModel).filter_by(exercise_name=cleaned).delete()
+    db.query(ExerciseMovementFamilyLinkModel).filter_by(exercise_name=cleaned).delete()
+
+
+def sync_exercise_taxonomy(db, row: ExerciseModel) -> None:
+    if not row or not row.name:
+        return
+    clear_exercise_taxonomy(db, row.name)
+    for category_name in split_exercise_categories(row.category or ""):
+        ensure_exercise_category(db, category_name)
+        db.flush()
+        db.add(ExerciseCategoryLinkModel(exercise_name=row.name, category_name=category_name))
+    family_name = str(row.movement_family or "").strip()
+    if family_name:
+        ensure_exercise_movement_family(db, family_name)
+        db.flush()
+        db.add(ExerciseMovementFamilyLinkModel(exercise_name=row.name, family_name=family_name))
+
+
+def get_normalized_exercise_categories(db, exercise_name: str) -> list[str]:
+    return [
+        row.category_name
+        for row in db.query(ExerciseCategoryLinkModel)
+        .filter_by(exercise_name=exercise_name)
+        .order_by(ExerciseCategoryLinkModel.category_name)
+        .all()
+    ]
+
+
+def get_normalized_exercise_family(db, exercise_name: str) -> str:
+    row = db.query(ExerciseMovementFamilyLinkModel).filter_by(exercise_name=exercise_name).first()
+    return row.family_name if row else ""
+
+
 def serialize_exercise(row: ExerciseModel) -> dict:
+    db = object_session(row)
+    normalized_categories = get_normalized_exercise_categories(db, row.name) if db else []
+    normalized_family = get_normalized_exercise_family(db, row.name) if db else ""
     return {
         "name": row.name,
         "display_name": row.display_name or row.name.replace("_", " "),
         "display_name_fr": row.display_name_fr or row.display_name or row.name.replace("_", " "),
         "display_name_en": row.display_name_en or row.display_name or row.name.replace("_", " "),
-        "category": row.category or "",
-        "movement_family": row.movement_family or "",
+        "category": ", ".join(normalized_categories) if normalized_categories else row.category or "",
+        "categories": normalized_categories or split_exercise_categories(row.category or ""),
+        "movement_family": normalized_family or row.movement_family or "",
         "variant_label": row.variant_label or "",
         "tracking_mode": normalize_tracking_mode(row.tracking_mode),
         "weight_unit": normalize_weight_unit(row.weight_unit),
@@ -2745,6 +2872,18 @@ def require_admin(current_user: UserModel = Depends(get_current_user)):
 def count_admin_users(db) -> int:
     return db.query(UserModel).filter_by(is_admin=True).count()
 
+def sync_existing_exercise_taxonomy():
+    db = SessionLocal()
+    try:
+        for row in db.query(ExerciseModel).all():
+            has_categories = db.query(ExerciseCategoryLinkModel).filter_by(exercise_name=row.name).first() is not None
+            has_family = db.query(ExerciseMovementFamilyLinkModel).filter_by(exercise_name=row.name).first() is not None
+            if not has_categories or (row.movement_family and not has_family):
+                sync_exercise_taxonomy(db, row)
+        db.commit()
+    finally:
+        db.close()
+
 def seed_exercises():
     db = SessionLocal()
     if db.query(ExerciseModel).count() == 0:
@@ -2759,6 +2898,7 @@ def seed_exercises():
     db.close()
 
 seed_exercises()
+sync_existing_exercise_taxonomy()
 
 def seed_default_user():
     db = SessionLocal()
@@ -3713,6 +3853,7 @@ def update_exercise(name: str, e: dict, current_user: UserModel = Depends(get_cu
             existing_target = db.query(ExerciseModel).filter_by(name=target_name).first()
             if existing_target:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="An exercise already uses this technical name")
+            clear_exercise_taxonomy(db, name)
             rename_exercise_references(db, name, target_name)
 
         row.name = target_name
@@ -3729,6 +3870,8 @@ def update_exercise(name: str, e: dict, current_user: UserModel = Depends(get_cu
         row.image = record["image"]
         row.images_json = record["images_json"]
         row.document = record["document"]
+        db.flush()
+        sync_exercise_taxonomy(db, row)
         write_audit_log(
             db,
             current_user.username,
@@ -3764,6 +3907,7 @@ def merge_exercise(name: str, payload: dict, current_user: UserModel = Depends(g
 
         rename_exercise_references(db, source_name, target_name)
         merge_exercise_rows(target_row, source_row)
+        sync_exercise_taxonomy(db, target_row)
         write_audit_log(
             db,
             current_user.username,
@@ -3772,6 +3916,7 @@ def merge_exercise(name: str, payload: dict, current_user: UserModel = Depends(g
             target_name,
             f"Merged exercise {source_name} into {target_name}",
         )
+        clear_exercise_taxonomy(db, source_name)
         db.delete(source_row)
         db.commit()
         db.refresh(target_row)
@@ -4016,6 +4161,7 @@ def delete_exercise(name: str, current_user: UserModel = Depends(require_admin))
                 name,
                 f"Deleted exercise {name}",
             )
+        clear_exercise_taxonomy(db, name)
         db.query(ExerciseModel).filter_by(name=name).delete()
         db.commit()
         return {"ok": True}

@@ -66,6 +66,15 @@ sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
 
 ## 7. Updating later
 
+Run the local checks before deploying larger changes:
+
+```bash
+python -m pytest backend/tests
+cd frontend
+npm test
+npm run build
+```
+
 ```bash
 cd /home/user/rehab
 docker compose -f docker-compose.prod.yml up -d --build

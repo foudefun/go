@@ -21,16 +21,17 @@ import {
   normalizeExerciseDraft,
   slugifyExerciseName,
 } from "../domain/exerciseLibrary.js";
+import { useTranslation } from "../i18n/translations.js";
 
 function getExerciseImages(exercise) {
   const images = Array.isArray(exercise?.images) ? exercise.images : [];
   return images.length ? images : exercise?.image ? [exercise.image] : [];
 }
 
-function ExerciseImage({ exercise, language = "en", large = false, onViewImage }) {
+function ExerciseImage({ exercise, language = "en", large = false, onViewImage, t = (key) => key }) {
   const image = getExerciseImages(exercise)[0];
   if (!image) {
-    return <div className={large ? "exercise-image placeholder large" : "exercise-image placeholder"}>No image</div>;
+    return <div className={large ? "exercise-image placeholder large" : "exercise-image placeholder"}>{t("No image")}</div>;
   }
   const label = getExerciseLabel(exercise, language);
   const imageElement = <img className={large ? "exercise-image large" : "exercise-image"} src={image} alt={label} />;
@@ -62,53 +63,54 @@ function getExerciseOptionLabel(exercise, language) {
   return variant ? `${label} - ${variant}` : label;
 }
 
-function ImageLightbox({ image, title, onClose }) {
+function ImageLightbox({ image, title, onClose, t }) {
   if (!image) return null;
+  const fallbackTitle = t("Exercise image");
   return (
     <div className="modal-backdrop image-lightbox-backdrop" role="presentation" onClick={onClose}>
-      <section className="image-lightbox" role="dialog" aria-modal="true" aria-label={title || "Exercise image"} onClick={(event) => event.stopPropagation()}>
+      <section className="image-lightbox" role="dialog" aria-modal="true" aria-label={title || fallbackTitle} onClick={(event) => event.stopPropagation()}>
         <header>
-          <strong>{title || "Exercise image"}</strong>
+          <strong>{title || fallbackTitle}</strong>
           <button type="button" onClick={onClose}>
-            Close
+            {t("Close")}
           </button>
         </header>
-        <img src={image} alt={title || "Exercise image"} />
+        <img src={image} alt={title || fallbackTitle} />
       </section>
     </div>
   );
 }
 
-function ExerciseDetail({ exercise, exercises, language, onEdit, onNew, onDelete, onViewImage, canDelete }) {
+function ExerciseDetail({ exercise, exercises, language, t, onEdit, onNew, onDelete, onViewImage, canDelete }) {
   const relatedExercises = getRelatedExercises(exercise, exercises);
 
   if (!exercise) {
     return (
       <section className="app-panel exercise-detail-panel">
-        <div className="empty-state">Choose an exercise to inspect it.</div>
+        <div className="empty-state">{t("Choose an exercise to inspect it.")}</div>
       </section>
     );
   }
 
   return (
     <section className="app-panel exercise-detail-panel">
-      <ExerciseImage exercise={exercise} language={language} large onViewImage={onViewImage} />
+      <ExerciseImage exercise={exercise} language={language} t={t} large onViewImage={onViewImage} />
       <div className="exercise-detail-content">
         <div>
-          <p className="eyebrow">{exercise.category || "Exercise"}</p>
+          <p className="eyebrow">{exercise.category || t("Exercise")}</p>
           <h2>{getExerciseLabel(exercise, language)}</h2>
           <span className="visually-muted">{exercise.name}</span>
         </div>
         <div className="exercise-badge-row">
-          <span>{exercise.tracking_mode === "time_watts" ? "Time / watts" : "Reps / weight"}</span>
+          <span>{exercise.tracking_mode === "time_watts" ? t("Time / watts") : t("Reps / weight")}</span>
           <span>{exercise.weight_unit || "kg"}</span>
           {exercise.movement_family ? <span>{exercise.movement_family}</span> : null}
           {exercise.variant_label ? <span>{exercise.variant_label}</span> : null}
         </div>
-        {exercise.description ? <p>{exercise.description}</p> : <p className="visually-muted">No description yet.</p>}
+        {exercise.description ? <p>{exercise.description}</p> : <p className="visually-muted">{t("No description yet.")}</p>}
         <div className="exercise-management-panel">
-          <strong>Close variants</strong>
-          <p>Linked through similar movement, without merging exercise records.</p>
+          <strong>{t("Close variants")}</strong>
+          <p>{t("Linked through similar movement, without merging exercise records.")}</p>
           {relatedExercises.length ? (
             <div className="category-choice-list">
               {relatedExercises.map((relatedExercise) => (
@@ -118,24 +120,24 @@ function ExerciseDetail({ exercise, exercises, language, onEdit, onNew, onDelete
               ))}
             </div>
           ) : (
-            <span className="visually-muted">No close variants linked yet.</span>
+            <span className="visually-muted">{t("No close variants linked yet.")}</span>
           )}
         </div>
         <div className="day-modal-actions">
           <button type="button" className="primary-action" onClick={() => onEdit(exercise)}>
-            Edit Details
+            {t("Edit Details")}
           </button>
           <button type="button" className="secondary-action" onClick={onNew}>
-            New Exercise
+            {t("New Exercise")}
           </button>
           {exercise.link ? (
             <a className="secondary-action" href={exercise.link} target="_blank" rel="noreferrer">
-              Open Link
+              {t("Open Link")}
             </a>
           ) : null}
           {canDelete ? (
             <button type="button" onClick={() => onDelete(exercise)}>
-              Delete
+              {t("Delete")}
             </button>
           ) : null}
         </div>
@@ -165,6 +167,7 @@ function ExerciseEditor({
   onMerge,
   onDelete,
   onViewImage,
+  t,
 }) {
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [mergeTargetName, setMergeTargetName] = useState("");
@@ -222,17 +225,17 @@ function ExerciseEditor({
     <section className="app-panel exercise-editor-panel">
       <header className="strength-editor-header">
         <div>
-          <p className="eyebrow">{mode === "create" ? "New" : "Editing"}</p>
-          <h2>{mode === "create" ? "Add Exercise" : "Edit Exercise"}</h2>
+          <p className="eyebrow">{mode === "create" ? t("New") : t("Editing")}</p>
+          <h2>{mode === "create" ? t("Add Exercise") : t("Edit Exercise")}</h2>
         </div>
         <button type="button" onClick={onCancel}>
-          Close
+          {t("Close")}
         </button>
       </header>
 
       <div className="form-grid">
         <label>
-          Display name
+          {t("Display name")}
           <input
             value={draft.display_name || ""}
             onChange={(event) => updateField("display_name", event.target.value)}
@@ -240,7 +243,7 @@ function ExerciseEditor({
           />
         </label>
         <label>
-          Technical name
+          {t("Technical name")}
           <input
             value={draft.name || ""}
             onChange={(event) => updateField("name", slugifyExerciseName(event.target.value))}
@@ -248,17 +251,17 @@ function ExerciseEditor({
           />
         </label>
         <label>
-          French name
+          {t("French name")}
           <input value={draft.display_name_fr || ""} onChange={(event) => updateField("display_name_fr", event.target.value)} />
         </label>
         <label>
-          English name
+          {t("English name")}
           <input value={draft.display_name_en || ""} onChange={(event) => updateField("display_name_en", event.target.value)} />
         </label>
         <label>
-          Movement family
+          {t("Movement family")}
           <select value={draft.movement_family || ""} onChange={(event) => updateField("movement_family", event.target.value)}>
-            <option value="">Standalone exercise</option>
+            <option value="">{t("Standalone exercise")}</option>
             {hasCurrentMovementFamily ? <option value={draft.movement_family}>{draft.movement_family}</option> : null}
             {sortedExerciseOptions.map((exercise) => (
               <option key={exercise.name} value={exercise.name}>
@@ -268,21 +271,21 @@ function ExerciseEditor({
           </select>
         </label>
         <label>
-          Variant
+          {t("Variant")}
           <input value={draft.variant_label || ""} onChange={(event) => updateField("variant_label", event.target.value)} />
         </label>
         <label>
-          Tracking mode
+          {t("Tracking mode")}
           <select value={draft.tracking_mode || "reps_weight"} onChange={(event) => updateField("tracking_mode", event.target.value)}>
             {TRACKING_MODES.map((modeOption) => (
               <option key={modeOption.value} value={modeOption.value}>
-                {modeOption.label}
+                {t(modeOption.label)}
               </option>
             ))}
           </select>
         </label>
         <label>
-          Weight unit
+          {t("Weight unit")}
           <select value={draft.weight_unit || "kg"} onChange={(event) => updateField("weight_unit", event.target.value)}>
             {WEIGHT_UNITS.map((unit) => (
               <option key={unit.value} value={unit.value}>
@@ -292,13 +295,13 @@ function ExerciseEditor({
           </select>
         </label>
         <label>
-          Primary image URL
+          {t("Primary image URL")}
           <input value={draft.image || ""} onChange={(event) => updateField("image", event.target.value)} placeholder="/api/uploads/exercises/..." />
         </label>
       </div>
 
       <div className="category-choice-panel">
-        <p className="field-label">Category</p>
+        <p className="field-label">{t("Category")}</p>
         <div className="category-choice-list">
           {categories.map((categoryName) => (
             <label key={categoryName} className="category-choice">
@@ -315,7 +318,7 @@ function ExerciseEditor({
 
       <div className="exercise-image-upload-grid">
         <div>
-          <p className="field-label">Exercise image</p>
+          <p className="field-label">{t("Exercise image")}</p>
           <button
             type="button"
             className={
@@ -341,8 +344,8 @@ function ExerciseEditor({
             }}
             onDrop={handleDrop}
           >
-            <span>{uploadingImage ? "Uploading image..." : "Drop image here or choose a file"}</span>
-            <small>{canUploadImage ? "PNG, JPEG, WebP or GIF" : "Save the exercise before uploading images."}</small>
+            <span>{uploadingImage ? t("Uploading image...") : t("Drop image here or choose a file")}</span>
+            <small>{canUploadImage ? t("PNG, JPEG, WebP or GIF") : t("Save the exercise before uploading images.")}</small>
           </button>
           <input
             ref={fileInputRef}
@@ -357,7 +360,7 @@ function ExerciseEditor({
           {imageUploadError ? <p className="form-error-text">{imageUploadError}</p> : null}
         </div>
         {images.length ? (
-          <div className="exercise-image-preview-list" aria-label="Current images">
+          <div className="exercise-image-preview-list" aria-label={t("Current images")}>
             {images.map((image) => (
               <div key={image} className="exercise-image-preview-item">
                 <button type="button" className="image-preview-button" onClick={() => onViewImage(image, getExerciseLabel(draft, language))}>
@@ -365,10 +368,10 @@ function ExerciseEditor({
                 </button>
                 <div className="image-preview-actions">
                   <button type="button" disabled={image === images[0] || managingImage} onClick={() => onSetPrimaryImage(image)}>
-                    {image === images[0] ? "Main image" : "Set as main"}
+                    {image === images[0] ? t("Main image") : t("Set as main")}
                   </button>
                   <button type="button" className="danger-action compact" disabled={managingImage} onClick={() => onDeleteImage(image)}>
-                    Delete
+                    {t("Delete")}
                   </button>
                 </div>
               </div>
@@ -378,26 +381,26 @@ function ExerciseEditor({
       </div>
 
       <label>
-        Description
+        {t("Description")}
         <textarea value={draft.description || ""} onChange={(event) => updateField("description", event.target.value)} />
       </label>
       <label>
-        Reference link
+        {t("Reference link")}
         <input value={draft.link || ""} onChange={(event) => updateField("link", event.target.value)} placeholder="https://..." />
       </label>
       <label>
-        Document link
+        {t("Document link")}
         <input value={draft.document || ""} onChange={(event) => updateField("document", event.target.value)} />
       </label>
 
       {mode === "edit" ? (
         <div className="exercise-management-panel">
           <div>
-            <strong>Exercise management</strong>
-            <p>Use similar movement to group variants. Use merge only when two records are truly the same exercise.</p>
+            <strong>{t("Exercise management")}</strong>
+            <p>{t("Use similar movement to group variants. Use merge only when two records are truly the same exercise.")}</p>
           </div>
           <div>
-            <p className="field-label">Close variants</p>
+            <p className="field-label">{t("Close variants")}</p>
             {relatedExercises.length ? (
               <div className="category-choice-list">
                 {relatedExercises.map((exercise) => (
@@ -407,14 +410,14 @@ function ExerciseEditor({
                 ))}
               </div>
             ) : (
-              <span className="visually-muted">No close variants linked yet.</span>
+              <span className="visually-muted">{t("No close variants linked yet.")}</span>
             )}
           </div>
           <div className="merge-control-row">
             <label>
-              Merge this exercise into
+              {t("Merge this exercise into")}
               <select value={mergeTargetName} onChange={(event) => setMergeTargetName(event.target.value)}>
-                <option value="">Choose target exercise</option>
+                <option value="">{t("Choose target exercise")}</option>
                 {sortedExerciseOptions.map((exercise) => (
                   <option key={exercise.name} value={exercise.name}>
                     {getExerciseOptionLabel(exercise, language)}
@@ -423,12 +426,12 @@ function ExerciseEditor({
               </select>
             </label>
             <button type="button" className="secondary-action" disabled={!mergeTargetName || saving} onClick={() => onMerge(draft, mergeTargetName)}>
-              Merge
+              {t("Merge")}
             </button>
           </div>
           {canDelete ? (
             <button type="button" className="danger-action" disabled={saving} onClick={() => onDelete(draft)}>
-              Delete exercise
+              {t("Delete exercise")}
             </button>
           ) : null}
         </div>
@@ -436,7 +439,7 @@ function ExerciseEditor({
 
       <div className="day-modal-actions">
         <button type="button" className="primary-action" onClick={onSave} disabled={saving || !draft.name}>
-          {saving ? "Saving..." : "Save Exercise"}
+          {saving ? t("Saving...") : t("Save Exercise")}
         </button>
       </div>
     </section>
@@ -445,7 +448,7 @@ function ExerciseEditor({
 
 export default function ExercisesPage() {
   const { user } = useAuth();
-  const language = user?.language === "fr" ? "fr" : "en";
+  const { language, t } = useTranslation();
   const [exercises, setExercises] = useState([]);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
@@ -530,7 +533,7 @@ export default function ExercisesPage() {
   }
 
   async function handleDelete(exercise) {
-    if (!window.confirm(`Delete "${getExerciseLabel(exercise, language)}"?`)) return;
+    if (!window.confirm(t('Delete "{name}"?', { name: getExerciseLabel(exercise, language) }))) return;
     setStatus("saving");
     setError("");
     try {
@@ -586,7 +589,7 @@ export default function ExercisesPage() {
 
   async function handleDeleteImage(imageUrl) {
     if (editorMode !== "edit" || !editorOriginalName || !imageUrl) return;
-    if (!window.confirm("Delete this exercise image?")) return;
+    if (!window.confirm(t("Delete this exercise image?"))) return;
     setManagingImage(true);
     setImageUploadError("");
     try {
@@ -605,7 +608,7 @@ export default function ExercisesPage() {
     if (!sourceName || !targetName || sourceName === targetName) return;
     const sourceLabel = getExerciseLabel(sourceExercise, language);
     const targetLabel = getExerciseLabel(targetExercise, language);
-    if (!window.confirm(`Merge "${sourceLabel}" into "${targetLabel}"? Existing calendar references will move to the target exercise.`)) return;
+    if (!window.confirm(t('Merge "{source}" into "{target}"? Existing calendar references will move to the target exercise.', { source: sourceLabel, target: targetLabel }))) return;
     setStatus("saving");
     setError("");
     try {
@@ -629,23 +632,23 @@ export default function ExercisesPage() {
     <main className="page-shell">
       <section className="module-header">
         <div>
-          <p className="eyebrow">Library</p>
-          <h1>Exercises</h1>
+          <p className="eyebrow">{t("Library")}</p>
+          <h1>{t("Exercises")}</h1>
         </div>
         <button type="button" className="primary-action" onClick={openCreateEditor}>
-          Add Exercise
+          {t("Add Exercise")}
         </button>
       </section>
 
       <section className="calendar-toolbar app-panel exercise-toolbar">
         <label>
-          Search
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name, category, description..." />
+          {t("Search")}
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("Name, category, description...")} />
         </label>
         <label>
-          Category
+          {t("Category")}
           <select value={category} onChange={(event) => setCategory(event.target.value)}>
-            <option value="">All categories</option>
+            <option value="">{t("All categories")}</option>
             {categories.map((categoryName) => (
               <option key={categoryName} value={categoryName}>
                 {categoryName}
@@ -654,12 +657,12 @@ export default function ExercisesPage() {
           </select>
         </label>
         <label>
-          Tracking
+          {t("Tracking")}
           <select value={trackingMode} onChange={(event) => setTrackingMode(event.target.value)}>
-            <option value="">All modes</option>
+            <option value="">{t("All modes")}</option>
             {TRACKING_MODES.map((modeOption) => (
               <option key={modeOption.value} value={modeOption.value}>
-                {modeOption.label}
+                {t(modeOption.label)}
               </option>
             ))}
           </select>
@@ -667,13 +670,13 @@ export default function ExercisesPage() {
       </section>
 
       {error ? <div className="error-banner">{error}</div> : null}
-      {status === "loading" ? <div className="app-panel empty-state">Loading exercises...</div> : null}
+      {status === "loading" ? <div className="app-panel empty-state">{t("Loading exercises...")}</div> : null}
 
       <section className="exercise-library-layout">
         <div className="exercise-list-panel app-panel">
           <div className="exercise-list-header">
-            <strong>{filteredExercises.length} exercise(s)</strong>
-            <span>{exercises.filter((exercise) => getExerciseImages(exercise).length).length} with image</span>
+            <strong>{t("Exercise count", { count: filteredExercises.length })}</strong>
+            <span>{t("With image count", { count: exercises.filter((exercise) => getExerciseImages(exercise).length).length })}</span>
           </div>
           <div className="exercise-list-scroll">
             {filteredExercises.map((exercise) => (
@@ -683,14 +686,14 @@ export default function ExercisesPage() {
                 key={exercise.name}
                 onClick={() => setSelectedName(exercise.name)}
               >
-                <ExerciseImage exercise={exercise} language={language} />
+                <ExerciseImage exercise={exercise} language={language} t={t} />
                 <span>
                   <strong>{getExerciseLabel(exercise, language)}</strong>
-                  <small>{exercise.category || "Uncategorized"} - {exercise.tracking_mode === "time_watts" ? "time / watts" : "reps / weight"}</small>
+                  <small>{exercise.category || t("Uncategorized")} - {exercise.tracking_mode === "time_watts" ? t("time / watts") : t("reps / weight")}</small>
                 </span>
               </button>
             ))}
-            {!filteredExercises.length && status !== "loading" ? <div className="empty-state compact">No exercise matches this filter.</div> : null}
+            {!filteredExercises.length && status !== "loading" ? <div className="empty-state compact">{t("No exercise matches this filter.")}</div> : null}
           </div>
         </div>
 
@@ -717,12 +720,14 @@ export default function ExercisesPage() {
               onMerge={handleMergeExercise}
               onDelete={handleDelete}
               onViewImage={openImageViewer}
+              t={t}
             />
           ) : (
             <ExerciseDetail
               exercise={selectedExercise}
               exercises={exercises}
               language={language}
+              t={t}
               onEdit={openEditEditor}
               onNew={openCreateEditor}
               onDelete={handleDelete}
@@ -732,7 +737,7 @@ export default function ExercisesPage() {
           )}
         </div>
       </section>
-      <ImageLightbox image={imageViewer.image} title={imageViewer.title} onClose={() => setImageViewer({ image: "", title: "" })} />
+      <ImageLightbox image={imageViewer.image} title={imageViewer.title} t={t} onClose={() => setImageViewer({ image: "", title: "" })} />
     </main>
   );
 }

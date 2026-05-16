@@ -14,6 +14,7 @@ import {
   normalizeTrackingMode,
   normalizeWeightUnit,
 } from "../strengthItems.js";
+import { useTranslation } from "../../i18n/translations.js";
 
 function getItemTitle(item, exerciseMap) {
   const exercise = exerciseMap.get(item.exercise_name);
@@ -46,6 +47,7 @@ function hasSetDraftContent(setDraft) {
 }
 
 export default function StrengthEditor({ activity, exercises, loading, error, onChange }) {
+  const { t } = useTranslation();
   const exerciseMap = useMemo(() => buildExerciseMap(exercises), [exercises]);
   const sortedExercises = useMemo(() => sortExercises(exercises), [exercises]);
   const items = useMemo(
@@ -120,16 +122,16 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
   }
 
   return (
-    <section className="strength-editor" aria-label="Strength performed items">
+    <section className="strength-editor" aria-label={t("Strength performed items")}>
       <header className="strength-editor-header">
         <div>
-          <p className="eyebrow">Strength Details</p>
-          <h3>Performed items</h3>
+          <p className="eyebrow">{t("Strength Details")}</p>
+          <h3>{t("Performed items")}</h3>
         </div>
-        <span>{items.length} item(s)</span>
+        <span>{t("Item count", { count: items.length })}</span>
       </header>
 
-      {loading ? <div className="empty-state compact">Loading exercise library...</div> : null}
+      {loading ? <div className="empty-state compact">{t("Loading exercise library...")}</div> : null}
       {error ? <div className="error-banner">{error}</div> : null}
 
       {items.length ? (
@@ -139,8 +141,8 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
               <div>
                 <strong>{getItemTitle(item, exerciseMap)}</strong>
                 <span>
-                  {WORK_TYPES.find((workType) => workType.value === item.work_type)?.label || "Resistance"} -{" "}
-                  {WORK_MODES.find((workMode) => workMode.value === item.work_mode)?.label || "Normal"}
+                  {t(WORK_TYPES.find((workType) => workType.value === item.work_type)?.label || "Resistance")} -{" "}
+                  {t(WORK_MODES.find((workMode) => workMode.value === item.work_mode)?.label || "Normal")}
                 </span>
               </div>
               {item.sets?.length ? (
@@ -155,34 +157,34 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
               {item.notes ? <p>{item.notes}</p> : null}
               <div className="compact-actions">
                 <button type="button" onClick={() => editItem(item, index)}>
-                  Edit
+                  {t("Edit")}
                 </button>
                 <button type="button" onClick={() => deleteItem(index)}>
-                  Delete
+                  {t("Delete")}
                 </button>
               </div>
             </article>
           ))}
         </div>
       ) : (
-        <div className="empty-state compact">No performed strength items yet.</div>
+        <div className="empty-state compact">{t("No performed strength items yet.")}</div>
       )}
 
       <div className="strength-builder">
         <div className="strength-builder-title">
-          <strong>{editIndex === null ? "Add item" : "Edit item"}</strong>
+          <strong>{editIndex === null ? t("Add item") : t("Edit item")}</strong>
           {editIndex !== null ? (
             <button type="button" onClick={resetDraft}>
-              Cancel
+              {t("Cancel")}
             </button>
           ) : null}
         </div>
 
         <div className="form-grid">
           <label>
-            Exercise
+            {t("Exercise")}
             <select value={draft.exercise_name || ""} onChange={(event) => handleExerciseChange(event.target.value)}>
-              <option value="">Choose exercise</option>
+              <option value="">{t("Choose exercise")}</option>
               {draft.exercise_name && !exerciseMap.has(draft.exercise_name) ? (
                 <option value={draft.exercise_name}>{draft.exercise_name}</option>
               ) : null}
@@ -194,15 +196,15 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
             </select>
           </label>
           <label>
-            Custom label
+            {t("Custom label")}
             <input
               value={draft.custom_name || ""}
               onChange={(event) => setDraft((current) => ({ ...current, custom_name: event.target.value }))}
-              placeholder="Optional session label"
+              placeholder={t("Optional session label")}
             />
           </label>
           <label>
-            Work type
+            {t("Work type")}
             <select
               value={draft.work_type || "resistance"}
               onChange={(event) => setDraft((current) => ({ ...current, work_type: event.target.value }))}
@@ -215,7 +217,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
             </select>
           </label>
           <label>
-            Mode
+            {t("Mode")}
             <select
               value={draft.work_mode || "normal"}
               onChange={(event) => setDraft((current) => ({ ...current, work_mode: event.target.value }))}
@@ -230,24 +232,24 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
         </div>
 
         <label>
-          Item notes
+          {t("Item notes")}
           <textarea
             value={draft.notes || ""}
             onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))}
-            placeholder="Tempo, pain, technique, substitutions..."
+            placeholder={t("Tempo, pain, technique, substitutions...")}
           />
         </label>
 
         <div className="set-builder">
           <div className="set-builder-header">
-            <strong>Sets</strong>
-            <span>{trackingMode === "time_watts" ? "Timed / watts" : `Reps / ${weightUnit}`}</span>
+            <strong>{t("Sets")}</strong>
+            <span>{trackingMode === "time_watts" ? t("Timed / watts") : t("Reps / unit", { unit: weightUnit })}</span>
           </div>
 
           {trackingMode === "time_watts" ? (
             <div className="form-grid set-input-grid">
               <label>
-                Duration seconds
+                {t("Duration seconds")}
                 <input
                   type="number"
                   min="0"
@@ -257,7 +259,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
                 />
               </label>
               <label>
-                Watts
+                {t("Watts")}
                 <input
                   type="number"
                   min="0"
@@ -271,7 +273,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
           ) : (
             <div className="form-grid set-input-grid">
               <label>
-                Reps
+                {t("Reps")}
                 <input
                   type="number"
                   min="0"
@@ -281,7 +283,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
                 />
               </label>
               <label>
-                Weight
+                {t("Weight")}
                 <input
                   type="number"
                   min="0"
@@ -292,7 +294,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
                 />
               </label>
               <label>
-                Unit
+                {t("Unit")}
                 <select
                   value={currentSet.weight_unit || weightUnit}
                   onChange={(event) => setCurrentSet((current) => ({ ...current, weight_unit: event.target.value }))}
@@ -305,7 +307,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
           )}
 
           <button type="button" className="secondary-action" onClick={addSetToDraft}>
-            Add Set
+            {t("Add Set")}
           </button>
 
           {draft.sets?.length ? (
@@ -320,7 +322,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
         </div>
 
         <button type="button" className="primary-action" onClick={saveDraftItem}>
-          {editIndex === null ? "Add Strength Item" : "Update Strength Item"}
+          {editIndex === null ? t("Add Strength Item") : t("Update Strength Item")}
         </button>
       </div>
     </section>

@@ -37,6 +37,34 @@ To stop local development:
 docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 ```
 
+## Automated checks
+
+Backend route tests live in `backend/tests` and use a temporary SQLite database:
+
+```bash
+python -m pip install -r backend/requirements.txt
+python -m pytest backend/tests
+```
+
+Frontend checks:
+
+```bash
+cd frontend
+npm test
+npm run build
+```
+
+## Exercise taxonomy
+
+Exercise categories and movement families are now normalized in real tables with foreign keys:
+
+- `exercise_categories`
+- `exercise_category_links`
+- `exercise_movement_families`
+- `exercise_movement_family_links`
+
+The API still accepts and returns the legacy `category` and `movement_family` fields for compatibility. Backend writes synchronize those fields into the normalized tables, and responses also include a `categories` array.
+
 ## Fast deployment on the VPS
 
 From the project directory on the VPS:

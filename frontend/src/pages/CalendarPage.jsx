@@ -5,9 +5,10 @@ import {
   getActivityTypeLabel,
   getActivityTypeShortLabel,
 } from "../domain/activityTypes.js";
+import { useTranslation } from "../i18n/translations.js";
 import DaySessionModal from "../sessions/components/DaySessionModal.jsx";
 
-const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAY_LABELS = ["Monday short", "Tuesday short", "Wednesday short", "Thursday short", "Friday short", "Saturday short", "Sunday short"];
 
 function formatLocalDateIso(dateValue) {
   const year = dateValue.getFullYear();
@@ -50,8 +51,8 @@ function shiftMonth(monthValue, delta) {
   return formatLocalDateIso(base).slice(0, 7);
 }
 
-function getMonthLabel(monthValue) {
-  return getMonthDate(monthValue, 1).toLocaleDateString("en-GB", {
+function getMonthLabel(monthValue, language = "en") {
+  return getMonthDate(monthValue, 1).toLocaleDateString(language === "fr" ? "fr-FR" : "en-GB", {
     month: "long",
     year: "numeric",
   });
@@ -115,6 +116,7 @@ function ActivityBadge({ entry, compact = false }) {
 }
 
 export default function CalendarPage() {
+  const { language, t } = useTranslation();
   const [rows, setRows] = useState([]);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
@@ -159,21 +161,21 @@ export default function CalendarPage() {
     <main className="page-shell">
       <section className="module-header">
         <div>
-          <p className="eyebrow">Training</p>
-          <h1>Calendar</h1>
+          <p className="eyebrow">{t("Training")}</p>
+          <h1>{t("Calendar")}</h1>
         </div>
         <button className="secondary-action" type="button" onClick={() => setSelectedDate(todayIso)}>
-          Open Today
+          {t("Open Today")}
         </button>
       </section>
 
       <section className="calendar-toolbar app-panel">
         <div className="month-controls">
           <button type="button" onClick={() => setCalendarMonth((month) => shiftMonth(month, -1))}>
-            Previous
+            {t("Previous")}
           </button>
           <label>
-            Month
+            {t("Month")}
             <input
               type="month"
               value={calendarMonth}
@@ -181,10 +183,10 @@ export default function CalendarPage() {
             />
           </label>
           <button type="button" onClick={() => setCalendarMonth(getLocalTodayIso().slice(0, 7))}>
-            Today
+            {t("Today")}
           </button>
           <button type="button" onClick={() => setCalendarMonth((month) => shiftMonth(month, 1))}>
-            Next
+            {t("Next")}
           </button>
         </div>
         <div className="view-switch">
@@ -193,44 +195,44 @@ export default function CalendarPage() {
             className={calendarView === "month" ? "active" : ""}
             onClick={() => setCalendarView("month")}
           >
-            Month
+            {t("Month")}
           </button>
           <button
             type="button"
             className={calendarView === "list" ? "active" : ""}
             onClick={() => setCalendarView("list")}
           >
-            List
+            {t("List")}
           </button>
         </div>
       </section>
 
       <section className="summary-grid">
         <div className="app-panel metric-card">
-          <span>Today</span>
+          <span>{t("Today")}</span>
           <strong>{today?.date || todayIso}</strong>
-          <small>{today ? formatActivityTypes(today) : "No entry loaded"}</small>
+          <small>{today ? formatActivityTypes(today) : t("No entry loaded")}</small>
         </div>
         <div className="app-panel metric-card">
-          <span>Displayed Month</span>
-          <strong>{getMonthLabel(calendarMonth)}</strong>
-          <small>{completedCount} visible day(s) with activity</small>
+          <span>{t("Displayed Month")}</span>
+          <strong>{getMonthLabel(calendarMonth, language)}</strong>
+          <small>{t("Visible days with activity", { count: completedCount })}</small>
         </div>
         <div className="app-panel metric-card">
-          <span>Current Target</span>
+          <span>{t("Current Target")}</span>
           <strong>{hasTarget(today) ? `${today.target_load} kg` : "-"}</strong>
-          <small>{today?.target_pct_bw ? `${today.target_pct_bw}% bodyweight` : "Target ended"}</small>
+          <small>{today?.target_pct_bw ? t("Percent bodyweight", { value: today.target_pct_bw }) : t("Target ended")}</small>
         </div>
       </section>
 
       <section className="app-panel calendar-panel">
-        {status === "loading" ? <div className="empty-state">Loading calendar...</div> : null}
+        {status === "loading" ? <div className="empty-state">{t("Loading calendar...")}</div> : null}
         {status === "error" ? <div className="error-banner">{error}</div> : null}
         {status === "ready" && calendarView === "month" ? (
-          <div className="month-calendar" aria-label={`${getMonthLabel(calendarMonth)} calendar`}>
+          <div className="month-calendar" aria-label={t("Calendar month label", { month: getMonthLabel(calendarMonth, language) })}>
             {WEEKDAY_LABELS.map((label) => (
               <div className="month-weekday" key={label}>
-                {label}
+                {t(label)}
               </div>
             ))}
             {monthDays.map(({ date, row, inMonth }) => {
@@ -246,7 +248,7 @@ export default function CalendarPage() {
                   <span className="month-day-number">{Number(date.slice(8, 10))}</span>
                   {row ? (
                     <>
-                      {hasTarget(row) ? <span className="month-day-target">{row.target_load} kg target</span> : null}
+                      {hasTarget(row) ? <span className="month-day-target">{t("Kg target", { value: row.target_load })}</span> : null}
                       {activityEntries.length ? (
                         <span className="month-day-activity-list">
                           {activityEntries.slice(0, 3).map((entry, index) => (
@@ -265,7 +267,7 @@ export default function CalendarPage() {
                       ) : null}
                     </>
                   ) : (
-                    <span className="month-day-target">No data</span>
+                    <span className="month-day-target">{t("No data")}</span>
                   )}
                 </button>
               );
@@ -273,18 +275,18 @@ export default function CalendarPage() {
           </div>
         ) : null}
         {status === "ready" && calendarView === "list" ? (
-          <div className="react-table" role="table" aria-label="Calendar">
+          <div className="react-table" role="table" aria-label={t("Calendar")}>
             <div className="react-table-row header" role="row">
-              <div>Date</div>
-              <div>Activities</div>
-              <div>Target</div>
-              <div>Status</div>
+              <div>{t("Date")}</div>
+              <div>{t("Activities")}</div>
+              <div>{t("Target")}</div>
+              <div>{t("Status")}</div>
             </div>
             {rows.map((row) => (
               <button className="react-table-row clickable-row" type="button" role="row" key={row.date} onClick={() => setSelectedDate(row.date)}>
                 <div>
                   <strong>{row.date}</strong>
-                  <small>Day {row.rehab_day}</small>
+                  <small>{t("Day number", { day: row.rehab_day })}</small>
                 </div>
                 <div>
                   <strong className="calendar-list-badges">

@@ -9,6 +9,7 @@ import {
   normalizePlannedItem,
   normalizePlannedItems,
 } from "../plannedItems.js";
+import { useTranslation } from "../../i18n/translations.js";
 
 function sortExercises(exercises) {
   return [...(Array.isArray(exercises) ? exercises : [])].sort((left, right) =>
@@ -31,6 +32,7 @@ function hasPlannedItemContent(item) {
 }
 
 export default function PlannedSessionEditor({ session, exercises, loading, error, onChange, onDone }) {
+  const { t } = useTranslation();
   const exerciseMap = useMemo(() => buildPlannedExerciseMap(exercises), [exercises]);
   const sortedExercises = useMemo(() => sortExercises(exercises), [exercises]);
   const plannedItems = useMemo(
@@ -88,28 +90,28 @@ export default function PlannedSessionEditor({ session, exercises, loading, erro
   }
 
   return (
-    <section className="planned-editor" aria-label="Planned session">
+    <section className="planned-editor" aria-label={t("Planned session")}>
       <header className="strength-editor-header">
         <div>
-          <p className="eyebrow">Plan Details</p>
-          <h3>Planned session</h3>
+          <p className="eyebrow">{t("Plan Details")}</p>
+          <h3>{t("Planned session")}</h3>
         </div>
         <div className="compact-actions">
-          <span>{plannedItems.length} item(s)</span>
+          <span>{t("Item count", { count: plannedItems.length })}</span>
           {onDone ? (
             <button type="button" onClick={onDone}>
-              Done
+              {t("Done")}
             </button>
           ) : null}
           <button type="button" onClick={clearPlan}>
-            Clear Plan
+            {t("Clear Plan")}
           </button>
         </div>
       </header>
 
       <div className="form-grid">
         <label>
-          Planned activity
+          {t("Planned activity")}
           <select
             value={session?.plan_activity_type || ""}
             onChange={(event) => updatePlanField("plan_activity_type", event.target.value)}
@@ -122,7 +124,7 @@ export default function PlannedSessionEditor({ session, exercises, loading, erro
           </select>
         </label>
         <label>
-          Planned time
+          {t("Planned time")}
           <input
             type="time"
             value={session?.plan_time || ""}
@@ -130,23 +132,23 @@ export default function PlannedSessionEditor({ session, exercises, loading, erro
           />
         </label>
         <label>
-          Plan title
+          {t("Plan title")}
           <input
             value={session?.plan_title || ""}
             onChange={(event) => updatePlanField("plan_title", event.target.value)}
-            placeholder="Workout, climb, recovery..."
+            placeholder={t("Workout, climb, recovery...")}
           />
         </label>
         <label>
-          Location
+          {t("Location")}
           <input
             value={session?.location || ""}
             onChange={(event) => updatePlanField("location", event.target.value)}
-            placeholder="Gym, crag, route..."
+            placeholder={t("Gym, crag, route...")}
           />
         </label>
         <label>
-          Target duration min
+          {t("Target duration min")}
           <input
             type="number"
             min="0"
@@ -158,15 +160,15 @@ export default function PlannedSessionEditor({ session, exercises, loading, erro
       </div>
 
       <label>
-        Plan notes
+        {t("Plan notes")}
         <textarea
           value={session?.plan_notes || ""}
           onChange={(event) => updatePlanField("plan_notes", event.target.value)}
-          placeholder="Intent, constraints, equipment, route plan..."
+          placeholder={t("Intent, constraints, equipment, route plan...")}
         />
       </label>
 
-      {loading ? <div className="empty-state compact">Loading exercise library...</div> : null}
+      {loading ? <div className="empty-state compact">{t("Loading exercise library...")}</div> : null}
       {error ? <div className="error-banner">{error}</div> : null}
 
       {plannedItems.length ? (
@@ -175,42 +177,42 @@ export default function PlannedSessionEditor({ session, exercises, loading, erro
             <article className="performed-item-card" key={`${item.exercise_name}-${item.custom_name}-${index}`}>
               <div>
                 <strong>{getPlannedItemTitle(item, exerciseMap)}</strong>
-                <span>{formatPlannedItem(item) || "Planned work"}</span>
+                <span>{formatPlannedItem(item) || t("Planned work")}</span>
               </div>
               {item.notes ? <p>{item.notes}</p> : null}
               <div className="compact-actions">
                 <button type="button" onClick={() => editItem(item, index)}>
-                  Edit
+                  {t("Edit")}
                 </button>
                 <button type="button" onClick={() => deleteItem(index)}>
-                  Delete
+                  {t("Delete")}
                 </button>
               </div>
             </article>
           ))}
         </div>
       ) : (
-        <div className="empty-state compact">No planned items yet.</div>
+        <div className="empty-state compact">{t("No planned items yet.")}</div>
       )}
 
       <div className="planned-builder">
         <div className="strength-builder-title">
-          <strong>{editIndex === null ? "Add planned item" : "Edit planned item"}</strong>
+          <strong>{editIndex === null ? t("Add planned item") : t("Edit planned item")}</strong>
           {editIndex !== null ? (
             <button type="button" onClick={resetDraft}>
-              Cancel
+              {t("Cancel")}
             </button>
           ) : null}
         </div>
 
         <div className="form-grid">
           <label>
-            Exercise
+            {t("Exercise")}
             <select
               value={draft.exercise_name || ""}
               onChange={(event) => setDraft((current) => ({ ...current, exercise_name: event.target.value }))}
             >
-              <option value="">Choose exercise</option>
+              <option value="">{t("Choose exercise")}</option>
               {draft.exercise_name && !exerciseMap.has(draft.exercise_name) ? (
                 <option value={draft.exercise_name}>{draft.exercise_name}</option>
               ) : null}
@@ -222,23 +224,23 @@ export default function PlannedSessionEditor({ session, exercises, loading, erro
             </select>
           </label>
           <label>
-            Custom label
+            {t("Custom label")}
             <input
               value={draft.custom_name || ""}
               onChange={(event) => setDraft((current) => ({ ...current, custom_name: event.target.value }))}
-              placeholder="Optional planned label"
+              placeholder={t("Optional planned label")}
             />
           </label>
           <label>
-            Block
+            {t("Block")}
             <input
               value={draft.block || ""}
               onChange={(event) => setDraft((current) => ({ ...current, block: event.target.value }))}
-              placeholder="A, warmup, main..."
+              placeholder={t("A, warmup, main...")}
             />
           </label>
           <label>
-            Work type
+            {t("Work type")}
             <select
               value={draft.work_type || "resistance"}
               onChange={(event) => setDraft((current) => ({ ...current, work_type: event.target.value }))}
@@ -254,7 +256,7 @@ export default function PlannedSessionEditor({ session, exercises, loading, erro
 
         <div className="form-grid set-input-grid">
           <label>
-            Sets
+            {t("Sets")}
             <input
               type="number"
               min="0"
@@ -264,7 +266,7 @@ export default function PlannedSessionEditor({ session, exercises, loading, erro
             />
           </label>
           <label>
-            Reps
+            {t("Reps")}
             <input
               type="number"
               min="0"
@@ -274,7 +276,7 @@ export default function PlannedSessionEditor({ session, exercises, loading, erro
             />
           </label>
           <label>
-            Duration min
+            {t("Duration min")}
             <input
               type="number"
               min="0"
@@ -284,7 +286,7 @@ export default function PlannedSessionEditor({ session, exercises, loading, erro
             />
           </label>
           <label>
-            Duration sec
+            {t("Duration sec")}
             <input
               type="number"
               min="0"
@@ -296,16 +298,16 @@ export default function PlannedSessionEditor({ session, exercises, loading, erro
         </div>
 
         <label>
-          Item notes
+          {t("Item notes")}
           <textarea
             value={draft.notes || ""}
             onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))}
-            placeholder="Targets, substitutions, rest, technique..."
+            placeholder={t("Targets, substitutions, rest, technique...")}
           />
         </label>
 
         <button type="button" className="primary-action" onClick={saveDraftItem}>
-          {editIndex === null ? "Add Planned Item" : "Update Planned Item"}
+          {editIndex === null ? t("Add Planned Item") : t("Update Planned Item")}
         </button>
       </div>
     </section>
