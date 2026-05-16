@@ -1293,11 +1293,11 @@ async function loadCalendar(){
         html += `<tr class="${rowClass}" onclick="openDay('${s.date}')">
           <td>${s.date}</td>
           <td>J${s.rehab_day}</td>
-          <td>${renderActivityBadge(s.activity_type || "") || "-"}</td>
+          <td>${renderCalendarActivityBadges(s) || escapeHtml((s.activity_summaries || []).join(", ") || "-")}</td>
           <td>${s.target_load}</td>
           <td>${s.physio_time || "-"}</td>
           <td>${escapeHtml((s.planned_exercises || []).map(formatExerciseName).join(", ") || "-")}</td>
-          <td>${escapeHtml((s.performed_exercises || []).map(formatExerciseName).join(", ") || "-")}</td>
+          <td>${escapeHtml(getCalendarPerformedSummary(s) || "-")}</td>
         </tr>`;
       });
     html += "</tbody></table></div>";
@@ -1554,8 +1554,7 @@ function renderCalendarDayCard(dateStr, row, { today, showRehabCalendarInfo, com
   if(dateStr === today) classes.push("today");
   if(dateStr < today) classes.push("past-row");
   const planned = (row?.planned_exercises || []).map(formatExerciseName).join(", ");
-  const performed = (row?.performed_exercises || []).map(formatExerciseName).join(", ");
-  const activityBadge = renderActivityBadge(row?.activity_type || "", { compact: true });
+  const activityBadge = renderCalendarActivityBadges(row, { compact: true });
   const targetLine = (showRehabCalendarInfo && shouldShowRehabHistoryForDate(dateStr))
     ? `<div class="small calendar-day-target">J${row?.rehab_day || "-"} · cible ${row?.target_load ?? "-"}</div>`
     : "";
@@ -1655,7 +1654,7 @@ async function loadCalendar(){
         html += `<tr class="${rowClass}" onclick="openDay('${s.date}')">
           <td>${s.date}</td>
           <td>${showRehabColumns ? `J${s.rehab_day}` : "-"}</td>
-          <td>${renderActivityBadge(s.activity_type || "") || "-"}</td>
+          <td>${renderCalendarActivityBadges(s) || escapeHtml((s.activity_summaries || []).join(", ") || "-")}</td>
           <td>${showRehabColumns ? s.target_load : "-"}</td>
           <td>${s.physio_time || "-"}</td>
           <td>${escapeHtml((s.planned_exercises || []).map(formatExerciseName).join(", ") || "-")}</td>
