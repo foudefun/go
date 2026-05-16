@@ -428,8 +428,8 @@ label { display:block; font-size:13px; }
   <div class="modal-box">
     <div id="content"></div>
     <div class="actions">
-      <button onclick="save()">Enregistrer</button>
-      <button onclick="closeModal()">Fermer</button>
+      <button id="modalSaveButton" onclick="save()">Enregistrer</button>
+      <button id="modalCloseButton" onclick="closeModal()">Fermer</button>
     </div>
   </div>
 </div>
@@ -625,6 +625,10 @@ const UI_TEXT = {
     current_activity: "Activité en cours",
     activity_number: "Activité {number}",
     switch_to_activity: "Ouvrir cette activité",
+    back_to_day_overview: "Retour a la journee",
+    day_planned_summary: "Prevu du jour",
+    view_activity_detail: "Voir le detail",
+    view_planned_detail: "Voir le detail",
     activity_photo: "Photo de l'activité",
     activity_photo_help: "Ajoute une photo prise pendant cette activité. Elle restera liée à cette activité précise.",
     upload_activity_photo: "Téléverser la photo",
@@ -932,6 +936,10 @@ const UI_TEXT = {
     current_activity: "Current activity",
     activity_number: "Activity {number}",
     switch_to_activity: "Open this activity",
+    back_to_day_overview: "Back to day",
+    day_planned_summary: "Planned for the day",
+    view_activity_detail: "View details",
+    view_planned_detail: "View details",
     activity_photo: "Activity photo",
     activity_photo_help: "Add a photo taken during this activity. It will stay attached to this specific activity.",
     upload_activity_photo: "Upload photo",
@@ -1160,6 +1168,8 @@ let plannedSectionExpanded = false;
 let lightboxImages = [];
 let lightboxIndex = 0;
 let lightboxCaption = "";
+let dayModalView = "overview";
+let dayModalDetailTarget = "activity";
 let importPageMode = "program";
 let importActivityFile = null;
 let importActivityFileName = "";
@@ -4049,6 +4059,8 @@ function blankPlannedEditor(){
 }
 
 function switchToDayActivity(index){
+  dayModalView = "detail";
+  dayModalDetailTarget = "activity";
   syncSessionGeneralDraft();
   commitSessionViewToActiveActivity();
   loadActivityIntoSessionView(index);
@@ -4058,6 +4070,8 @@ function switchToDayActivity(index){
 }
 
 function addDayActivity(){
+  dayModalView = "detail";
+  dayModalDetailTarget = "activity";
   syncSessionGeneralDraft();
   commitSessionViewToActiveActivity();
   const nextActivity = blankDayActivity();
@@ -4072,6 +4086,28 @@ function addDayActivity(){
 
 function deleteCurrentActivity(){
   deleteDayActivityAtIndex(activeActivityIndex);
+}
+
+function showDayOverview(){
+  syncSessionGeneralDraft();
+  commitSessionViewToActiveActivity();
+  dayModalView = "overview";
+  dayModalDetailTarget = "activity";
+  persistSessionDraft();
+  scheduleSessionAutosave();
+  renderModal();
+}
+
+function openPlannedDayDetail(){
+  syncSessionGeneralDraft();
+  commitSessionViewToActiveActivity();
+  dayModalView = "detail";
+  dayModalDetailTarget = "plan";
+  plannedSectionExpanded = true;
+  renderModal();
+  requestAnimationFrame(() => {
+    document.getElementById("plannedDayCard")?.scrollIntoView({ block: "start", behavior: "smooth" });
+  });
 }
 
 function deleteDayActivityAtIndex(index){
@@ -4104,6 +4140,9 @@ function deleteDayActivityAtIndex(index){
   const safeIndex = Math.max(0, Math.min(Number(index) || 0, Math.max(0, session.activities.length - 1)));
   if(session.activities.length){
     session.activities.splice(safeIndex, 1);
+  }
+  if(!session.activities.length){
+    dayModalView = "overview";
   }
   const nextIndex = session.activities.length ? Math.max(0, Math.min(activeActivityIndex > safeIndex ? activeActivityIndex - 1 : activeActivityIndex, session.activities.length - 1)) : 0;
   loadActivityIntoSessionView(nextIndex);
@@ -5654,6 +5693,8 @@ async function openDay(date, options = {}){
   performedEditor = blankPerformedEditor();
   plannedEditor = blankPlannedEditor();
   performedExerciseSearch = "";
+  dayModalView = options?.preferNewActivity ? "detail" : "overview";
+  dayModalDetailTarget = "activity";
   plannedSectionExpanded = Boolean(session.plan_title || session.plan_activity_type || session.plan_time || (session.planned_items || []).length);
   const restoredEmbeddedDraft = restoreEmbeddedSessionDraft();
   const restoredDraft = restoreSessionDraft(date) || restoredEmbeddedDraft;
@@ -5824,12 +5865,20 @@ function renderModal(){
     session.plan_time || "",
   ].filter(Boolean);
   const plannedSummary = plannedSummaryParts.length ? plannedSummaryParts.join(" | ") : "Aucune activité planifiée";
+  const hasPlannedActivity = Boolean(
+    session.plan_activity_type ||
+    session.plan_title ||
+    session.plan_time ||
+    session.plan_notes ||
+    session.location ||
+    (session.planned_items || []).length
+  );
   const plannedActivityOptions = [`<option value="">Aucune activité</option>`]
     .concat(Object.entries(ACTIVITY_META).map(([key]) => `<option value="${key}"${session.plan_activity_type === key ? " selected" : ""}>${escapeHtml(getActivityLabel(key))}</option>`))
     .join("");
   const plannedEditorExerciseName = plannedEditor?.exercise_name || "";
   const plannedSessionHtml = `
-    <details class="card collapsible-card" ${plannedSectionExpanded ? "open" : ""} ontoggle="plannedSectionExpanded=this.open">
+    <details id="plannedDayCard" class="card collapsible-card" ${plannedSectionExpanded ? "open" : ""} ontoggle="plannedSectionExpanded=this.open">
       <summary>
         <span>Activité planifiée</span>
         <span class="small">${escapeHtml(plannedSummary)}</span>
@@ -5918,6 +5967,47 @@ function renderModal(){
       </div>
     </details>`;
   const showRehabInfo = shouldShowRehabHistoryForDate(currentDate);
+  const plannedOverviewItemsHtml = (session.planned_items || []).map((item) => `<div class="small">${escapeHtml(getPlannedItemLabel(item))}</div>`).join("");
+  const overviewActivitiesHtml = (session.activities || []).map((activity, index) => `
+    <div class="activity-row" style="display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:10px; align-items:center; border:1px solid #dbe3ef; border-radius:12px; background:#fff; padding:10px 12px;">
+      <div class="activity-row-summary" style="min-width:0; display:grid; gap:2px;">
+        <div class="activity-row-title" style="font-weight:700; color:#0f172a; overflow-wrap:anywhere;">${escapeHtml(t("activity_number").replace("{number}", String(index + 1)))}</div>
+        <div class="small">${escapeHtml(getActivityDisplaySummary(activity, index))}</div>
+      </div>
+      <div class="activity-row-actions" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+        <button type="button" class="btn-cancel" onclick="switchToDayActivity(${index})">${escapeHtml(t("view_activity_detail"))}</button>
+        <button type="button" class="btn-delete" onclick="deleteDayActivityAtIndex(${index})">${escapeHtml(t("delete_activity_button"))}</button>
+      </div>
+    </div>
+  `).join("");
+
+  if(dayModalView === "overview"){
+    document.getElementById("content").innerHTML = `
+      <h3>${currentDate}</h3>
+      ${hasPlannedActivity ? `
+        <div class="card">
+          <h4>${escapeHtml(t("day_planned_summary"))}</h4>
+          <div class="small">${escapeHtml(plannedSummary)}</div>
+          ${plannedOverviewItemsHtml ? `<div style="margin-top:10px; display:grid; gap:4px;">${plannedOverviewItemsHtml}</div>` : ""}
+          <div class="actions" style="margin-top:10px;">
+            <button type="button" class="btn-cancel" onclick="openPlannedDayDetail()">${escapeHtml(t("view_planned_detail"))}</button>
+          </div>
+        </div>
+      ` : ""}
+      <div class="card">
+        <h4>${escapeHtml(t("activities_for_day"))}</h4>
+        <div class="activity-list">
+          ${overviewActivitiesHtml || `<span class="small">${escapeHtml(t("performed_summary_empty"))}</span>`}
+        </div>
+        <div class="actions" style="margin-top:10px;">
+          <button class="btn-add" type="button" onclick="addDayActivity()">${escapeHtml(t("add_new_activity"))}</button>
+        </div>
+      </div>
+    `;
+    const saveButton = document.getElementById("modalSaveButton");
+    if(saveButton) saveButton.style.display = "none";
+    return;
+  }
 
   document.getElementById("content").innerHTML = `
     <h3>${currentDate}</h3>
@@ -5943,20 +6033,13 @@ function renderModal(){
       </div>
     ` : ""}
 
-    <div class="card">
-      <h4>${escapeHtml(t("activities_for_day"))}</h4>
-      <div class="activity-list">
-        ${activitiesHtml || `<span class="small">${escapeHtml(t("performed_summary_empty"))}</span>`}
-      </div>
-      <div class="actions" style="margin-top:10px;">
-        <button class="btn-add" type="button" onclick="addDayActivity()">${escapeHtml(t("add_new_activity"))}</button>
-      </div>
-    </div>
-
     <div class="session-stack">
-      ${plannedSessionHtml}
+      <div class="actions" style="margin-bottom:4px;">
+        <button type="button" class="btn-cancel" onclick="showDayOverview()">${escapeHtml(t("back_to_day_overview"))}</button>
+      </div>
+      ${dayModalDetailTarget === "plan" ? plannedSessionHtml : ""}
 
-      <div class="session-overview-fields">
+      <div class="session-overview-fields" style="${dayModalDetailTarget === "activity" ? "" : "display:none;"}">
         <div class="row">
           <div>
             <label>${escapeHtml(t("activity_title"))}</label>
@@ -6021,7 +6104,7 @@ function renderModal(){
         ${renderActivityImagePanel()}
       </div>
 
-      <div class="card">
+      <div class="card" style="${dayModalDetailTarget === "activity" ? "" : "display:none;"}">
         <h4>${escapeHtml(t("performed_summary"))}</h4>
         <div class="small">
           ${hasSavedActivity ? escapeHtml(performedSummaryParts.join(" | ")) : escapeHtml(t("performed_summary_empty"))}
@@ -6030,7 +6113,7 @@ function renderModal(){
         ${String(session.note || "").trim() ? `<div class="small" style="margin-top:8px;">${escapeHtml(session.note)}</div>` : ""}
       </div>
 
-      <div class="card" id="performedEditorCard">
+      <div class="card" id="performedEditorCard" style="${dayModalDetailTarget === "activity" ? "" : "display:none;"}">
         ${showStrengthSection ? `<h4>${escapeHtml(t("strength_session"))}</h4>
         <div class="small">${escapeHtml(t("strength_help"))}</div>` : ""}
         <div class="editor-state-banner" style="${showStrengthSection ? "margin:10px 0 0;" : "display:none;"}">${editorModeLabel}<br><span class="small">${editorModeSummary}</span></div>
@@ -6207,12 +6290,14 @@ function renderModal(){
         <div class="small" style="${showStrengthSection ? "display:none;" : "margin-top:12px;"}">${escapeHtml(t("strength_only_hint"))}</div>
       </div>
 
-      <div class="card">
+      <div class="card" style="${dayModalDetailTarget === "activity" ? "" : "display:none;"}">
         <label>Note du jour</label>
         <textarea id="note" oninput="captureSessionDraft()">${session.note || ""}</textarea>
       </div>
     </div>
   `;
+  const saveButton = document.getElementById("modalSaveButton");
+  if(saveButton) saveButton.style.display = "";
   setSessionAutosaveState(sessionAutosaveState);
   if(document.getElementById("modal").style.display === "flex"){
     persistSessionDraft();
