@@ -30,7 +30,6 @@ export default function ActivitiesPage() {
             date: row.date,
             title: summary,
             types: row.activity_types?.length ? row.activity_types.join(", ") : row.activity_type,
-            load: row.actual_load,
           }));
         }),
     [rows],
@@ -53,7 +52,7 @@ export default function ActivitiesPage() {
           <article className="app-panel activity-card" key={activity.id}>
             <span>{activity.date}</span>
             <strong>{activity.title}</strong>
-            <small>{activity.types || "Activity"} - {activity.load || 0} kg</small>
+            <small>{activity.types || "Activity"}</small>
           </article>
         ))}
         {!activities.length && !error ? <div className="app-panel empty-state">No recent activities loaded.</div> : null}

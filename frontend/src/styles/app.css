@@ -381,19 +381,6 @@ label {
   line-height: 1.25;
 }
 
-.month-day-load {
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.month-day-load.over {
-  color: #b42318;
-}
-
-.month-day-load.under {
-  color: #0f766e;
-}
-
 .month-day-activity-list,
 .calendar-list-badges {
   display: flex;
@@ -438,7 +425,7 @@ label {
 
 .react-table-row {
   display: grid;
-  grid-template-columns: 130px minmax(220px, 1fr) 100px 100px 90px;
+  grid-template-columns: 130px minmax(220px, 1fr) 100px 90px;
   gap: 12px;
   align-items: center;
   border-top: 1px solid #e4eaf3;
@@ -487,18 +474,6 @@ label {
 .react-table-row small {
   color: #667085;
   margin-top: 2px;
-}
-
-.load-tone {
-  font-weight: 800;
-}
-
-.load-tone.over {
-  color: #b42318;
-}
-
-.load-tone.under {
-  color: #0f766e;
 }
 
 .card-grid {

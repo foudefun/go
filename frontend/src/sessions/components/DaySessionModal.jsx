@@ -203,7 +203,9 @@ export default function DaySessionModal({ date, onClose, onSaved }) {
   const hasClimbingLogData = Boolean(activeActivity.climbing_routes?.length);
   const targetSummary = useMemo(() => {
     if (!session) return "";
-    return `Target ${session.target_load ?? "-"} kg - diff ${session.diff ?? 0}`;
+    return session.target_load !== null && session.target_load !== undefined
+      ? `Target ${session.target_load} kg`
+      : "No active target";
   }, [session]);
 
   function updateActiveActivity(patch) {
@@ -309,16 +311,6 @@ export default function DaySessionModal({ date, onClose, onSaved }) {
                       </option>
                     ))}
                   </select>
-                </label>
-                <label>
-                  Load
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    value={activeActivity.load || 0}
-                    onChange={(event) => updateActiveActivity({ load: Number(event.target.value || 0) })}
-                  />
                 </label>
                 <label>
                   Time

@@ -103,22 +103,6 @@ function hasTarget(row) {
   return row?.target_load !== null && row?.target_load !== undefined;
 }
 
-function hasActualLoad(row) {
-  return Number(row?.actual_load || 0) > 0;
-}
-
-function shouldShowActualLoad(row) {
-  return hasTarget(row) || hasActualLoad(row);
-}
-
-function getLoadTone(row) {
-  if (row?.diff === null || row?.diff === undefined) return "even";
-  const diff = Number(row.diff || 0);
-  if (diff > 0) return "over";
-  if (diff < 0) return "under";
-  return "even";
-}
-
 function ActivityBadge({ entry, compact = false }) {
   const activityType = entry.activity_type;
   const label = compact ? getActivityTypeShortLabel(activityType) : getActivityTypeLabel(activityType);
@@ -262,9 +246,6 @@ export default function CalendarPage() {
                   {row ? (
                     <>
                       {hasTarget(row) ? <span className="month-day-target">{row.target_load} kg target</span> : null}
-                      {shouldShowActualLoad(row) ? (
-                        <span className={`month-day-load ${getLoadTone(row)}`}>{row.actual_load ?? 0} kg</span>
-                      ) : null}
                       {activityEntries.length ? (
                         <span className="month-day-activity-list">
                           {activityEntries.slice(0, 3).map((entry, index) => (
@@ -295,7 +276,6 @@ export default function CalendarPage() {
             <div className="react-table-row header" role="row">
               <div>Date</div>
               <div>Activities</div>
-              <div>Load</div>
               <div>Target</div>
               <div>Status</div>
             </div>
@@ -315,7 +295,6 @@ export default function CalendarPage() {
                   </strong>
                   <small>{(row.activity_summaries || []).join(" | ") || row.activity_details || "-"}</small>
                 </div>
-                <div className={`load-tone ${getLoadTone(row)}`}>{shouldShowActualLoad(row) ? `${row.actual_load ?? 0} kg` : "-"}</div>
                 <div>{hasTarget(row) ? `${row.target_load} kg` : "-"}</div>
                 <div>{row.status || "todo"}</div>
               </button>
