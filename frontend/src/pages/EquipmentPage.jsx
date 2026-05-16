@@ -359,10 +359,23 @@ function TaxonomyPanel({
         </button>
         <div className="taxonomy-list">
           {brands.map((brand) => (
-            <article key={brand.id} className="taxonomy-row">
-              <div>
-                <strong>{brand.name}</strong>
-                <small>{[brand.country_name, brand.year_established, brand.is_active === false ? t("Inactive") : ""].filter(Boolean).join(" - ") || brand.created_at}</small>
+            <article key={brand.id} className="taxonomy-row brand-taxonomy-row">
+              {brand.logo_url ? <img className="brand-logo" src={brand.logo_url} alt="" loading="lazy" /> : <div className="brand-logo placeholder">{brand.name.slice(0, 2).toUpperCase()}</div>}
+              <div className="brand-taxonomy-content">
+                <div>
+                  <strong>{brand.name}</strong>
+                  <small>{[brand.country_name, brand.country_iso_code, brand.year_established ? `${t("Established")} ${brand.year_established}` : "", brand.is_active === false ? t("Inactive") : ""].filter(Boolean).join(" - ") || brand.created_at}</small>
+                </div>
+                {brand.description ? <p>{brand.description}</p> : null}
+                {brand.history ? <p className="brand-history">{brand.history}</p> : null}
+                <div className="brand-link-row">
+                  {brand.website_url ? (
+                    <a href={brand.website_url} target="_blank" rel="noreferrer">
+                      {t("Website")}
+                    </a>
+                  ) : null}
+                  {brand.normalized_name ? <span>{brand.normalized_name}</span> : null}
+                </div>
               </div>
               <div className="compact-actions">
                 <button type="button" onClick={() => onEditBrand(brand)}>

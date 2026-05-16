@@ -1252,6 +1252,59 @@ label {
   align-items: center;
 }
 
+.brand-taxonomy-row {
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.brand-logo {
+  width: 44px;
+  height: 44px;
+  border: 1px solid #e4eaf3;
+  border-radius: 8px;
+  object-fit: contain;
+  background: #fff;
+}
+
+.brand-logo.placeholder {
+  display: grid;
+  place-items: center;
+  color: #536179;
+  font-size: 12px;
+  font-weight: 800;
+  background: #f5f7fb;
+}
+
+.brand-taxonomy-content {
+  display: grid;
+  gap: 7px;
+}
+
+.brand-taxonomy-content p {
+  margin: 0;
+  color: #344054;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.brand-taxonomy-content .brand-history {
+  color: #667085;
+}
+
+.brand-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #667085;
+  font-size: 12px;
+}
+
+.brand-link-row a {
+  color: #2563eb;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .exercise-badge-row {
   display: flex;
   gap: 8px;
