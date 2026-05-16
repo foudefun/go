@@ -30,7 +30,7 @@ function hasPlannedItemContent(item) {
   );
 }
 
-export default function PlannedSessionEditor({ session, exercises, loading, error, onChange }) {
+export default function PlannedSessionEditor({ session, exercises, loading, error, onChange, onDone }) {
   const exerciseMap = useMemo(() => buildPlannedExerciseMap(exercises), [exercises]);
   const sortedExercises = useMemo(() => sortExercises(exercises), [exercises]);
   const plannedItems = useMemo(
@@ -96,6 +96,11 @@ export default function PlannedSessionEditor({ session, exercises, loading, erro
         </div>
         <div className="compact-actions">
           <span>{plannedItems.length} item(s)</span>
+          {onDone ? (
+            <button type="button" onClick={onDone}>
+              Done
+            </button>
+          ) : null}
           <button type="button" onClick={clearPlan}>
             Clear Plan
           </button>

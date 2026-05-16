@@ -7,7 +7,7 @@ import {
   isClimbingActivity,
   isStrengthActivity,
 } from "../../domain/activityTypes.js";
-import { normalizePlannedItems } from "../plannedItems.js";
+import { formatPlannedItem, normalizePlannedItems } from "../plannedItems.js";
 import { normalizeOptionalInt } from "../strengthItems.js";
 import PlannedSessionEditor from "./PlannedSessionEditor.jsx";
 import StrengthEditor from "./StrengthEditor.jsx";
@@ -36,7 +36,6 @@ function activityHasContent(activity) {
       String(activity.activity_details || "").trim() ||
       String(activity.note || "").trim() ||
       String(activity.image || "").trim() ||
-      Number(activity.load || 0) > 0 ||
       String(activity.physio_time || "").trim() ||
       (activity.performed_items || []).length ||
       (activity.climbing_routes || []).length,
@@ -105,9 +104,71 @@ function getActivityTitle(activity, index) {
   );
 }
 
-function buildSavePayload(session, activeIndex) {
+function hasPlanContent(session) {
+  return Boolean(
+    String(session?.plan_activity_type || "").trim() ||
+      String(session?.plan_time || "").trim() ||
+      String(session?.plan_title || "").trim() ||
+      normalizeOptionalInt(session?.duration_target_min) !== null ||
+      String(session?.location || "").trim() ||
+      String(session?.plan_notes || "").trim() ||
+      normalizePlannedItems(session?.planned_items).length,
+  );
+}
+
+function getPlanTitle(session) {
+  const plannedItems = normalizePlannedItems(session?.planned_items);
+  const plannedType = session?.plan_activity_type || (plannedItems.length ? "musculation" : "");
+  return (
+    String(session?.plan_title || "").trim() ||
+    getActivityTypeLabel(plannedType) ||
+    "Planned session"
+  );
+}
+
+function getPlanSummary(session) {
+  const parts = [];
+  if (session?.plan_time) parts.push(session.plan_time);
+  if (session?.duration_target_min) parts.push(`${session.duration_target_min} min`);
+  if (session?.location) parts.push(session.location);
+  const plannedCount = normalizePlannedItems(session?.planned_items).length;
+  if (plannedCount) parts.push(`${plannedCount} item${plannedCount === 1 ? "" : "s"}`);
+  return parts.join(" | ") || "Plan saved for this day";
+}
+
+function buildActivityFromPlan(session) {
+  const plannedItems = normalizePlannedItems(session?.planned_items);
+  const plannedType = session?.plan_activity_type || (plannedItems.length ? "musculation" : "");
+  const isStrengthPlan = isStrengthActivity(plannedType);
+  return normalizeActivity({
+    title: getPlanTitle(session),
+    activity_type: plannedType,
+    activity_details: [session?.duration_target_min ? `${session.duration_target_min} min` : "", session?.location || ""]
+      .filter(Boolean)
+      .join(" | "),
+    physio_time: session?.plan_time || "",
+    note: session?.plan_notes || "",
+    performed_items: isStrengthPlan
+      ? plannedItems.map((item) => ({
+          exercise_name: item.exercise_name || "",
+          custom_name: item.custom_name || "",
+          work_type: item.work_type || "resistance",
+          notes: [formatPlannedItem(item), item.notes].filter(Boolean).join(" | "),
+          sets: [],
+        }))
+      : [],
+    exercises: isStrengthPlan ? plannedItems.map((item) => item.exercise_name).filter(Boolean) : [],
+  });
+}
+
+function buildSavePayload(session, activeIndex, draftActivity = null) {
   const activities = (session.activities || []).map(normalizeActivity).filter(activityHasContent);
-  const safeIndex = Math.max(0, Math.min(activeIndex, Math.max(activities.length - 1, 0)));
+  let requestedIndex = activeIndex;
+  if (draftActivity && activityHasContent(draftActivity)) {
+    activities.push(normalizeActivity(draftActivity));
+    requestedIndex = activities.length - 1;
+  }
+  const safeIndex = Math.max(0, Math.min(Number(requestedIndex || 0), Math.max(activities.length - 1, 0)));
   const activeActivity = activities[safeIndex] || normalizeActivity(blankActivity());
   const durationTargetMin = normalizeOptionalInt(session.duration_target_min);
   return {
@@ -144,6 +205,8 @@ function buildSavePayload(session, activeIndex) {
 export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpen = false }) {
   const [session, setSession] = useState(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [draftActivity, setDraftActivity] = useState(null);
+  const [showPlanEditor, setShowPlanEditor] = useState(false);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
   const [exerciseList, setExerciseList] = useState([]);
@@ -158,17 +221,15 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
       .then((payload) => {
         if (!isMounted) return;
         const normalized = normalizeSession(payload);
-        const nextActivities = createNewOnOpen ? [...(normalized.activities || []), blankActivity()] : normalized.activities;
+        const nextActivities = (normalized.activities || []).filter(activityHasContent);
         const nextSession = { ...normalized, activities: nextActivities };
         setSession(nextSession);
+        setDraftActivity(createNewOnOpen ? blankActivity() : null);
+        setShowPlanEditor(false);
         setActiveIndex(
-          Math.max(
-            0,
-            Math.min(
-              createNewOnOpen ? nextActivities.length - 1 : nextSession.draft_active_activity_index || 0,
-              Math.max(nextActivities.length - 1, 0),
-            ),
-          ),
+          createNewOnOpen
+            ? null
+            : Math.max(0, Math.min(nextSession.draft_active_activity_index || 0, Math.max(nextActivities.length - 1, 0))),
         );
         setStatus("ready");
       })
@@ -202,10 +263,13 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
     };
   }, []);
 
-  const activeActivity = session?.activities?.[activeIndex] || blankActivity();
+  const activeActivity = activeIndex === null ? draftActivity || blankActivity() : session?.activities?.[activeIndex] || blankActivity();
   const isActiveStrengthActivity = isStrengthActivity(activeActivity.activity_type);
   const hasAdvancedStrengthData = Boolean(activeActivity.performed_items?.length);
   const hasClimbingLogData = Boolean(activeActivity.climbing_routes?.length);
+  const savedActivities = session?.activities || [];
+  const planExists = hasPlanContent(session);
+  const hasActivityEditor = activeIndex === null ? Boolean(draftActivity) : Boolean(savedActivities[activeIndex]);
   const targetSummary = useMemo(() => {
     if (!session) return "";
     return session.target_load !== null && session.target_load !== undefined
@@ -214,6 +278,10 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
   }, [session]);
 
   function updateActiveActivity(patch) {
+    if (activeIndex === null) {
+      setDraftActivity((current) => normalizeActivity({ ...(current || blankActivity()), ...patch }));
+      return;
+    }
     setSession((current) => {
       if (!current) return current;
       const activities = current.activities?.length ? [...current.activities] : [blankActivity()];
@@ -227,11 +295,19 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
   }
 
   function addActivity() {
-    setSession((current) => {
-      const activities = [...(current?.activities || []), blankActivity()];
-      setActiveIndex(activities.length - 1);
-      return { ...(current || {}), activities };
-    });
+    setDraftActivity(blankActivity());
+    setActiveIndex(null);
+  }
+
+  function cancelDraftActivity() {
+    setDraftActivity(null);
+    setActiveIndex(savedActivities.length ? 0 : 0);
+  }
+
+  function startFromPlan() {
+    if (!session) return;
+    setDraftActivity(buildActivityFromPlan(session));
+    setActiveIndex(null);
   }
 
   async function handleSave() {
@@ -239,7 +315,7 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
     setStatus("saving");
     setError("");
     try {
-      await saveSession(date, buildSavePayload(session, activeIndex));
+      await saveSession(date, buildSavePayload(session, activeIndex, draftActivity));
       setStatus("ready");
       onSaved?.();
       onClose();
@@ -272,7 +348,7 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
               <button type="button" className="primary-action" onClick={addActivity}>
                 Add Activity
               </button>
-              {(session.activities || []).map((activity, index) => (
+              {savedActivities.map((activity, index) => (
                 <button
                   type="button"
                   className={index === activeIndex ? "activity-select active" : "activity-select"}
@@ -283,88 +359,136 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
                   <span>{getActivityTypeLabel(activity.activity_type)}</span>
                 </button>
               ))}
-              {!session.activities?.length ? <div className="empty-state compact">No activity yet.</div> : null}
+              {draftActivity ? (
+                <button type="button" className={activeIndex === null ? "activity-select active draft" : "activity-select draft"} onClick={() => setActiveIndex(null)}>
+                  <strong>New activity</strong>
+                  <span>Draft, not saved yet</span>
+                </button>
+              ) : null}
+              {!savedActivities.length && !draftActivity ? <div className="empty-state compact">No activity yet.</div> : null}
             </aside>
 
             <section className="day-form">
-              <PlannedSessionEditor
-                session={session}
-                exercises={exerciseList}
-                loading={exerciseStatus === "loading"}
-                error={exerciseError}
-                onChange={updateSession}
-              />
+              {planExists && !showPlanEditor ? (
+                <section className="day-plan-summary">
+                  <div>
+                    <p className="eyebrow">Plan</p>
+                    <h3>{getPlanTitle(session)}</h3>
+                    <span>{getPlanSummary(session)}</span>
+                  </div>
+                  <div className="compact-actions">
+                    <button type="button" className="primary-action" onClick={startFromPlan}>
+                      Start from plan
+                    </button>
+                    <button type="button" onClick={() => setShowPlanEditor(true)}>
+                      Edit plan
+                    </button>
+                  </div>
+                </section>
+              ) : null}
 
-              <div className="form-grid">
-                <label>
-                  Title
-                  <input
-                    value={activeActivity.title || ""}
-                    onChange={(event) => updateActiveActivity({ title: event.target.value })}
-                    placeholder="Morning ride, climbing session, match..."
-                  />
-                </label>
-                <label>
-                  Activity Type
-                  <select
-                    value={activeActivity.activity_type || ""}
-                    onChange={(event) => updateActiveActivity({ activity_type: event.target.value })}
-                  >
-                    {ACTIVITY_TYPES.map((activityType) => (
-                      <option key={activityType.value} value={activityType.value}>
-                        {activityType.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Time
-                  <input
-                    type="time"
-                    value={activeActivity.physio_time || ""}
-                    onChange={(event) => updateActiveActivity({ physio_time: event.target.value })}
-                  />
-                </label>
-              </div>
-
-              <label>
-                Details
-                <input
-                  value={activeActivity.activity_details || ""}
-                  onChange={(event) => updateActiveActivity({ activity_details: event.target.value })}
-                  placeholder="Duration, zone, location, quick summary..."
-                />
-              </label>
-              <label>
-                Notes
-                <textarea
-                  value={activeActivity.note || ""}
-                  onChange={(event) => updateActiveActivity({ note: event.target.value })}
-                  placeholder="How it felt, context, anything useful for later."
-                />
-              </label>
-
-              {isActiveStrengthActivity ? (
-                <StrengthEditor
-                  activity={activeActivity}
+              {showPlanEditor ? (
+                <PlannedSessionEditor
+                  session={session}
                   exercises={exerciseList}
                   loading={exerciseStatus === "loading"}
                   error={exerciseError}
-                  onChange={updateActiveActivity}
+                  onChange={updateSession}
+                  onDone={() => setShowPlanEditor(false)}
                 />
               ) : null}
 
-              {((hasAdvancedStrengthData && !isActiveStrengthActivity) || hasClimbingLogData) && (
-                <div className="notice-panel">
-                  {hasAdvancedStrengthData && !isActiveStrengthActivity ? <span>{activeActivity.performed_items.length} strength item(s) are preserved.</span> : null}
-                  {hasClimbingLogData ? <span>{activeActivity.climbing_routes.length} climbing route log(s) are preserved.</span> : null}
-                </div>
+              {hasActivityEditor ? (
+                <>
+                  <div className="form-grid">
+                    <label>
+                      Title
+                      <input
+                        value={activeActivity.title || ""}
+                        onChange={(event) => updateActiveActivity({ title: event.target.value })}
+                        placeholder="Morning ride, climbing session, match..."
+                      />
+                    </label>
+                    <label>
+                      Activity Type
+                      <select
+                        value={activeActivity.activity_type || ""}
+                        onChange={(event) => updateActiveActivity({ activity_type: event.target.value })}
+                      >
+                        <option value="">Choose type</option>
+                        {ACTIVITY_TYPES.filter((activityType) => activityType.value).map((activityType) => (
+                          <option key={activityType.value} value={activityType.value}>
+                            {activityType.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Time
+                      <input
+                        type="time"
+                        value={activeActivity.physio_time || ""}
+                        onChange={(event) => updateActiveActivity({ physio_time: event.target.value })}
+                      />
+                    </label>
+                  </div>
+
+                  <label>
+                    Details
+                    <input
+                      value={activeActivity.activity_details || ""}
+                      onChange={(event) => updateActiveActivity({ activity_details: event.target.value })}
+                      placeholder="Duration, zone, location, quick summary..."
+                    />
+                  </label>
+                  <label>
+                    Notes
+                    <textarea
+                      value={activeActivity.note || ""}
+                      onChange={(event) => updateActiveActivity({ note: event.target.value })}
+                      placeholder="How it felt, context, anything useful for later."
+                    />
+                  </label>
+
+                  {isActiveStrengthActivity ? (
+                    <StrengthEditor
+                      activity={activeActivity}
+                      exercises={exerciseList}
+                      loading={exerciseStatus === "loading"}
+                      error={exerciseError}
+                      onChange={updateActiveActivity}
+                    />
+                  ) : null}
+
+                  {((hasAdvancedStrengthData && !isActiveStrengthActivity) || hasClimbingLogData) && (
+                    <div className="notice-panel">
+                      {hasAdvancedStrengthData && !isActiveStrengthActivity ? (
+                        <span>{activeActivity.performed_items.length} strength item(s) are preserved.</span>
+                      ) : null}
+                      {hasClimbingLogData ? <span>{activeActivity.climbing_routes.length} climbing route log(s) are preserved.</span> : null}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <section className="empty-state activity-empty-panel">
+                  Select an existing activity or add a new one.
+                </section>
               )}
 
               <div className="day-modal-actions">
                 <button type="button" className="primary-action" onClick={handleSave} disabled={status === "saving"}>
                   {status === "saving" ? "Saving..." : "Save Day"}
                 </button>
+                {draftActivity ? (
+                  <button type="button" onClick={cancelDraftActivity}>
+                    Cancel new activity
+                  </button>
+                ) : null}
+                {!planExists && !showPlanEditor ? (
+                  <button type="button" onClick={() => setShowPlanEditor(true)}>
+                    Add plan
+                  </button>
+                ) : null}
                 <a className="secondary-action" href="/legacy.html">
                   Advanced Editor
                 </a>

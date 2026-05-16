@@ -105,6 +105,7 @@ function hasTarget(row) {
 
 function ActivityBadge({ entry, compact = false }) {
   const activityType = entry.activity_type;
+  if (!activityType) return null;
   const label = compact ? getActivityTypeShortLabel(activityType) : getActivityTypeLabel(activityType);
   return (
     <span className={compact ? "activity-type-badge compact" : "activity-type-badge"} style={{ backgroundColor: getActivityTypeColor(activityType) }}>

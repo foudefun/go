@@ -598,6 +598,10 @@ label {
   background: #ecfdf5;
 }
 
+.activity-select.draft {
+  border-style: dashed;
+}
+
 .activity-select span {
   color: #667085;
   font-size: 13px;
@@ -606,6 +610,35 @@ label {
 .day-form {
   display: grid;
   gap: 12px;
+}
+
+.day-plan-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid #dce4f0;
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 14px;
+}
+
+.day-plan-summary h3 {
+  margin: 0;
+  color: #172033;
+  font-size: 18px;
+}
+
+.day-plan-summary span {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.activity-empty-panel {
+  border: 1px dashed #cdd7e6;
+  border-radius: 8px;
+  background: #fbfcfe;
 }
 
 .form-grid {
@@ -1595,7 +1628,8 @@ label {
   }
 
   .day-modal-header,
-  .day-modal-actions {
+  .day-modal-actions,
+  .day-plan-summary {
     align-items: stretch;
     flex-direction: column;
   }
