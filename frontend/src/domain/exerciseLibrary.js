@@ -71,9 +71,22 @@ export function slugifyExerciseName(value = "") {
     .replace(/^_+|_+$/g, "");
 }
 
+export function normalizeExerciseSearchValue(value = "") {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function getExerciseSearchText(exercise = {}) {
   return [
     exercise.name,
+    String(exercise.name || "").replaceAll("_", " "),
     exercise.display_name,
     exercise.display_name_fr,
     exercise.display_name_en,
@@ -83,7 +96,9 @@ export function getExerciseSearchText(exercise = {}) {
     exercise.description,
   ]
     .join(" ")
-    .toLowerCase();
+    .split(" ")
+    .map((value) => normalizeExerciseSearchValue(value))
+    .join(" ");
 }
 
 export function getExerciseCategoryList(exercise = {}) {
@@ -103,7 +118,7 @@ export function getExerciseCategories(exercises = []) {
 }
 
 export function filterExercises(exercises = [], filters = {}) {
-  const query = String(filters.query || "").trim().toLowerCase();
+  const query = normalizeExerciseSearchValue(filters.query || "");
   const category = String(filters.category || "").trim();
   const trackingMode = String(filters.trackingMode || "").trim();
 
