@@ -394,18 +394,42 @@ label {
   color: #0f766e;
 }
 
-.month-day-badge {
+.month-day-activity-list,
+.calendar-list-badges {
+  display: flex;
+  max-width: 100%;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.month-day-summary-list {
+  display: grid;
+  max-width: 100%;
+  gap: 3px;
+}
+
+.activity-type-badge {
+  display: inline-flex;
+  align-items: center;
   max-width: 100%;
   overflow: hidden;
   border-radius: 999px;
-  background: #e0f2fe;
-  color: #075985;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  color: #0f172a;
   font-size: 11px;
   font-weight: 800;
   line-height: 1.1;
   padding: 5px 8px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.activity-type-badge.compact {
+  padding: 4px 8px;
+}
+
+.calendar-list-badges {
+  align-items: center;
 }
 
 .react-table {

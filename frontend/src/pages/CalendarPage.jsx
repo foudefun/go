@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCalendar } from "../api/calendarApi.js";
-import { getActivityTypeLabel } from "../domain/activityTypes.js";
+import {
+  getActivityTypeColor,
+  getActivityTypeLabel,
+  getActivityTypeShortLabel,
+} from "../domain/activityTypes.js";
 import DaySessionModal from "../sessions/components/DaySessionModal.jsx";
 
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -76,11 +80,45 @@ function formatActivityTypes(row) {
   return getActivityTypeLabel(row.activity_type);
 }
 
+function getActivityEntries(row) {
+  const explicitEntries = Array.isArray(row?.activity_entries) ? row.activity_entries : [];
+  if (explicitEntries.length) {
+    return explicitEntries
+      .map((entry) => ({
+        activity_type: String(entry.activity_type || "").trim(),
+        summary: String(entry.summary || "").trim(),
+      }))
+      .filter((entry) => entry.activity_type || entry.summary);
+  }
+
+  const activityTypes = Array.isArray(row?.activity_types) ? row.activity_types : [];
+  const summaries = Array.isArray(row?.activity_summaries) ? row.activity_summaries : [];
+  return activityTypes.map((activityType, index) => ({
+    activity_type: activityType,
+    summary: summaries[index] || "",
+  }));
+}
+
+function hasTarget(row) {
+  return row?.target_load !== null && row?.target_load !== undefined;
+}
+
 function getLoadTone(row) {
+  if (row?.diff === null || row?.diff === undefined) return "even";
   const diff = Number(row.diff || 0);
   if (diff > 0) return "over";
   if (diff < 0) return "under";
   return "even";
+}
+
+function ActivityBadge({ entry, compact = false }) {
+  const activityType = entry.activity_type;
+  const label = compact ? getActivityTypeShortLabel(activityType) : getActivityTypeLabel(activityType);
+  return (
+    <span className={compact ? "activity-type-badge compact" : "activity-type-badge"} style={{ backgroundColor: getActivityTypeColor(activityType) }}>
+      {label}
+    </span>
+  );
 }
 
 export default function CalendarPage() {
@@ -187,8 +225,8 @@ export default function CalendarPage() {
         </div>
         <div className="app-panel metric-card">
           <span>Current Target</span>
-          <strong>{today?.target_load ?? "-"} kg</strong>
-          <small>{today?.target_pct_bw ? `${today.target_pct_bw}% bodyweight` : "Target pending"}</small>
+          <strong>{hasTarget(today) ? `${today.target_load} kg` : "-"}</strong>
+          <small>{today?.target_pct_bw ? `${today.target_pct_bw}% bodyweight` : "Target ended"}</small>
         </div>
       </section>
 
@@ -203,7 +241,8 @@ export default function CalendarPage() {
               </div>
             ))}
             {monthDays.map(({ date, row, inMonth }) => {
-              const activitySummary = row?.activity_summaries?.join(" | ") || row?.activity_details || "";
+              const activityEntries = getActivityEntries(row);
+              const summaries = activityEntries.map((entry) => entry.summary).filter(Boolean);
               return (
                 <button
                   className={`month-day${inMonth ? "" : " outside"}${date === todayIso ? " today" : ""}`}
@@ -214,12 +253,24 @@ export default function CalendarPage() {
                   <span className="month-day-number">{Number(date.slice(8, 10))}</span>
                   {row ? (
                     <>
-                      <span className="month-day-target">{row.target_load ?? "-"} kg target</span>
+                      {hasTarget(row) ? <span className="month-day-target">{row.target_load} kg target</span> : null}
                       <span className={`month-day-load ${getLoadTone(row)}`}>{row.actual_load ?? 0} kg</span>
-                      {formatActivityTypes(row) !== "No activity" ? (
-                        <span className="month-day-badge">{formatActivityTypes(row)}</span>
+                      {activityEntries.length ? (
+                        <span className="month-day-activity-list">
+                          {activityEntries.slice(0, 3).map((entry, index) => (
+                            <ActivityBadge entry={entry} compact key={`${date}-${entry.activity_type}-${index}`} />
+                          ))}
+                        </span>
                       ) : null}
-                      {activitySummary ? <span className="month-day-summary">{activitySummary}</span> : null}
+                      {summaries.length ? (
+                        <span className="month-day-summary-list">
+                          {summaries.slice(0, 2).map((summary, index) => (
+                            <span className="month-day-summary" key={`${date}-${summary}-${index}`}>
+                              {summary}
+                            </span>
+                          ))}
+                        </span>
+                      ) : null}
                     </>
                   ) : (
                     <span className="month-day-target">No data</span>
@@ -245,11 +296,17 @@ export default function CalendarPage() {
                   <small>Day {row.rehab_day}</small>
                 </div>
                 <div>
-                  <strong>{formatActivityTypes(row)}</strong>
+                  <strong className="calendar-list-badges">
+                    {getActivityEntries(row).length
+                      ? getActivityEntries(row).map((entry, index) => (
+                          <ActivityBadge entry={entry} key={`${row.date}-${entry.activity_type}-${index}`} />
+                        ))
+                      : formatActivityTypes(row)}
+                  </strong>
                   <small>{(row.activity_summaries || []).join(" | ") || row.activity_details || "-"}</small>
                 </div>
                 <div className={`load-tone ${getLoadTone(row)}`}>{row.actual_load ?? 0} kg</div>
-                <div>{row.target_load ?? "-"} kg</div>
+                <div>{hasTarget(row) ? `${row.target_load} kg` : "-"}</div>
                 <div>{row.status || "todo"}</div>
               </button>
             ))}

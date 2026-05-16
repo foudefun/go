@@ -351,6 +351,7 @@ BASE_CONFIG = {
     "increment_every_days": 2,
     "sport_after_days": 30,
 }
+TARGET_END_DATE = os.getenv("REHAB_TARGET_END_DATE", "2026-05-13")
 
 DEFAULT_SESSION = {
     "exercises": [],
@@ -804,37 +805,54 @@ def build_calendar_activity_entries(payload: dict) -> list[dict]:
     return [legacy_activity] if activity_has_content(legacy_activity) else []
 
 
-def get_calendar_activity_summaries(payload: dict) -> list[str]:
-    summaries: list[str] = []
-    for activity in build_calendar_activity_entries(payload):
-        title = str(activity.get("title", "") or "").strip()
-        activity_type = str(activity.get("activity_type", "") or "").strip()
-        details = str(activity.get("activity_details", "") or "").strip()
-        type_label = ACTIVITY_LABELS.get(activity_type, {}).get("fr", "") if activity_type else ""
-        performed_count = len(activity.get("performed_items", []) or [])
-        climbing_count = len(activity.get("climbing_routes", []) or [])
-        if title:
-            summaries.append(title)
-            continue
-        if details and not type_label:
-            summaries.append(details)
-            continue
-        if type_label and details:
-            summaries.append(f"{type_label} | {details}")
-            continue
-        if type_label:
-            if performed_count:
-                summaries.append(f"{type_label} | {performed_count} ex.")
-            elif climbing_count:
-                summaries.append(f"{type_label} | {climbing_count} voie(s)")
-            else:
-                summaries.append(type_label)
-            continue
+def get_calendar_activity_summary(activity: dict) -> str:
+    title = str(activity.get("title", "") or "").strip()
+    activity_type = str(activity.get("activity_type", "") or "").strip()
+    details = str(activity.get("activity_details", "") or "").strip()
+    type_label = ACTIVITY_LABELS.get(activity_type, {}).get("fr", "") if activity_type else ""
+    performed_count = len(activity.get("performed_items", []) or [])
+    climbing_count = len(activity.get("climbing_routes", []) or [])
+    if title:
+        return title
+    if details and not type_label:
+        return details
+    if type_label and details:
+        return f"{type_label} | {details}"
+    if type_label:
         if performed_count:
-            summaries.append(f"{performed_count} ex.")
-        elif climbing_count:
-            summaries.append(f"{climbing_count} voie(s)")
-    return unique_names(summaries)
+            return f"{type_label} | {performed_count} ex."
+        if climbing_count:
+            return f"{type_label} | {climbing_count} voie(s)"
+        return type_label
+    if performed_count:
+        return f"{performed_count} ex."
+    if climbing_count:
+        return f"{climbing_count} voie(s)"
+    return ""
+
+
+def get_calendar_activity_entry_summaries(payload: dict) -> list[dict]:
+    entries = []
+    for activity in build_calendar_activity_entries(payload):
+        activity_type = str(activity.get("activity_type", "") or "").strip()
+        summary = get_calendar_activity_summary(activity)
+        entries.append({
+            "activity_type": activity_type,
+            "summary": summary,
+            "title": str(activity.get("title", "") or "").strip(),
+            "details": str(activity.get("activity_details", "") or "").strip(),
+        })
+    return entries
+
+
+def get_calendar_activity_summaries(payload: dict) -> list[str]:
+    return unique_names(
+        [
+            entry.get("summary", "")
+            for entry in get_calendar_activity_entry_summaries(payload)
+            if entry.get("summary")
+        ]
+    )
 
 
 def get_calendar_activity_types(payload: dict) -> list[str]:
@@ -2531,6 +2549,15 @@ def get_target_for_date(date_str: str):
     current = date.fromisoformat(date_str)
     start_date = date.fromisoformat(CONFIG["start_date"])
     rehab_day = max(1, (current - start_date).days + 1)
+    target_end = date.fromisoformat(TARGET_END_DATE)
+    if current > target_end:
+        return {
+            "rehab_day": rehab_day,
+            "target_load": None,
+            "target_pct_bw": None,
+            "sport_allowed": False,
+            "target_active": False,
+        }
     target = CONFIG["start_load"] + ((rehab_day - 1) // CONFIG["increment_every_days"]) * CONFIG["increment"]
     pct_bw = round(target / CONFIG["weight"] * 100)
     sport_allowed = rehab_day > CONFIG["sport_after_days"]
@@ -2539,6 +2566,7 @@ def get_target_for_date(date_str: str):
         "target_load": target,
         "target_pct_bw": pct_bw,
         "sport_allowed": sport_allowed,
+        "target_active": True,
     }
 
 def parse_json_field(value, fallback):
@@ -4005,7 +4033,11 @@ def read_session(date_str: str, current_user: UserModel = Depends(get_current_us
         db.close()
     target = get_target_for_date(date_str)
     data.update(target)
-    data["diff"] = round((data.get("load", 0) or 0) - target["target_load"], 2)
+    data["diff"] = (
+        round((data.get("load", 0) or 0) - target["target_load"], 2)
+        if target["target_load"] is not None
+        else None
+    )
     data["activity_count"] = len(get_session_activities(data))
     return data
 
@@ -4065,9 +4097,15 @@ def get_calendar(
             row = get_session_obj(db, current_user.username, date_str)
             payload = session_payload_from_row(row)
             activities = get_session_activities(payload)
+            activity_entries = get_calendar_activity_entry_summaries(payload)
             activity_summaries = get_calendar_activity_summaries(payload)
             activity_types = get_calendar_activity_types(payload)
             target = get_target_for_date(date_str)
+            diff = (
+                round((payload.get("load", 0) or 0) - target["target_load"], 2)
+                if target["target_load"] is not None
+                else None
+            )
             display_exercises = get_calendar_display_exercises(payload)
             planned_exercises = unique_names(
                 [
@@ -4088,12 +4126,15 @@ def get_calendar(
                 "rehab_day": target["rehab_day"],
                 "status": payload.get("status", "todo"),
                 "target_load": target["target_load"],
+                "target_active": target["target_active"],
+                "target_pct_bw": target["target_pct_bw"],
                 "actual_load": payload.get("load", 0),
-                "diff": round((payload.get("load", 0) or 0) - target["target_load"], 2),
+                "diff": diff,
                 "sport_allowed": target["sport_allowed"],
                 "physio_time": payload.get("physio_time", ""),
                 "activity_type": payload.get("activity_type", ""),
                 "activity_types": activity_types,
+                "activity_entries": activity_entries,
                 "activity_summaries": activity_summaries,
                 "activity_details": payload.get("activity_details", ""),
                 "climbing_routes": payload.get("climbing_routes", []),
