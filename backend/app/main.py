@@ -2393,6 +2393,68 @@ def list_audit_logs(
     finally:
         db.close()
 
+@app.get("/api/admin/activity-summary")
+def admin_activity_summary(_: UserModel = Depends(require_admin)):
+    db = get_db()
+    try:
+        since_iso = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+        total_7d = db.query(AuditLogModel).filter(AuditLogModel.created_at >= since_iso).count()
+        active_users = (
+            db.query(AuditLogModel.username)
+            .filter(AuditLogModel.created_at >= since_iso)
+            .distinct()
+            .count()
+        )
+        logins_7d = db.query(AuditLogModel).filter(
+            AuditLogModel.action == "login",
+            AuditLogModel.created_at >= since_iso,
+        ).count()
+        session_actions_7d = db.query(AuditLogModel).filter(
+            AuditLogModel.action.in_(["save_session", "import_activity_file", "import_program"]),
+            AuditLogModel.created_at >= since_iso,
+        ).count()
+        latest_by_user = []
+        for user in db.query(UserModel).order_by(UserModel.username).all():
+            last_log = (
+                db.query(AuditLogModel)
+                .filter(AuditLogModel.username == user.username)
+                .order_by(AuditLogModel.id.desc())
+                .first()
+            )
+            actions_7d = db.query(AuditLogModel).filter(
+                AuditLogModel.username == user.username,
+                AuditLogModel.created_at >= since_iso,
+            ).count()
+            latest_by_user.append({
+                "username": user.username,
+                "is_admin": bool(user.is_admin),
+                "last_action": last_log.action if last_log else "",
+                "last_seen_at": last_log.created_at if last_log else "",
+                "actions_7d": actions_7d,
+            })
+
+        def latest_actions(actions: list[str], limit: int = 5) -> list[dict]:
+            rows = (
+                db.query(AuditLogModel)
+                .filter(AuditLogModel.action.in_(actions))
+                .order_by(AuditLogModel.id.desc())
+                .limit(limit)
+                .all()
+            )
+            return [serialize_audit_log(row) for row in rows]
+
+        return {
+            "total_actions_7d": total_7d,
+            "active_users_7d": active_users,
+            "logins_7d": logins_7d,
+            "session_actions_7d": session_actions_7d,
+            "latest_by_user": latest_by_user,
+            "latest_imports": latest_actions(["import_program", "import_activity_file"], 5),
+            "latest_sessions": latest_actions(["save_session", "import_activity_file"], 5),
+        }
+    finally:
+        db.close()
+
 @app.post("/api/admin/users")
 def create_user(payload: dict, current_user: UserModel = Depends(require_admin)):
     username = str(payload.get("username", "")).strip()

@@ -1146,6 +1146,7 @@ let authUser = localStorage.getItem("rehabUsername") || "";
 let authState = null;
 let adminUsers = [];
 let adminAuditLogs = [];
+let adminActivitySummary = null;
 let adminAuditFilters = { username: "", action: "", limit: 100 };
 let selectedStrengthCategory = "";
 let performedExerciseSearch = "";
@@ -6259,6 +6260,75 @@ function formatAuditDateTime(value){
   });
 }
 
+function renderAdminActivitySummary(){
+  const summary = adminActivitySummary || {};
+  const metrics = [
+    ["Actions 7j", summary.total_actions_7d ?? 0],
+    ["Utilisateurs actifs", summary.active_users_7d ?? 0],
+    ["Connexions", summary.logins_7d ?? 0],
+    ["Seances / imports", summary.session_actions_7d ?? 0],
+  ];
+  const userRows = Array.isArray(summary.latest_by_user) ? summary.latest_by_user : [];
+  const latestImports = Array.isArray(summary.latest_imports) ? summary.latest_imports : [];
+  const latestSessions = Array.isArray(summary.latest_sessions) ? summary.latest_sessions : [];
+  const renderRecentList = (items, emptyText) => items.length
+    ? items.map((entry) => `
+        <div class="small" style="padding:6px 0; border-bottom:1px solid #edf2f7;">
+          <strong>${escapeHtml(entry.username || "-")}</strong>
+          <span>${escapeHtml(formatAuditDateTime(entry.created_at))}</span><br>
+          ${escapeHtml(entry.summary || entry.action || "-")}
+        </div>
+      `).join("")
+    : `<div class="small">${escapeHtml(emptyText)}</div>`;
+
+  return `
+    <div class="card">
+      <h3>Suivi d'activite</h3>
+      <div class="row">
+        ${metrics.map(([label, value]) => `
+          <div class="info-box">
+            <strong>${escapeHtml(label)}</strong><br>
+            <span style="font-size:1.45rem; font-weight:800;">${escapeHtml(value)}</span>
+          </div>
+        `).join("")}
+      </div>
+      <div class="row">
+        <div>
+          <h4 style="margin:8px 0;">Derniere activite par utilisateur</h4>
+          <div style="overflow:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Utilisateur</th>
+                  <th>Derniere fois</th>
+                  <th>Derniere action</th>
+                  <th>Actions 7j</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${userRows.length ? userRows.map((user) => `
+                  <tr style="cursor:default;">
+                    <td>${escapeHtml(user.username || "-")}${user.is_admin ? ' <span class="small">(admin)</span>' : ""}</td>
+                    <td>${escapeHtml(formatAuditDateTime(user.last_seen_at))}</td>
+                    <td>${escapeHtml(user.last_action || "-")}</td>
+                    <td>${escapeHtml(user.actions_7d ?? 0)}</td>
+                  </tr>
+                `).join("") : '<tr style="cursor:default;"><td colspan="4">Aucun utilisateur.</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <h4 style="margin:8px 0;">Derniers imports</h4>
+          ${renderRecentList(latestImports, "Aucun import recent.")}
+          <h4 style="margin:14px 0 8px;">Dernieres seances</h4>
+          ${renderRecentList(latestSessions, "Aucune seance recente.")}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function setAuthSession(payload){
   authToken = payload.token;
   authUser = payload.username;
@@ -6541,8 +6611,11 @@ async function loadAdmin(){
   if(adminAuditFilters.action) auditParams.set("action", adminAuditFilters.action);
   auditParams.set("limit", String(adminAuditFilters.limit));
 
-  adminUsers = await api("/admin/users");
-  adminAuditLogs = await api(`/admin/audit-logs?${auditParams.toString()}`);
+  [adminUsers, adminActivitySummary, adminAuditLogs] = await Promise.all([
+    api("/admin/users"),
+    api("/admin/activity-summary"),
+    api(`/admin/audit-logs?${auditParams.toString()}`),
+  ]);
   const auditUsernameOptions = ['<option value="">Tous les utilisateurs</option>']
     .concat(adminUsers.map((user) => `<option value="${escapeAttr(user.username)}"${adminAuditFilters.username === user.username ? " selected" : ""}>${escapeHtml(user.username)}</option>`))
     .join("");
@@ -6564,6 +6637,7 @@ async function loadAdmin(){
     "set_primary_exercise_image",
     "delete_exercise_image",
     "import_program",
+    "import_activity_file",
     "save_session",
   ].map((action) => {
     if(!action){
@@ -6615,6 +6689,8 @@ async function loadAdmin(){
     `;
   });
   html += `</div>`;
+
+  html += renderAdminActivitySummary();
 
   html += `
     <div class="card">
