@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 TEST_DATA_DIR = Path(__file__).resolve().parent / ".test-data"
 TEST_DATA_DIR.mkdir(parents=True, exist_ok=True)
 os.environ["REHAB_DB_PATH"] = str(TEST_DATA_DIR / "test.sqlite")
+os.environ["REHAB_DEFAULT_PASSWORD"] = "test-default-password"
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
@@ -24,6 +25,23 @@ def client():
         password_hash="",
         password_salt="",
         is_admin=True,
+        language="en",
+    )
+    main.app.dependency_overrides[main.get_current_user] = lambda: user
+    try:
+        with TestClient(main.app) as test_client:
+            yield test_client
+    finally:
+        main.app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def non_admin_client():
+    user = main.UserModel(
+        username="member",
+        password_hash="",
+        password_salt="",
+        is_admin=False,
         language="en",
     )
     main.app.dependency_overrides[main.get_current_user] = lambda: user

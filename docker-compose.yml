@@ -8,6 +8,7 @@ services:
       - ./backend/data:/app/data
     environment:
       REHAB_DB_PATH: /app/data/dev.sqlite
+      REHAB_DEFAULT_PASSWORD: changeme123
 
   frontend:
     build: ./frontend

@@ -8,7 +8,6 @@ import mimetypes
 import os
 import re
 import secrets
-import shutil
 import unicodedata
 import uuid
 from datetime import date, datetime, timedelta, timezone
@@ -27,9 +26,26 @@ from sqlalchemy.orm import object_session, sessionmaker, declarative_base
 
 app = FastAPI(title="Rehab Tracker V19b")
 
+def parse_env_csv(value: str) -> list[str]:
+    items = []
+    seen = set()
+    for raw_item in str(value or "").split(","):
+        item = raw_item.strip()
+        if item and item not in seen:
+            items.append(item)
+            seen.add(item)
+    return items
+
+CORS_ALLOWED_ORIGINS = parse_env_csv(os.getenv("REHAB_CORS_ALLOWED_ORIGINS")) or [
+    "https://go.foudefun.ch",
+    "http://localhost",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -62,9 +78,12 @@ SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
 DEFAULT_USERNAME = os.getenv("REHAB_DEFAULT_USERNAME", "admin")
-DEFAULT_PASSWORD = os.getenv("REHAB_DEFAULT_PASSWORD", "changeme123")
+DEFAULT_PASSWORD = os.getenv("REHAB_DEFAULT_PASSWORD", "")
+LEGACY_DEFAULT_PASSWORD = "changeme123"
 TOKEN_TTL_HOURS = int(os.getenv("REHAB_TOKEN_TTL_HOURS", "168"))
 PASSWORD_ITERATIONS = 200_000
+MAX_IMAGE_UPLOAD_BYTES = int(os.getenv("REHAB_MAX_IMAGE_UPLOAD_BYTES", str(5 * 1024 * 1024)))
+MAX_ACTIVITY_SOURCE_UPLOAD_BYTES = int(os.getenv("REHAB_MAX_ACTIVITY_SOURCE_UPLOAD_BYTES", str(25 * 1024 * 1024)))
 
 class SessionModel(Base):
     __tablename__ = "sessions"
@@ -2370,6 +2389,21 @@ def sanitize_activity_source_suffix(filename: str, selected_format: str = "") ->
     return ""
 
 
+def save_upload_file_with_limit(source_file, target_path: Path, max_bytes: int) -> int:
+    written = 0
+    try:
+        with target_path.open("wb") as output:
+            while chunk := source_file.read(1024 * 1024):
+                written += len(chunk)
+                if written > max_bytes:
+                    raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="Uploaded file is too large")
+                output.write(chunk)
+    except Exception:
+        target_path.unlink(missing_ok=True)
+        raise
+    return written
+
+
 def resolve_uploaded_exercise_path(image_url: str) -> Path | None:
     prefix = "/api/uploads/exercises/"
     value = str(image_url or "").strip()
@@ -3385,10 +3419,9 @@ def purge_expired_tokens(db):
     db.commit()
 
 def using_default_password(user: UserModel) -> bool:
-    return user.username == DEFAULT_USERNAME and verify_password(
-        DEFAULT_PASSWORD,
-        user.password_salt,
-        user.password_hash,
+    return user.username == DEFAULT_USERNAME and any(
+        candidate and verify_password(candidate, user.password_salt, user.password_hash)
+        for candidate in {DEFAULT_PASSWORD, LEGACY_DEFAULT_PASSWORD}
     )
 
 def normalize_language(value) -> str:
@@ -3736,6 +3769,8 @@ def seed_default_user():
     db = SessionLocal()
     existing = db.query(UserModel).filter_by(username=DEFAULT_USERNAME).first()
     if db.query(UserModel).count() == 0:
+        if not DEFAULT_PASSWORD:
+            raise RuntimeError("REHAB_DEFAULT_PASSWORD must be set before creating the first admin user")
         salt, password_hash = build_password_record(DEFAULT_PASSWORD)
         db.add(
             UserModel(
@@ -4778,8 +4813,7 @@ def upload_exercise_image(
         target_name = f"{safe_name}_{uuid.uuid4().hex[:12]}{suffix}"
         target_path = EXERCISE_UPLOADS_DIR / target_name
 
-        with target_path.open("wb") as output:
-            shutil.copyfileobj(image_file.file, output)
+        save_upload_file_with_limit(image_file.file, target_path, MAX_IMAGE_UPLOAD_BYTES)
 
         image_url = f"/api/uploads/exercises/{target_name}"
         existing_images = get_exercise_images(row)
@@ -4898,8 +4932,7 @@ def upload_activity_image(
         target_name = f"{safe_username}_{safe_date}_activity_{activity_index + 1}_{uuid.uuid4().hex[:12]}{suffix}"
         target_path = ACTIVITY_UPLOADS_DIR / target_name
 
-        with target_path.open("wb") as output:
-            shutil.copyfileobj(image_file.file, output)
+        save_upload_file_with_limit(image_file.file, target_path, MAX_IMAGE_UPLOAD_BYTES)
 
         activity = normalize_activity_entry(activities[activity_index])
         previous_image = str(activity.get("image", "") or "").strip()
@@ -4994,6 +5027,8 @@ async def upload_activity_source_file(
     content = await activity_file.read()
     if not content:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The uploaded file is empty")
+    if len(content) > MAX_ACTIVITY_SOURCE_UPLOAD_BYTES:
+        raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="Uploaded file is too large")
     parsed_activity = parse_activity_file(content, filename, selected_format)
 
     db = get_db()
@@ -5173,7 +5208,7 @@ def get_equipment_brands(current_user: UserModel = Depends(get_current_user)):
         db.close()
 
 @app.post("/api/equipment/brands")
-def add_equipment_brand(payload: dict, current_user: UserModel = Depends(get_current_user)):
+def add_equipment_brand(payload: dict, current_user: UserModel = Depends(require_admin)):
     record = normalize_brand_record(payload)
     if not record["name"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Brand name is required")
@@ -5195,7 +5230,7 @@ def add_equipment_brand(payload: dict, current_user: UserModel = Depends(get_cur
         db.close()
 
 @app.put("/api/equipment/brands/{brand_id}")
-def update_equipment_brand(brand_id: int, payload: dict, current_user: UserModel = Depends(get_current_user)):
+def update_equipment_brand(brand_id: int, payload: dict, current_user: UserModel = Depends(require_admin)):
     record = normalize_brand_record(payload)
     if not record["name"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Brand name is required")
@@ -5256,7 +5291,7 @@ def get_equipment_models(_: UserModel = Depends(get_current_user)):
         db.close()
 
 @app.post("/api/equipment/models")
-def add_equipment_model(payload: dict, current_user: UserModel = Depends(get_current_user)):
+def add_equipment_model(payload: dict, current_user: UserModel = Depends(require_admin)):
     record = normalize_equipment_model_record(payload)
     if not record["brand_id"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="brand_id is required")
@@ -5281,7 +5316,7 @@ def add_equipment_model(payload: dict, current_user: UserModel = Depends(get_cur
         db.close()
 
 @app.put("/api/equipment/models/{model_id}")
-def update_equipment_model(model_id: int, payload: dict, current_user: UserModel = Depends(get_current_user)):
+def update_equipment_model(model_id: int, payload: dict, current_user: UserModel = Depends(require_admin)):
     record = normalize_equipment_model_record(payload)
     if not record["brand_id"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="brand_id is required")
@@ -5356,7 +5391,7 @@ def get_equipment(_: UserModel = Depends(get_current_user)):
         db.close()
 
 @app.post("/api/equipment")
-def add_equipment(payload: dict, current_user: UserModel = Depends(get_current_user)):
+def add_equipment(payload: dict, current_user: UserModel = Depends(require_admin)):
     record = normalize_equipment_record(payload)
     if not record["name"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Equipment name is required")
@@ -5400,7 +5435,7 @@ def add_equipment(payload: dict, current_user: UserModel = Depends(get_current_u
         db.close()
 
 @app.put("/api/equipment/{equipment_id}")
-def update_equipment(equipment_id: int, payload: dict, current_user: UserModel = Depends(get_current_user)):
+def update_equipment(equipment_id: int, payload: dict, current_user: UserModel = Depends(require_admin)):
     record = normalize_equipment_record(payload)
     if not record["name"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Equipment name is required")
