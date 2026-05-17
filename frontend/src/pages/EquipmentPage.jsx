@@ -298,6 +298,7 @@ function TaxonomyPanel({
   const { t } = useTranslation();
   const [activeCreator, setActiveCreator] = useState("");
   const [selectedBrandId, setSelectedBrandId] = useState(brands[0]?.id || "");
+  const [showBrandModels, setShowBrandModels] = useState(false);
   const selectedBrand = brands.find((brand) => Number(brand.id) === Number(selectedBrandId)) || brands[0] || null;
   const activeBrandId = selectedBrand?.id || "";
   const brandModels = modelsForBrand(models, activeBrandId);
@@ -322,6 +323,27 @@ function TaxonomyPanel({
   function closeModelEditor() {
     onCancelModel();
     setActiveCreator("");
+  }
+
+  function openBrandModels(brand) {
+    setSelectedBrandId(brand.id);
+    onCancelModel();
+    setActiveCreator("");
+    setShowBrandModels(true);
+  }
+
+  function closeBrandModels() {
+    onCancelModel();
+    setActiveCreator("");
+    setShowBrandModels(false);
+  }
+
+  function openNewModelForSelectedBrand() {
+    if (!activeBrandId) return;
+    onCancelBrand();
+    onCancelModel();
+    onModelDraftChange((current) => ({ ...current, brand_id: activeBrandId }));
+    setActiveCreator("model");
   }
 
   async function saveBrandAndClose() {
@@ -355,14 +377,6 @@ function TaxonomyPanel({
                   setActiveCreator((current) => (current === "brand" ? "" : "brand"));
                 }}>
                   {t("New brand")}
-                </button>
-                <button type="button" onClick={() => {
-                  onCancelBrand();
-                  onCancelModel();
-                  onModelDraftChange((current) => ({ ...current, brand_id: activeBrandId || current.brand_id }));
-                  setActiveCreator((current) => (current === "model" ? "" : "model"));
-                }}>
-                  {t("New model")}
                 </button>
               </>
             ) : null}
@@ -438,84 +452,6 @@ function TaxonomyPanel({
         </div>
       ) : null}
 
-      <div className="app-panel equipment-editor-panel taxonomy-model-list-panel">
-        <header className="strength-editor-header">
-          <div>
-            <p className="eyebrow">{t("Models")}</p>
-            <h2>{selectedBrand ? selectedBrand.name : t("Models")}</h2>
-            <span>{t("Selected brand")}</span>
-          </div>
-        </header>
-        <div className="taxonomy-list">
-          {brandModels.map((model) => (
-            <article key={model.id} className="taxonomy-row">
-              <div>
-                <strong>{model.name}</strong>
-                <small>{model.brand_name || model.created_at}</small>
-              </div>
-              <div className="compact-actions">
-                {canDelete ? (
-                  <>
-                    <button type="button" onClick={() => {
-                      setActiveCreator("model");
-                      onEditModel(model);
-                    }}>
-                      {t("Edit")}
-                    </button>
-                    <button type="button" onClick={() => onDeleteModel(model)}>
-                      {t("Delete")}
-                    </button>
-                  </>
-                ) : null}
-              </div>
-            </article>
-          ))}
-          {!brandModels.length ? <div className="empty-state compact">{t("No model for the selected brand yet.")}</div> : null}
-        </div>
-      </div>
-
-      {showModelEditor ? (
-        <div className="app-panel equipment-editor-panel taxonomy-editor-panel">
-          <header className="strength-editor-header">
-            <div>
-              <p className="eyebrow">{t("Models")}</p>
-              <h2>{editingModelId ? t("Edit Model") : t("Add Model")}</h2>
-            </div>
-            <button type="button" onClick={closeModelEditor}>
-              {t("Cancel")}
-            </button>
-          </header>
-          <div className="form-grid">
-            <label>
-              {t("Brand")}
-              <select value={modelDraft.brand_id || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, brand_id: event.target.value }))}>
-                <option value="">{t("Choose brand")}</option>
-                {brands.map((brand) => (
-                  <option value={brand.id} key={brand.id}>
-                    {brand.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              {t("Model name")}
-              <input value={modelDraft.name || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, name: event.target.value }))} />
-            </label>
-            <label>
-              {t("Created at")}
-              <input type="date" value={modelDraft.created_at || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, created_at: event.target.value }))} />
-            </label>
-          </div>
-          <label>
-            {t("History")}
-            <textarea value={modelDraft.history || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, history: event.target.value }))} />
-          </label>
-          <button type="button" className="primary-action" onClick={saveModelAndClose} disabled={saving || !modelDraft.brand_id || !modelDraft.name}>
-            {saving ? t("Saving...") : t("Save Model")}
-          </button>
-        </div>
-      ) : null}
-
       <div className="app-panel equipment-editor-panel brand-list-panel">
         <header className="strength-editor-header">
           <div>
@@ -535,8 +471,8 @@ function TaxonomyPanel({
                     <small>{[brand.country_name, brand.country_iso_code, brand.year_established ? `${t("Established")} ${brand.year_established}` : "", brand.is_active === false ? t("Inactive") : t("Active")].filter(Boolean).join(" - ") || brand.created_at}</small>
                   </div>
                   <div className="compact-actions">
-                    <button type="button" className={Number(activeBrandId) === Number(brand.id) ? "primary-action" : ""} onClick={() => setSelectedBrandId(brand.id)}>
-                      {Number(activeBrandId) === Number(brand.id) ? t("Selected") : t("Select")}
+                    <button type="button" onClick={() => openBrandModels(brand)}>
+                      {t("Select")}
                     </button>
                     {canDelete ? (
                       <>
@@ -568,6 +504,90 @@ function TaxonomyPanel({
           ))}
         </div>
       </div>
+
+      {showBrandModels && selectedBrand ? (
+        <div className="modal-backdrop" role="presentation" onMouseDown={closeBrandModels}>
+          <section className="day-modal brand-model-modal" role="dialog" aria-modal="true" aria-label={t("Brand models", { brand: selectedBrand.name })} onMouseDown={(event) => event.stopPropagation()}>
+            <header className="day-modal-header">
+              <div>
+                <p className="eyebrow">{t("Models")}</p>
+                <h2>{selectedBrand.name}</h2>
+                <span>{t("Brand models", { brand: selectedBrand.name })}</span>
+              </div>
+              <div className="compact-actions">
+                {canDelete ? (
+                  <button type="button" onClick={openNewModelForSelectedBrand}>
+                    {t("New model")}
+                  </button>
+                ) : null}
+                <button type="button" onClick={closeBrandModels}>
+                  {t("Close")}
+                </button>
+              </div>
+            </header>
+
+            <div className="brand-model-modal-body">
+              {showModelEditor && canDelete ? (
+                <div className="app-panel equipment-editor-panel taxonomy-editor-panel">
+                  <header className="strength-editor-header">
+                    <div>
+                      <p className="eyebrow">{t("Models")}</p>
+                      <h2>{editingModelId ? t("Edit Model") : t("Add Model")}</h2>
+                    </div>
+                    <button type="button" onClick={closeModelEditor}>
+                      {t("Cancel")}
+                    </button>
+                  </header>
+                  <div className="form-grid">
+                    <label>
+                      {t("Model name")}
+                      <input value={modelDraft.name || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, name: event.target.value }))} />
+                    </label>
+                    <label>
+                      {t("Created at")}
+                      <input type="date" value={modelDraft.created_at || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, created_at: event.target.value }))} />
+                    </label>
+                  </div>
+                  <label>
+                    {t("History")}
+                    <textarea value={modelDraft.history || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, history: event.target.value }))} />
+                  </label>
+                  <button type="button" className="primary-action" onClick={saveModelAndClose} disabled={saving || !modelDraft.brand_id || !modelDraft.name}>
+                    {saving ? t("Saving...") : t("Save Model")}
+                  </button>
+                </div>
+              ) : null}
+
+              <div className="taxonomy-list">
+                {brandModels.map((model) => (
+                  <article key={model.id} className="taxonomy-row">
+                    <div>
+                      <strong>{model.name}</strong>
+                      <small>{model.created_at || selectedBrand.name}</small>
+                    </div>
+                    <div className="compact-actions">
+                      {canDelete ? (
+                        <>
+                          <button type="button" onClick={() => {
+                            setActiveCreator("model");
+                            onEditModel(model);
+                          }}>
+                            {t("Edit")}
+                          </button>
+                          <button type="button" onClick={() => onDeleteModel(model)}>
+                            {t("Delete")}
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
+                {!brandModels.length ? <div className="empty-state compact">{t("No model for this brand yet.")}</div> : null}
+              </div>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 }

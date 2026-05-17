@@ -1592,8 +1592,14 @@ label {
   grid-column: 1 / -1;
 }
 
-.taxonomy-model-list-panel {
-  min-height: 0;
+.brand-model-modal {
+  width: min(780px, 100%);
+}
+
+.brand-model-modal-body {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
 }
 
 .brand-list-panel {
