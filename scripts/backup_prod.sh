@@ -26,7 +26,21 @@ cleanup() {
 }
 trap cleanup EXIT
 
-sqlite3 "$DB_PATH" ".backup '$WORK_DIR/db.sqlite'"
+python3 - "$DB_PATH" "$WORK_DIR/db.sqlite" <<'PY'
+import sqlite3
+import sys
+
+source_path, target_path = sys.argv[1], sys.argv[2]
+source = sqlite3.connect(source_path)
+try:
+    target = sqlite3.connect(target_path)
+    try:
+        source.backup(target)
+    finally:
+        target.close()
+finally:
+    source.close()
+PY
 
 if [ -d "$UPLOADS_DIR" ]; then
   tar -C "$DATA_DIR" -cf "$WORK_DIR/uploads.tar" uploads
