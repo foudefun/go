@@ -1,6 +1,9 @@
 import { useAuth } from "../auth/AuthProvider.jsx";
 
 const FR = {
+  "All types": "Tous les types",
+  "Equipment types": "Types de materiel",
+  "Model count": "{count} modele(s)",
   Month: "Mois",
   Today: "Aujourd'hui",
   "No activity": "Aucune activite",
