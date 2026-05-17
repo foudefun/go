@@ -1,5 +1,6 @@
 from app import main
 from fastapi.testclient import TestClient
+from uuid import uuid4
 
 
 def test_equipment_catalog_writes_require_admin(non_admin_client):
@@ -21,21 +22,22 @@ def test_equipment_catalog_writes_require_admin(non_admin_client):
 
 
 def test_failed_login_is_audited():
+    username = f"audited-user-{uuid4().hex[:8]}"
     db = main.SessionLocal()
     try:
         salt, password_hash = main.build_password_record("correct-password")
-        db.add(main.UserModel(username="audited-user", password_hash=password_hash, password_salt=salt, is_admin=False))
+        db.add(main.UserModel(username=username, password_hash=password_hash, password_salt=salt, is_admin=False))
         db.commit()
     finally:
         db.close()
 
     with TestClient(main.app) as test_client:
-        response = test_client.post("/api/auth/login", json={"username": "audited-user", "password": "wrong-password"})
+        response = test_client.post("/api/auth/login", json={"username": username, "password": "wrong-password"})
     assert response.status_code == 401
 
     db = main.SessionLocal()
     try:
-        log = db.query(main.AuditLogModel).filter_by(action="login_failed", username="audited-user").first()
+        log = db.query(main.AuditLogModel).filter_by(action="login_failed", username=username).first()
         assert log is not None
         assert log.target_type == "auth"
     finally:

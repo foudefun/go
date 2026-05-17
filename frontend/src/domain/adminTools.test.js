@@ -23,6 +23,7 @@ test("builds audit query strings", () => {
 
 test("normalizes admin summary arrays and metrics", () => {
   assert.deepEqual(normalizeAdminSummary({ total_actions_7d: "4", latest_by_user: "bad" }).latest_by_user, []);
+  assert.deepEqual(normalizeAdminSummary({ latest_security: [{ action: "login_failed" }] }).latest_security, [{ action: "login_failed" }]);
   assert.equal(normalizeAdminSummary({ total_actions_7d: "4" }).total_actions_7d, 4);
 });
 

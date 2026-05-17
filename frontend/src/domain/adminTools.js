@@ -1,7 +1,9 @@
 export const ADMIN_ACTIONS = [
   "login",
+  "login_failed",
   "logout",
   "change_password",
+  "admin_access_denied",
   "update_preferences",
   "create_user",
   "update_user_role",
@@ -64,6 +66,7 @@ export function normalizeAdminSummary(summary = {}) {
     logins_7d: Number(summary.logins_7d || 0),
     session_actions_7d: Number(summary.session_actions_7d || 0),
     latest_by_user: Array.isArray(summary.latest_by_user) ? summary.latest_by_user : [],
+    latest_security: Array.isArray(summary.latest_security) ? summary.latest_security : [],
     latest_imports: Array.isArray(summary.latest_imports) ? summary.latest_imports : [],
     latest_sessions: Array.isArray(summary.latest_sessions) ? summary.latest_sessions : [],
   };

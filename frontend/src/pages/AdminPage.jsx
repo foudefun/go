@@ -406,6 +406,7 @@ export default function AdminPage() {
               {!summary.latest_by_user.length ? <div className="empty-state compact">No user activity yet.</div> : null}
             </div>
           </section>
+          <RecentAuditList title="Security Events" items={summary.latest_security} emptyText="No recent security events." />
           <RecentAuditList title="Latest Imports" items={summary.latest_imports} emptyText="No recent imports." />
           <RecentAuditList title="Latest Sessions" items={summary.latest_sessions} emptyText="No recent sessions." />
         </aside>

@@ -4526,6 +4526,7 @@ def admin_activity_summary(_: UserModel = Depends(require_admin)):
             "logins_7d": logins_7d,
             "session_actions_7d": session_actions_7d,
             "latest_by_user": latest_by_user,
+            "latest_security": latest_actions(["login_failed", "admin_access_denied"], 8),
             "latest_imports": latest_actions(["import_program", "import_activity_file"], 5),
             "latest_sessions": latest_actions(["save_session", "import_activity_file"], 5),
         }
