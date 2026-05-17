@@ -210,7 +210,6 @@ const FR = {
   "Brand count": "{count} marque(s)",
   "Brand name": "Nom de la marque",
   "Brand models": "Modèles de {brand}",
-  "Brands and models": "Marques et modèles",
   Brands: "Marques",
   Calendar: "Calendrier",
   Cancel: "Annuler",

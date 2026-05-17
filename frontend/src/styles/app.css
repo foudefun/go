@@ -812,6 +812,10 @@ label {
   align-items: end;
 }
 
+.equipment-toolbar-actions {
+  justify-self: end;
+}
+
 .settings-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 390px);
@@ -1576,16 +1580,6 @@ label {
   grid-template-columns: minmax(280px, 420px) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
-}
-
-.taxonomy-create-panel {
-  display: grid;
-  gap: 12px;
-  padding: 14px 16px;
-}
-
-.taxonomy-create-panel .strength-editor-header {
-  align-items: center;
 }
 
 .taxonomy-editor-panel {

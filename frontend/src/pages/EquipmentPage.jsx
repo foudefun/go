@@ -284,6 +284,7 @@ function TaxonomyPanel({
   modelDraft,
   editingBrandId,
   editingModelId,
+  brandCreateRequest,
   onBrandDraftChange,
   onModelDraftChange,
   onSaveBrand,
@@ -346,6 +347,18 @@ function TaxonomyPanel({
     setActiveCreator("model");
   }
 
+  function openNewBrand() {
+    onCancelModel();
+    onCancelBrand();
+    setActiveCreator("brand");
+  }
+
+  useEffect(() => {
+    if (brandCreateRequest) {
+      openNewBrand();
+    }
+  }, [brandCreateRequest]);
+
   async function saveBrandAndClose() {
     if (!brandDraft.name) return;
     if (await onSaveBrand()) {
@@ -362,28 +375,6 @@ function TaxonomyPanel({
 
   return (
     <section className="equipment-taxonomy-grid">
-      <div className="app-panel taxonomy-create-panel">
-        <header className="strength-editor-header">
-          <div>
-            <p className="eyebrow">{t("Configuration")}</p>
-            <h2>{t("Brands and models")}</h2>
-          </div>
-          <div className="compact-actions">
-            {canDelete ? (
-              <>
-                <button type="button" onClick={() => {
-                  onCancelModel();
-                  onCancelBrand();
-                  setActiveCreator((current) => (current === "brand" ? "" : "brand"));
-                }}>
-                  {t("New brand")}
-                </button>
-              </>
-            ) : null}
-          </div>
-        </header>
-      </div>
-
       {showBrandEditor ? (
         <div className="app-panel equipment-editor-panel taxonomy-editor-panel">
           <header className="strength-editor-header">
@@ -615,6 +606,7 @@ export default function EquipmentPage() {
   const [modelDraft, setModelDraft] = useState(blankModel);
   const [editingBrandId, setEditingBrandId] = useState(null);
   const [editingModelId, setEditingModelId] = useState(null);
+  const [brandCreateRequest, setBrandCreateRequest] = useState(0);
 
   function loadData(nextSelectedId = selectedEquipmentId) {
     setStatus("loading");
@@ -838,6 +830,13 @@ export default function EquipmentPage() {
             {t("Brands")}
           </button>
         </div>
+        {view === "taxonomy" && user?.isAdmin ? (
+          <div className="equipment-toolbar-actions">
+            <button type="button" onClick={() => setBrandCreateRequest((current) => current + 1)}>
+              {t("New brand")}
+            </button>
+          </div>
+        ) : null}
         {view === "catalog" ? (
           <>
             <label>
@@ -955,6 +954,7 @@ export default function EquipmentPage() {
           modelDraft={modelDraft}
           editingBrandId={editingBrandId}
           editingModelId={editingModelId}
+          brandCreateRequest={brandCreateRequest}
           onBrandDraftChange={setBrandDraft}
           onModelDraftChange={setModelDraft}
           onSaveBrand={saveBrand}
