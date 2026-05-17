@@ -114,7 +114,24 @@ If the project is checked out from git, you can use:
 ./deploy.sh
 ```
 
-## 8. Optional: Telegram -> GitHub issue bot
+## 8. Production backups
+
+Back up the SQLite database and uploaded files from the production checkout:
+
+```bash
+cd /opt/rehab
+./scripts/backup_prod.sh
+```
+
+The script writes compressed archives to `/opt/rehab/backups/`, keeps them readable only by the owner, and deletes backups older than 14 days by default.
+
+Recommended daily cron for the `deploy` user:
+
+```cron
+17 2 * * * cd /opt/rehab && ./scripts/backup_prod.sh >> /opt/rehab/backups/backup.log 2>&1
+```
+
+## 9. Optional: Telegram -> GitHub issue bot
 
 This project includes a small Telegram bot that can turn a message into a GitHub issue.
 
@@ -151,5 +168,5 @@ sudo journalctl -u go-telegram-issues.service -f
 - The frontend now calls `/api`, so it works behind a reverse proxy.
 - The frontend container itself also proxies `/api` to the backend, so local Docker usage still works.
 - Persistent SQLite data lives in `backend/data/db.sqlite`.
-- Back up the whole `backend/data/` directory.
+- Production backups are created by `scripts/backup_prod.sh`.
 - For faster local iteration, use `docker-compose.dev.yml` together with `docker-compose.yml`.
