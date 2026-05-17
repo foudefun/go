@@ -113,17 +113,6 @@ class ExerciseMovementFamilyLinkModel(Base):
     exercise_name = Column(String, ForeignKey("exercises.name", ondelete="CASCADE"), primary_key=True)
     family_name = Column(String, ForeignKey("exercise_movement_families.name", ondelete="CASCADE"), nullable=False)
 
-class EquipmentModel(Base):
-    __tablename__ = "equipment"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False, unique=True)
-    brand_id = Column(Integer, ForeignKey("equipment_brands.id"))
-    model_id = Column(Integer, ForeignKey("equipment_models.id"))
-    category = Column(Text)
-    description = Column(Text)
-    image = Column(Text)
-    link = Column(Text)
-
 class CountryModel(Base):
     __tablename__ = "countries"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -149,20 +138,114 @@ class EquipmentBrandModel(Base):
 
 class EquipmentModelRef(Base):
     __tablename__ = "equipment_models"
+    __table_args__ = (UniqueConstraint("brand_id", "normalized_name", name="uq_equipment_models_brand_normalized_name"),)
     id = Column(Integer, primary_key=True, autoincrement=True)
     brand_id = Column(Integer, ForeignKey("equipment_brands.id"), nullable=False)
     name = Column(String, nullable=False)
+    normalized_name = Column(String)
+    category_id = Column(Integer, ForeignKey("equipment_categories.id"))
+    description = Column(Text)
+    is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(String, nullable=False)
+    updated_at = Column(String)
     history = Column(Text)
 
-class UserEquipmentModel(Base):
-    __tablename__ = "user_equipment"
+class EquipmentCategoryModel(Base):
+    __tablename__ = "equipment_categories"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False, unique=True)
+    normalized_name = Column(String, unique=True)
+    display_name_fr = Column(Text)
+    display_name_en = Column(Text)
+    parent_id = Column(Integer, ForeignKey("equipment_categories.id"))
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String)
+
+class EquipmentModelVersionModel(Base):
+    __tablename__ = "equipment_model_versions"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    model_id = Column(Integer, ForeignKey("equipment_models.id", ondelete="CASCADE"), nullable=False)
+    version_name = Column(String)
+    release_year = Column(Integer)
+    season = Column(String)
+    generation = Column(String)
+    description = Column(Text)
+    technical_specs = Column(Text)
+    product_url = Column(Text)
+    image_url = Column(Text)
+    discontinued_year = Column(Integer)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String)
+
+class EquipmentModelColorModel(Base):
+    __tablename__ = "equipment_model_colors"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    model_version_id = Column(Integer, ForeignKey("equipment_model_versions.id", ondelete="CASCADE"), nullable=False)
+    color_name = Column(String, nullable=False)
+    manufacturer_color_name = Column(String)
+    color_code = Column(String)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String)
+
+class EquipmentModelSizeModel(Base):
+    __tablename__ = "equipment_model_sizes"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    model_version_id = Column(Integer, ForeignKey("equipment_model_versions.id", ondelete="CASCADE"), nullable=False)
+    size_label = Column(String, nullable=False)
+    size_system = Column(String)
+    size_type = Column(String)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String)
+
+class EquipmentModelVariantModel(Base):
+    __tablename__ = "equipment_model_variants"
+    __table_args__ = (UniqueConstraint("model_version_id", "color_id", "size_id", "sku", name="uq_equipment_model_variants_combo_sku"),)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    model_version_id = Column(Integer, ForeignKey("equipment_model_versions.id", ondelete="CASCADE"), nullable=False)
+    color_id = Column(Integer, ForeignKey("equipment_model_colors.id"))
+    size_id = Column(Integer, ForeignKey("equipment_model_sizes.id"))
+    sku = Column(String)
+    barcode = Column(String)
+    manufacturer_reference = Column(String)
+    is_available = Column(Boolean, nullable=False, default=True)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String)
+
+class EquipmentItemModel(Base):
+    __tablename__ = "equipment_items"
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
-    equipment_id = Column(Integer, ForeignKey("equipment.id", ondelete="CASCADE"), nullable=False)
-    purchase_date = Column(String, nullable=False)
+    model_version_id = Column(Integer, ForeignKey("equipment_model_versions.id"), nullable=False)
+    variant_id = Column(Integer, ForeignKey("equipment_model_variants.id"))
+    purchase_date = Column(String)
     purchase_price = Column(Float)
-    note = Column(Text)
+    purchase_currency = Column(String)
+    purchase_location = Column(Text)
+    purchase_shop_url = Column(Text)
+    purchase_condition = Column(String)
+    serial_number = Column(String)
+    nickname = Column(String)
+    status = Column(String, nullable=False, default="owned")
+    notes = Column(Text)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String)
+
+class EquipmentItemEventModel(Base):
+    __tablename__ = "equipment_item_events"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    equipment_item_id = Column(Integer, ForeignKey("equipment_items.id", ondelete="CASCADE"), nullable=False)
+    event_type = Column(String, nullable=False)
+    event_date = Column(String)
+    price = Column(Float)
+    currency = Column(String)
+    location = Column(Text)
+    counterparty = Column(Text)
+    notes = Column(Text)
+    created_at = Column(String, nullable=False)
 
 class UserModel(Base):
     __tablename__ = "users"
@@ -403,6 +486,310 @@ def ensure_columns():
                 conn.exec_driver_sql("ALTER TABLE equipment_brands ADD COLUMN updated_at VARCHAR")
             conn.exec_driver_sql("UPDATE equipment_brands SET is_active = 1 WHERE is_active IS NULL")
 
+        conn.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS equipment_categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR NOT NULL UNIQUE,
+                normalized_name VARCHAR UNIQUE,
+                display_name_fr TEXT,
+                display_name_en TEXT,
+                parent_id INTEGER,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR,
+                FOREIGN KEY(parent_id) REFERENCES equipment_categories(id)
+            )
+            """
+        )
+
+        model_columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(equipment_models)").fetchall()}
+        if model_columns:
+            if "normalized_name" not in model_columns:
+                conn.exec_driver_sql("ALTER TABLE equipment_models ADD COLUMN normalized_name VARCHAR")
+            if "category_id" not in model_columns:
+                conn.exec_driver_sql("ALTER TABLE equipment_models ADD COLUMN category_id INTEGER")
+            if "description" not in model_columns:
+                conn.exec_driver_sql("ALTER TABLE equipment_models ADD COLUMN description TEXT")
+            if "is_active" not in model_columns:
+                conn.exec_driver_sql("ALTER TABLE equipment_models ADD COLUMN is_active BOOLEAN DEFAULT 1")
+            if "updated_at" not in model_columns:
+                conn.exec_driver_sql("ALTER TABLE equipment_models ADD COLUMN updated_at VARCHAR")
+            conn.exec_driver_sql("UPDATE equipment_models SET normalized_name = LOWER(TRIM(name)) WHERE COALESCE(normalized_name, '') = ''")
+            conn.exec_driver_sql("UPDATE equipment_models SET is_active = 1 WHERE is_active IS NULL")
+            duplicate_model_keys = conn.exec_driver_sql(
+                """
+                SELECT brand_id, normalized_name
+                FROM equipment_models
+                WHERE COALESCE(normalized_name, '') != ''
+                GROUP BY brand_id, normalized_name
+                HAVING COUNT(*) > 1
+                """
+            ).fetchall()
+            for brand_id, normalized_name in duplicate_model_keys:
+                duplicate_rows = conn.exec_driver_sql(
+                    """
+                    SELECT id
+                    FROM equipment_models
+                    WHERE brand_id = :brand_id AND normalized_name = :normalized_name
+                    ORDER BY id
+                    """,
+                    {"brand_id": brand_id, "normalized_name": normalized_name},
+                ).fetchall()
+                for duplicate_row in duplicate_rows[1:]:
+                    conn.exec_driver_sql(
+                        "UPDATE equipment_models SET normalized_name = :normalized_name WHERE id = :id",
+                        {"normalized_name": f"{normalized_name} {duplicate_row[0]}", "id": duplicate_row[0]},
+                    )
+
+        conn.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS equipment_model_versions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                model_id INTEGER NOT NULL,
+                version_name VARCHAR,
+                release_year INTEGER,
+                season VARCHAR,
+                generation VARCHAR,
+                description TEXT,
+                technical_specs TEXT,
+                product_url TEXT,
+                image_url TEXT,
+                discontinued_year INTEGER,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR,
+                FOREIGN KEY(model_id) REFERENCES equipment_models(id) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS equipment_model_colors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                model_version_id INTEGER NOT NULL,
+                color_name VARCHAR NOT NULL,
+                manufacturer_color_name VARCHAR,
+                color_code VARCHAR,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR,
+                FOREIGN KEY(model_version_id) REFERENCES equipment_model_versions(id) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS equipment_model_sizes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                model_version_id INTEGER NOT NULL,
+                size_label VARCHAR NOT NULL,
+                size_system VARCHAR,
+                size_type VARCHAR,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR,
+                FOREIGN KEY(model_version_id) REFERENCES equipment_model_versions(id) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS equipment_model_variants (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                model_version_id INTEGER NOT NULL,
+                color_id INTEGER,
+                size_id INTEGER,
+                sku VARCHAR,
+                barcode VARCHAR,
+                manufacturer_reference VARCHAR,
+                is_available BOOLEAN NOT NULL DEFAULT 1,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR,
+                FOREIGN KEY(model_version_id) REFERENCES equipment_model_versions(id) ON DELETE CASCADE,
+                FOREIGN KEY(color_id) REFERENCES equipment_model_colors(id),
+                FOREIGN KEY(size_id) REFERENCES equipment_model_sizes(id)
+            )
+            """
+        )
+        conn.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS equipment_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username VARCHAR NOT NULL,
+                model_version_id INTEGER NOT NULL,
+                variant_id INTEGER,
+                purchase_date VARCHAR,
+                purchase_price FLOAT,
+                purchase_currency VARCHAR,
+                purchase_location TEXT,
+                purchase_shop_url TEXT,
+                purchase_condition VARCHAR,
+                serial_number VARCHAR,
+                nickname VARCHAR,
+                status VARCHAR NOT NULL DEFAULT 'owned',
+                notes TEXT,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR,
+                FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE,
+                FOREIGN KEY(model_version_id) REFERENCES equipment_model_versions(id),
+                FOREIGN KEY(variant_id) REFERENCES equipment_model_variants(id)
+            )
+            """
+        )
+        conn.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS equipment_item_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                equipment_item_id INTEGER NOT NULL,
+                event_type VARCHAR NOT NULL,
+                event_date VARCHAR,
+                price FLOAT,
+                currency VARCHAR,
+                location TEXT,
+                counterparty TEXT,
+                notes TEXT,
+                created_at VARCHAR NOT NULL,
+                FOREIGN KEY(equipment_item_id) REFERENCES equipment_items(id) ON DELETE CASCADE
+            )
+            """
+        )
+
+        equipment_exists = conn.exec_driver_sql(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='equipment'"
+        ).fetchone()
+        if equipment_exists:
+            today = date.today().isoformat()
+            legacy_rows = conn.exec_driver_sql(
+                "SELECT id, name, brand_id, model_id, category, description, image, link FROM equipment ORDER BY id"
+            ).fetchall()
+            for row in legacy_rows:
+                equipment_id, name, brand_id, model_id, category_name, description, image, link = row
+                category_id = None
+                category_label = str(category_name or "").strip()
+                if category_label:
+                    category_key = category_label.lower()
+                    conn.exec_driver_sql(
+                        """
+                        INSERT OR IGNORE INTO equipment_categories
+                        (name, normalized_name, display_name_fr, display_name_en, is_active, created_at, updated_at)
+                        VALUES (:name, :normalized_name, :display_name_fr, :display_name_en, 1, :created_at, :updated_at)
+                        """,
+                        {
+                            "name": category_key,
+                            "normalized_name": category_key,
+                            "display_name_fr": category_label,
+                            "display_name_en": category_label,
+                            "created_at": today,
+                            "updated_at": today,
+                        },
+                    )
+                    category_id_row = conn.exec_driver_sql(
+                        "SELECT id FROM equipment_categories WHERE normalized_name = :normalized_name",
+                        {"normalized_name": category_key},
+                    ).fetchone()
+                    category_id = category_id_row[0] if category_id_row else None
+
+                resolved_model_id = model_id
+                if not resolved_model_id and brand_id:
+                    model_name = str(name or "").strip() or f"Equipment {equipment_id}"
+                    conn.exec_driver_sql(
+                        """
+                        INSERT INTO equipment_models
+                        (brand_id, name, normalized_name, category_id, description, is_active, created_at, updated_at, history)
+                        VALUES (:brand_id, :name, :normalized_name, :category_id, :description, 1, :created_at, :updated_at, '')
+                        """,
+                        {
+                            "brand_id": brand_id,
+                            "name": model_name,
+                            "normalized_name": model_name.lower(),
+                            "category_id": category_id,
+                            "description": description or "",
+                            "created_at": today,
+                            "updated_at": today,
+                        },
+                    )
+                    resolved_model_id = conn.exec_driver_sql("SELECT last_insert_rowid()").scalar()
+
+                if not resolved_model_id:
+                    continue
+
+                if category_id:
+                    conn.exec_driver_sql(
+                        "UPDATE equipment_models SET category_id = COALESCE(category_id, :category_id) WHERE id = :model_id",
+                        {"category_id": category_id, "model_id": resolved_model_id},
+                    )
+                if description:
+                    conn.exec_driver_sql(
+                        "UPDATE equipment_models SET description = COALESCE(NULLIF(description, ''), :description) WHERE id = :model_id",
+                        {"description": description, "model_id": resolved_model_id},
+                    )
+
+                conn.exec_driver_sql(
+                    """
+                    INSERT OR IGNORE INTO equipment_model_versions
+                    (id, model_id, version_name, description, product_url, image_url, is_active, created_at, updated_at)
+                    VALUES (:id, :model_id, :version_name, :description, :product_url, :image_url, 1, :created_at, :updated_at)
+                    """,
+                    {
+                        "id": equipment_id,
+                        "model_id": resolved_model_id,
+                        "version_name": str(name or "").strip(),
+                        "description": description or "",
+                        "product_url": link or "",
+                        "image_url": image or "",
+                        "created_at": today,
+                        "updated_at": today,
+                    },
+                )
+
+            user_equipment_exists = conn.exec_driver_sql(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='user_equipment'"
+            ).fetchone()
+            if user_equipment_exists:
+                user_equipment_rows = conn.exec_driver_sql(
+                    "SELECT id, username, equipment_id, purchase_date, purchase_price, note FROM user_equipment ORDER BY id"
+                ).fetchall()
+                for row in user_equipment_rows:
+                    purchase_id, username, equipment_id, purchase_date, purchase_price, note = row
+                    version_exists = conn.exec_driver_sql(
+                        "SELECT id FROM equipment_model_versions WHERE id = :id",
+                        {"id": equipment_id},
+                    ).fetchone()
+                    if not version_exists:
+                        continue
+                    conn.exec_driver_sql(
+                        """
+                        INSERT OR IGNORE INTO equipment_items
+                        (id, username, model_version_id, purchase_date, purchase_price, status, notes, created_at, updated_at)
+                        VALUES (:id, :username, :model_version_id, :purchase_date, :purchase_price, 'owned', :notes, :created_at, :updated_at)
+                        """,
+                        {
+                            "id": purchase_id,
+                            "username": username,
+                            "model_version_id": equipment_id,
+                            "purchase_date": purchase_date,
+                            "purchase_price": purchase_price,
+                            "notes": note or "",
+                            "created_at": purchase_date or today,
+                            "updated_at": today,
+                        },
+                    )
+                conn.exec_driver_sql("DROP TABLE user_equipment")
+            conn.exec_driver_sql("DROP TABLE equipment")
+
+        conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_equipment_models_brand_id ON equipment_models(brand_id)")
+        conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_equipment_models_normalized_name ON equipment_models(normalized_name)")
+        conn.exec_driver_sql("CREATE UNIQUE INDEX IF NOT EXISTS uq_equipment_models_brand_normalized_name_idx ON equipment_models(brand_id, normalized_name) WHERE COALESCE(normalized_name, '') != ''")
+        conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_equipment_model_versions_model_id ON equipment_model_versions(model_id)")
+        conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_equipment_model_colors_version_id ON equipment_model_colors(model_version_id)")
+        conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_equipment_model_sizes_version_id ON equipment_model_sizes(model_version_id)")
+        conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_equipment_model_variants_version_id ON equipment_model_variants(model_version_id)")
+        conn.exec_driver_sql("CREATE UNIQUE INDEX IF NOT EXISTS uq_equipment_model_variants_combo_sku_idx ON equipment_model_variants(model_version_id, color_id, size_id, sku)")
+        conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_equipment_items_username ON equipment_items(username)")
+        conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_equipment_items_model_version_id ON equipment_items(model_version_id)")
+        conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_equipment_item_events_item_id ON equipment_item_events(equipment_item_id)")
+
         user_columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(users)").fetchall()}
         if "is_admin" not in user_columns:
             conn.exec_driver_sql("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
@@ -494,56 +881,179 @@ SQLITE_FOREIGN_KEY_TABLES = {
         """,
     },
     "equipment_models": {
-        "columns": "id, brand_id, name, created_at, history",
-        "foreign_keys": {("brand_id", "equipment_brands", "id", "NO ACTION")},
+        "columns": "id, brand_id, name, normalized_name, category_id, description, is_active, created_at, updated_at, history",
+        "foreign_keys": {
+            ("brand_id", "equipment_brands", "id", "NO ACTION"),
+            ("category_id", "equipment_categories", "id", "NO ACTION"),
+        },
         "create_sql": """
             CREATE TABLE {table} (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 brand_id INTEGER NOT NULL,
                 name VARCHAR NOT NULL,
+                normalized_name VARCHAR,
+                category_id INTEGER,
+                description TEXT,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
                 created_at VARCHAR NOT NULL,
+                updated_at VARCHAR,
                 history TEXT,
-                FOREIGN KEY(brand_id) REFERENCES equipment_brands(id)
+                FOREIGN KEY(brand_id) REFERENCES equipment_brands(id),
+                FOREIGN KEY(category_id) REFERENCES equipment_categories(id),
+                UNIQUE(brand_id, normalized_name)
             )
         """,
     },
-    "equipment": {
-        "columns": "id, name, brand_id, model_id, category, description, image, link",
+    "equipment_categories": {
+        "columns": "id, name, normalized_name, display_name_fr, display_name_en, parent_id, is_active, created_at, updated_at",
         "foreign_keys": {
-            ("brand_id", "equipment_brands", "id", "NO ACTION"),
-            ("model_id", "equipment_models", "id", "NO ACTION"),
+            ("parent_id", "equipment_categories", "id", "NO ACTION"),
         },
         "create_sql": """
             CREATE TABLE {table} (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name VARCHAR NOT NULL UNIQUE,
-                brand_id INTEGER,
-                model_id INTEGER,
-                category TEXT,
-                description TEXT,
-                image TEXT,
-                link TEXT,
-                FOREIGN KEY(brand_id) REFERENCES equipment_brands(id),
-                FOREIGN KEY(model_id) REFERENCES equipment_models(id)
+                normalized_name VARCHAR UNIQUE,
+                display_name_fr TEXT,
+                display_name_en TEXT,
+                parent_id INTEGER,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR,
+                FOREIGN KEY(parent_id) REFERENCES equipment_categories(id)
             )
         """,
     },
-    "user_equipment": {
-        "columns": "id, username, equipment_id, purchase_date, purchase_price, note",
+    "equipment_model_versions": {
+        "columns": "id, model_id, version_name, release_year, season, generation, description, technical_specs, product_url, image_url, discontinued_year, is_active, created_at, updated_at",
+        "foreign_keys": {("model_id", "equipment_models", "id", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                model_id INTEGER NOT NULL,
+                version_name VARCHAR,
+                release_year INTEGER,
+                season VARCHAR,
+                generation VARCHAR,
+                description TEXT,
+                technical_specs TEXT,
+                product_url TEXT,
+                image_url TEXT,
+                discontinued_year INTEGER,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR,
+                FOREIGN KEY(model_id) REFERENCES equipment_models(id) ON DELETE CASCADE
+            )
+        """,
+    },
+    "equipment_model_colors": {
+        "columns": "id, model_version_id, color_name, manufacturer_color_name, color_code, is_active, created_at, updated_at",
+        "foreign_keys": {("model_version_id", "equipment_model_versions", "id", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                model_version_id INTEGER NOT NULL,
+                color_name VARCHAR NOT NULL,
+                manufacturer_color_name VARCHAR,
+                color_code VARCHAR,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR,
+                FOREIGN KEY(model_version_id) REFERENCES equipment_model_versions(id) ON DELETE CASCADE
+            )
+        """,
+    },
+    "equipment_model_sizes": {
+        "columns": "id, model_version_id, size_label, size_system, size_type, is_active, created_at, updated_at",
+        "foreign_keys": {("model_version_id", "equipment_model_versions", "id", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                model_version_id INTEGER NOT NULL,
+                size_label VARCHAR NOT NULL,
+                size_system VARCHAR,
+                size_type VARCHAR,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR,
+                FOREIGN KEY(model_version_id) REFERENCES equipment_model_versions(id) ON DELETE CASCADE
+            )
+        """,
+    },
+    "equipment_model_variants": {
+        "columns": "id, model_version_id, color_id, size_id, sku, barcode, manufacturer_reference, is_available, created_at, updated_at",
+        "foreign_keys": {
+            ("model_version_id", "equipment_model_versions", "id", "CASCADE"),
+            ("color_id", "equipment_model_colors", "id", "NO ACTION"),
+            ("size_id", "equipment_model_sizes", "id", "NO ACTION"),
+        },
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                model_version_id INTEGER NOT NULL,
+                color_id INTEGER,
+                size_id INTEGER,
+                sku VARCHAR,
+                barcode VARCHAR,
+                manufacturer_reference VARCHAR,
+                is_available BOOLEAN NOT NULL DEFAULT 1,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR,
+                FOREIGN KEY(model_version_id) REFERENCES equipment_model_versions(id) ON DELETE CASCADE,
+                FOREIGN KEY(color_id) REFERENCES equipment_model_colors(id),
+                FOREIGN KEY(size_id) REFERENCES equipment_model_sizes(id),
+                UNIQUE(model_version_id, color_id, size_id, sku)
+            )
+        """,
+    },
+    "equipment_items": {
+        "columns": "id, username, model_version_id, variant_id, purchase_date, purchase_price, purchase_currency, purchase_location, purchase_shop_url, purchase_condition, serial_number, nickname, status, notes, created_at, updated_at",
         "foreign_keys": {
             ("username", "users", "username", "CASCADE"),
-            ("equipment_id", "equipment", "id", "CASCADE"),
+            ("model_version_id", "equipment_model_versions", "id", "NO ACTION"),
+            ("variant_id", "equipment_model_variants", "id", "NO ACTION"),
         },
         "create_sql": """
             CREATE TABLE {table} (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username VARCHAR NOT NULL,
-                equipment_id INTEGER NOT NULL,
-                purchase_date VARCHAR NOT NULL,
+                model_version_id INTEGER NOT NULL,
+                variant_id INTEGER,
+                purchase_date VARCHAR,
                 purchase_price FLOAT,
-                note TEXT,
+                purchase_currency VARCHAR,
+                purchase_location TEXT,
+                purchase_shop_url TEXT,
+                purchase_condition VARCHAR,
+                serial_number VARCHAR,
+                nickname VARCHAR,
+                status VARCHAR NOT NULL DEFAULT 'owned',
+                notes TEXT,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR,
                 FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE,
-                FOREIGN KEY(equipment_id) REFERENCES equipment(id) ON DELETE CASCADE
+                FOREIGN KEY(model_version_id) REFERENCES equipment_model_versions(id),
+                FOREIGN KEY(variant_id) REFERENCES equipment_model_variants(id)
+            )
+        """,
+    },
+    "equipment_item_events": {
+        "columns": "id, equipment_item_id, event_type, event_date, price, currency, location, counterparty, notes, created_at",
+        "foreign_keys": {("equipment_item_id", "equipment_items", "id", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                equipment_item_id INTEGER NOT NULL,
+                event_type VARCHAR NOT NULL,
+                event_date VARCHAR,
+                price FLOAT,
+                currency VARCHAR,
+                location TEXT,
+                counterparty TEXT,
+                notes TEXT,
+                created_at VARCHAR NOT NULL,
+                FOREIGN KEY(equipment_item_id) REFERENCES equipment_items(id) ON DELETE CASCADE
             )
         """,
     },
@@ -1643,7 +2153,12 @@ def normalize_equipment_model_record(payload: dict) -> dict:
     return {
         "brand_id": normalize_optional_int(payload.get("brand_id")),
         "name": str(payload.get("name", "") or "").strip(),
+        "normalized_name": normalize_text_key(payload.get("normalized_name") or payload.get("name")),
+        "category_id": normalize_optional_int(payload.get("category_id")),
+        "description": str(payload.get("description", "") or "").strip(),
+        "is_active": bool(payload.get("is_active", True)),
         "created_at": created_at or date.today().isoformat(),
+        "updated_at": date.today().isoformat(),
         "history": str(payload.get("history", "") or "").strip(),
     }
 
@@ -1657,10 +2172,18 @@ def normalize_user_equipment_record(payload: dict) -> dict:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid purchase date") from exc
 
     return {
-        "equipment_id": normalize_optional_int(payload.get("equipment_id")),
+        "model_version_id": normalize_optional_int(payload.get("model_version_id") or payload.get("equipment_id")),
+        "variant_id": normalize_optional_int(payload.get("variant_id")),
         "purchase_date": purchase_date,
         "purchase_price": normalize_optional_float(payload.get("purchase_price")),
-        "note": str(payload.get("note", "") or "").strip(),
+        "purchase_currency": str(payload.get("purchase_currency", "") or "").strip().upper()[:3],
+        "purchase_location": str(payload.get("purchase_location", "") or "").strip(),
+        "purchase_shop_url": str(payload.get("purchase_shop_url", "") or "").strip(),
+        "purchase_condition": str(payload.get("purchase_condition", "") or "").strip(),
+        "serial_number": str(payload.get("serial_number", "") or "").strip(),
+        "nickname": str(payload.get("nickname", "") or "").strip(),
+        "status": str(payload.get("status", "owned") or "owned").strip(),
+        "notes": str(payload.get("notes", payload.get("note", "")) or "").strip(),
     }
 
 def upsert_exercise_record(db, payload: dict) -> bool:
@@ -1746,6 +2269,30 @@ def ensure_exercise_movement_family(db, family_name: str) -> None:
                 display_name_en=cleaned,
             )
         )
+
+
+def ensure_equipment_category(db, category_name: str) -> EquipmentCategoryModel | None:
+    cleaned = str(category_name or "").strip()
+    if not cleaned:
+        return None
+    normalized = normalize_text_key(cleaned)
+    if not normalized:
+        return None
+    row = db.query(EquipmentCategoryModel).filter_by(normalized_name=normalized).first()
+    if row:
+        return row
+    row = EquipmentCategoryModel(
+        name=normalized,
+        normalized_name=normalized,
+        display_name_fr=cleaned,
+        display_name_en=cleaned,
+        is_active=True,
+        created_at=date.today().isoformat(),
+        updated_at=date.today().isoformat(),
+    )
+    db.add(row)
+    db.flush()
+    return row
 
 
 def clear_exercise_taxonomy(db, exercise_name: str) -> None:
@@ -2113,62 +2660,98 @@ def cache_existing_brand_logos(limit: int = 100) -> None:
     finally:
         db.close()
 
-def serialize_equipment_model(row: EquipmentModelRef, brand: EquipmentBrandModel | None = None) -> dict:
+def serialize_equipment_model(
+    row: EquipmentModelRef,
+    brand: EquipmentBrandModel | None = None,
+    category: EquipmentCategoryModel | None = None,
+) -> dict:
     return {
         "id": row.id,
         "brand_id": row.brand_id,
         "brand_name": brand.name if brand else "",
         "name": row.name,
+        "normalized_name": row.normalized_name or "",
+        "category_id": row.category_id,
+        "category": category.display_name_en if category and category.display_name_en else (category.name if category else ""),
+        "description": row.description or "",
+        "is_active": row.is_active is not False,
         "created_at": row.created_at,
+        "updated_at": row.updated_at or "",
         "history": row.history or "",
     }
 
-def build_equipment_display_name(row: EquipmentModel | None, brand: EquipmentBrandModel | None = None, model: EquipmentModelRef | None = None) -> str:
+def build_equipment_display_name(row: EquipmentModelVersionModel | None, brand: EquipmentBrandModel | None = None, model: EquipmentModelRef | None = None) -> str:
     if not row:
         return ""
-    parts = [str(brand.name or "").strip() if brand else "", str(model.name or "").strip() if model else "", str(row.name or "").strip()]
+    parts = [str(brand.name or "").strip() if brand else "", str(model.name or "").strip() if model else "", str(row.version_name or "").strip()]
     return " ".join(part for part in parts if part)
 
-def serialize_equipment(row: EquipmentModel, brand: EquipmentBrandModel | None = None, model: EquipmentModelRef | None = None) -> dict:
+def serialize_equipment(
+    row: EquipmentModelVersionModel,
+    brand: EquipmentBrandModel | None = None,
+    model: EquipmentModelRef | None = None,
+    category: EquipmentCategoryModel | None = None,
+) -> dict:
+    category_label = ""
+    if category:
+        category_label = category.display_name_en or category.display_name_fr or category.name or ""
     return {
         "id": row.id,
-        "name": row.name,
-        "brand_id": row.brand_id,
+        "name": row.version_name or (model.name if model else ""),
+        "brand_id": model.brand_id if model else None,
         "brand_name": brand.name if brand else "",
         "model_id": row.model_id,
         "model_name": model.name if model else "",
         "display_name": build_equipment_display_name(row, brand, model),
-        "category": row.category or "",
-        "description": row.description or "",
-        "image": row.image or "",
-        "link": row.link or "",
+        "category_id": model.category_id if model else None,
+        "category": category_label,
+        "description": row.description or (model.description if model else "") or "",
+        "image": row.image_url or "",
+        "link": row.product_url or "",
+        "release_year": row.release_year,
+        "season": row.season or "",
+        "generation": row.generation or "",
+        "technical_specs": row.technical_specs or "",
+        "discontinued_year": row.discontinued_year,
+        "is_active": row.is_active is not False,
     }
 
 def serialize_user_equipment(
-    row: UserEquipmentModel,
-    equipment: EquipmentModel | None,
+    row: EquipmentItemModel,
+    equipment: EquipmentModelVersionModel | None,
     brand: EquipmentBrandModel | None = None,
     model: EquipmentModelRef | None = None,
+    category: EquipmentCategoryModel | None = None,
 ) -> dict:
-    equipment_name = equipment.name if equipment else ""
+    equipment_name = equipment.version_name if equipment else ""
     display_name = build_equipment_display_name(equipment, brand, model) if equipment else ""
     return {
         "id": row.id,
         "username": row.username,
-        "equipment_id": row.equipment_id,
+        "equipment_id": row.model_version_id,
+        "model_version_id": row.model_version_id,
+        "variant_id": row.variant_id,
         "equipment_name": equipment_name,
         "display_name": display_name or (equipment_name.replace("_", " ") if equipment_name else ""),
-        "brand_id": equipment.brand_id if equipment else None,
+        "brand_id": model.brand_id if model else None,
         "brand_name": brand.name if brand else "",
         "model_id": equipment.model_id if equipment else None,
         "model_name": model.name if model else "",
-        "category": equipment.category if equipment and equipment.category else "",
-        "description": equipment.description if equipment and equipment.description else "",
-        "image": equipment.image if equipment and equipment.image else "",
-        "link": equipment.link if equipment and equipment.link else "",
+        "category": (category.display_name_en or category.display_name_fr or category.name) if category else "",
+        "description": equipment.description if equipment and equipment.description else (model.description if model else ""),
+        "image": equipment.image_url if equipment and equipment.image_url else "",
+        "link": equipment.product_url if equipment and equipment.product_url else "",
         "purchase_date": row.purchase_date,
         "purchase_price": row.purchase_price,
-        "note": row.note or "",
+        "purchase_currency": row.purchase_currency or "",
+        "purchase_location": row.purchase_location or "",
+        "purchase_shop_url": row.purchase_shop_url or "",
+        "purchase_condition": row.purchase_condition or "",
+        "serial_number": row.serial_number or "",
+        "nickname": row.nickname or "",
+        "status": row.status or "owned",
+        "note": row.notes or "",
+        "notes": row.notes or "",
     }
 
 
@@ -4654,8 +5237,6 @@ def delete_equipment_brand(brand_id: int, current_user: UserModel = Depends(requ
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Brand not found")
         if db.query(EquipmentModelRef).filter_by(brand_id=brand_id).first():
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Delete linked models first")
-        if db.query(EquipmentModel).filter_by(brand_id=brand_id).first():
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Delete linked equipment first")
         write_audit_log(db, current_user.username, "delete_equipment_brand", "equipment_brand", row.name, f"Deleted equipment brand {row.name}")
         db.delete(row)
         db.commit()
@@ -4669,7 +5250,8 @@ def get_equipment_models(_: UserModel = Depends(get_current_user)):
     try:
         rows = db.query(EquipmentModelRef).order_by(EquipmentModelRef.name).all()
         brand_map = {row.id: row for row in db.query(EquipmentBrandModel).all()}
-        return [serialize_equipment_model(row, brand_map.get(row.brand_id)) for row in rows]
+        category_map = {row.id: row for row in db.query(EquipmentCategoryModel).all()}
+        return [serialize_equipment_model(row, brand_map.get(row.brand_id), category_map.get(row.category_id)) for row in rows]
     finally:
         db.close()
 
@@ -4685,7 +5267,7 @@ def add_equipment_model(payload: dict, current_user: UserModel = Depends(get_cur
         brand = db.query(EquipmentBrandModel).filter_by(id=record["brand_id"]).first()
         if not brand:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Brand not found")
-        existing = db.query(EquipmentModelRef).filter_by(brand_id=record["brand_id"], name=record["name"]).first()
+        existing = db.query(EquipmentModelRef).filter_by(brand_id=record["brand_id"], normalized_name=record["normalized_name"]).first()
         if existing:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Model already exists for this brand")
         row = EquipmentModelRef(**record)
@@ -4693,7 +5275,8 @@ def add_equipment_model(payload: dict, current_user: UserModel = Depends(get_cur
         write_audit_log(db, current_user.username, "create_equipment_model", "equipment_model", record["name"], f"Created equipment model {record['name']} for {brand.name}")
         db.commit()
         db.refresh(row)
-        return {"ok": True, "model": serialize_equipment_model(row, brand)}
+        category = db.query(EquipmentCategoryModel).filter_by(id=row.category_id).first() if row.category_id else None
+        return {"ok": True, "model": serialize_equipment_model(row, brand, category)}
     finally:
         db.close()
 
@@ -4714,19 +5297,25 @@ def update_equipment_model(model_id: int, payload: dict, current_user: UserModel
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Brand not found")
         duplicate = db.query(EquipmentModelRef).filter(
             EquipmentModelRef.brand_id == record["brand_id"],
-            EquipmentModelRef.name == record["name"],
+            EquipmentModelRef.normalized_name == record["normalized_name"],
             EquipmentModelRef.id != model_id,
         ).first()
         if duplicate:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Model already exists for this brand")
         row.brand_id = record["brand_id"]
         row.name = record["name"]
+        row.normalized_name = record["normalized_name"]
+        row.category_id = record["category_id"]
+        row.description = record["description"]
+        row.is_active = record["is_active"]
         row.created_at = record["created_at"]
+        row.updated_at = record["updated_at"]
         row.history = record["history"]
         write_audit_log(db, current_user.username, "update_equipment_model", "equipment_model", row.name, f"Updated equipment model {row.name}")
         db.commit()
         db.refresh(row)
-        return {"ok": True, "model": serialize_equipment_model(row, brand)}
+        category = db.query(EquipmentCategoryModel).filter_by(id=row.category_id).first() if row.category_id else None
+        return {"ok": True, "model": serialize_equipment_model(row, brand, category)}
     finally:
         db.close()
 
@@ -4737,8 +5326,8 @@ def delete_equipment_model(model_id: int, current_user: UserModel = Depends(requ
         row = db.query(EquipmentModelRef).filter_by(id=model_id).first()
         if not row:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model not found")
-        if db.query(EquipmentModel).filter_by(model_id=model_id).first():
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Delete linked equipment first")
+        if db.query(EquipmentModelVersionModel).filter_by(model_id=model_id).first():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Delete linked model versions first")
         write_audit_log(db, current_user.username, "delete_equipment_model", "equipment_model", row.name, f"Deleted equipment model {row.name}")
         db.delete(row)
         db.commit()
@@ -4750,10 +5339,19 @@ def delete_equipment_model(model_id: int, current_user: UserModel = Depends(requ
 def get_equipment(_: UserModel = Depends(get_current_user)):
     db = get_db()
     try:
-        rows = db.query(EquipmentModel).order_by(EquipmentModel.name).all()
+        rows = db.query(EquipmentModelVersionModel).order_by(EquipmentModelVersionModel.id.desc()).all()
         brand_map = {row.id: row for row in db.query(EquipmentBrandModel).all()}
         model_map = {row.id: row for row in db.query(EquipmentModelRef).all()}
-        return [serialize_equipment(row, brand_map.get(row.brand_id), model_map.get(row.model_id)) for row in rows]
+        category_map = {row.id: row for row in db.query(EquipmentCategoryModel).all()}
+        return [
+            serialize_equipment(
+                row,
+                brand_map.get(model_map.get(row.model_id).brand_id) if model_map.get(row.model_id) else None,
+                model_map.get(row.model_id),
+                category_map.get(model_map.get(row.model_id).category_id) if model_map.get(row.model_id) else None,
+            )
+            for row in rows
+        ]
     finally:
         db.close()
 
@@ -4769,9 +5367,6 @@ def add_equipment(payload: dict, current_user: UserModel = Depends(get_current_u
 
     db = get_db()
     try:
-        existing = db.query(EquipmentModel).filter_by(name=record["name"]).first()
-        if existing:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Equipment already exists")
         brand = db.query(EquipmentBrandModel).filter_by(id=record["brand_id"]).first()
         if not brand:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Brand not found")
@@ -4780,12 +5375,27 @@ def add_equipment(payload: dict, current_user: UserModel = Depends(get_current_u
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model not found")
         if model.brand_id != brand.id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Model does not belong to selected brand")
-        row = EquipmentModel(**record)
+        category = ensure_equipment_category(db, record["category"])
+        if category:
+            model.category_id = category.id
+        if record["description"] and not model.description:
+            model.description = record["description"]
+        model.updated_at = date.today().isoformat()
+        row = EquipmentModelVersionModel(
+            model_id=record["model_id"],
+            version_name=record["name"],
+            description=record["description"],
+            product_url=record["link"],
+            image_url=record["image"],
+            is_active=True,
+            created_at=date.today().isoformat(),
+            updated_at=date.today().isoformat(),
+        )
         db.add(row)
         write_audit_log(db, current_user.username, "create_equipment", "equipment", record["name"], f"Created equipment {record['name']}")
         db.commit()
         db.refresh(row)
-        return {"ok": True, "equipment": serialize_equipment(row, brand, model)}
+        return {"ok": True, "equipment": serialize_equipment(row, brand, model, category)}
     finally:
         db.close()
 
@@ -4801,12 +5411,9 @@ def update_equipment(equipment_id: int, payload: dict, current_user: UserModel =
 
     db = get_db()
     try:
-        row = db.query(EquipmentModel).filter_by(id=equipment_id).first()
+        row = db.query(EquipmentModelVersionModel).filter_by(id=equipment_id).first()
         if not row:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipment not found")
-        duplicate = db.query(EquipmentModel).filter(EquipmentModel.name == record["name"], EquipmentModel.id != equipment_id).first()
-        if duplicate:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Equipment already exists")
         brand = db.query(EquipmentBrandModel).filter_by(id=record["brand_id"]).first()
         if not brand:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Brand not found")
@@ -4815,16 +5422,21 @@ def update_equipment(equipment_id: int, payload: dict, current_user: UserModel =
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model not found")
         if model.brand_id != brand.id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Model does not belong to selected brand")
-        row.name = record["name"]
-        row.brand_id = record["brand_id"]
         row.model_id = record["model_id"]
-        row.category = record["category"]
+        row.version_name = record["name"]
         row.description = record["description"]
-        row.image = record["image"]
-        row.link = record["link"]
-        write_audit_log(db, current_user.username, "update_equipment", "equipment", row.name, f"Updated equipment {row.name}")
+        row.image_url = record["image"]
+        row.product_url = record["link"]
+        row.updated_at = date.today().isoformat()
+        category = ensure_equipment_category(db, record["category"])
+        if category:
+            model.category_id = category.id
+        if record["description"] and not model.description:
+            model.description = record["description"]
+        model.updated_at = date.today().isoformat()
+        write_audit_log(db, current_user.username, "update_equipment", "equipment", row.version_name, f"Updated equipment {row.version_name}")
         db.commit()
-        return {"ok": True, "equipment": serialize_equipment(row, brand, model)}
+        return {"ok": True, "equipment": serialize_equipment(row, brand, model, category)}
     finally:
         db.close()
 
@@ -4832,11 +5444,11 @@ def update_equipment(equipment_id: int, payload: dict, current_user: UserModel =
 def delete_equipment(equipment_id: int, current_user: UserModel = Depends(require_admin)):
     db = get_db()
     try:
-        row = db.query(EquipmentModel).filter_by(id=equipment_id).first()
+        row = db.query(EquipmentModelVersionModel).filter_by(id=equipment_id).first()
         if not row:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipment not found")
-        db.query(UserEquipmentModel).filter_by(equipment_id=equipment_id).delete()
-        write_audit_log(db, current_user.username, "delete_equipment", "equipment", row.name, f"Deleted equipment {row.name}")
+        db.query(EquipmentItemModel).filter_by(model_version_id=equipment_id).delete()
+        write_audit_log(db, current_user.username, "delete_equipment", "equipment", row.version_name, f"Deleted equipment {row.version_name}")
         db.delete(row)
         db.commit()
         return {"ok": True}
@@ -4847,16 +5459,18 @@ def delete_equipment(equipment_id: int, current_user: UserModel = Depends(requir
 def get_my_equipment(current_user: UserModel = Depends(get_current_user)):
     db = get_db()
     try:
-        purchases = db.query(UserEquipmentModel).filter_by(username=current_user.username).order_by(UserEquipmentModel.purchase_date.desc(), UserEquipmentModel.id.desc()).all()
-        equipment_map = {row.id: row for row in db.query(EquipmentModel).all()}
+        purchases = db.query(EquipmentItemModel).filter_by(username=current_user.username).order_by(EquipmentItemModel.purchase_date.desc(), EquipmentItemModel.id.desc()).all()
+        equipment_map = {row.id: row for row in db.query(EquipmentModelVersionModel).all()}
         brand_map = {row.id: row for row in db.query(EquipmentBrandModel).all()}
         model_map = {row.id: row for row in db.query(EquipmentModelRef).all()}
+        category_map = {row.id: row for row in db.query(EquipmentCategoryModel).all()}
         return [
             serialize_user_equipment(
                 row,
-                equipment_map.get(row.equipment_id),
-                brand_map.get(equipment_map.get(row.equipment_id).brand_id) if equipment_map.get(row.equipment_id) else None,
-                model_map.get(equipment_map.get(row.equipment_id).model_id) if equipment_map.get(row.equipment_id) else None,
+                equipment_map.get(row.model_version_id),
+                brand_map.get(model_map.get(equipment_map.get(row.model_version_id).model_id).brand_id) if equipment_map.get(row.model_version_id) and model_map.get(equipment_map.get(row.model_version_id).model_id) else None,
+                model_map.get(equipment_map.get(row.model_version_id).model_id) if equipment_map.get(row.model_version_id) else None,
+                category_map.get(model_map.get(equipment_map.get(row.model_version_id).model_id).category_id) if equipment_map.get(row.model_version_id) and model_map.get(equipment_map.get(row.model_version_id).model_id) else None,
             )
             for row in purchases
         ]
@@ -4866,74 +5480,95 @@ def get_my_equipment(current_user: UserModel = Depends(get_current_user)):
 @app.post("/api/my-equipment")
 def add_my_equipment(payload: dict, current_user: UserModel = Depends(get_current_user)):
     record = normalize_user_equipment_record(payload)
-    if not record["equipment_id"]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="equipment_id is required")
-    if not record["purchase_date"]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="purchase_date is required")
+    if not record["model_version_id"]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="model_version_id is required")
 
     db = get_db()
     try:
-        equipment = db.query(EquipmentModel).filter_by(id=record["equipment_id"]).first()
+        equipment = db.query(EquipmentModelVersionModel).filter_by(id=record["model_version_id"]).first()
         if not equipment:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipment not found")
-        row = UserEquipmentModel(
+        if record["variant_id"] and not db.query(EquipmentModelVariantModel).filter_by(id=record["variant_id"], model_version_id=record["model_version_id"]).first():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Variant not found")
+        row = EquipmentItemModel(
             username=current_user.username,
-            equipment_id=record["equipment_id"],
+            model_version_id=record["model_version_id"],
+            variant_id=record["variant_id"],
             purchase_date=record["purchase_date"],
             purchase_price=record["purchase_price"],
-            note=record["note"],
+            purchase_currency=record["purchase_currency"],
+            purchase_location=record["purchase_location"],
+            purchase_shop_url=record["purchase_shop_url"],
+            purchase_condition=record["purchase_condition"],
+            serial_number=record["serial_number"],
+            nickname=record["nickname"],
+            status=record["status"],
+            notes=record["notes"],
+            created_at=date.today().isoformat(),
+            updated_at=date.today().isoformat(),
         )
         db.add(row)
         db.commit()
         db.refresh(row)
-        brand = db.query(EquipmentBrandModel).filter_by(id=equipment.brand_id).first() if equipment.brand_id else None
         model = db.query(EquipmentModelRef).filter_by(id=equipment.model_id).first() if equipment.model_id else None
+        brand = db.query(EquipmentBrandModel).filter_by(id=model.brand_id).first() if model else None
+        category = db.query(EquipmentCategoryModel).filter_by(id=model.category_id).first() if model and model.category_id else None
         write_audit_log(
             db,
             current_user.username,
             "add_my_equipment",
-            "user_equipment",
+            "equipment_item",
             str(row.id),
             f"Added owned equipment {build_equipment_display_name(equipment, brand, model)}",
         )
         db.commit()
-        return {"ok": True, "purchase": serialize_user_equipment(row, equipment, brand, model)}
+        return {"ok": True, "purchase": serialize_user_equipment(row, equipment, brand, model, category)}
     finally:
         db.close()
 
 @app.put("/api/my-equipment/{purchase_id}")
 def update_my_equipment(purchase_id: int, payload: dict, current_user: UserModel = Depends(get_current_user)):
     record = normalize_user_equipment_record(payload)
-    if not record["equipment_id"]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="equipment_id is required")
-    if not record["purchase_date"]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="purchase_date is required")
+    if not record["model_version_id"]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="model_version_id is required")
 
     db = get_db()
     try:
-        row = db.query(UserEquipmentModel).filter_by(id=purchase_id, username=current_user.username).first()
+        row = db.query(EquipmentItemModel).filter_by(id=purchase_id, username=current_user.username).first()
         if not row:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Purchase not found")
-        equipment = db.query(EquipmentModel).filter_by(id=record["equipment_id"]).first()
+        equipment = db.query(EquipmentModelVersionModel).filter_by(id=record["model_version_id"]).first()
         if not equipment:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipment not found")
-        row.equipment_id = record["equipment_id"]
+        if record["variant_id"] and not db.query(EquipmentModelVariantModel).filter_by(id=record["variant_id"], model_version_id=record["model_version_id"]).first():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Variant not found")
+        row.model_version_id = record["model_version_id"]
+        row.variant_id = record["variant_id"]
         row.purchase_date = record["purchase_date"]
         row.purchase_price = record["purchase_price"]
-        row.note = record["note"]
+        row.purchase_currency = record["purchase_currency"]
+        row.purchase_location = record["purchase_location"]
+        row.purchase_shop_url = record["purchase_shop_url"]
+        row.purchase_condition = record["purchase_condition"]
+        row.serial_number = record["serial_number"]
+        row.nickname = record["nickname"]
+        row.status = record["status"]
+        row.notes = record["notes"]
+        row.updated_at = date.today().isoformat()
         db.commit()
-        brand = db.query(EquipmentBrandModel).filter_by(id=equipment.brand_id).first() if equipment.brand_id else None
         model = db.query(EquipmentModelRef).filter_by(id=equipment.model_id).first() if equipment.model_id else None
+        brand = db.query(EquipmentBrandModel).filter_by(id=model.brand_id).first() if model else None
+        category = db.query(EquipmentCategoryModel).filter_by(id=model.category_id).first() if model and model.category_id else None
         write_audit_log(
             db,
             current_user.username,
             "update_my_equipment",
-            "user_equipment",
+            "equipment_item",
             str(row.id),
             f"Updated owned equipment {build_equipment_display_name(equipment, brand, model)}",
         )
         db.commit()
-        return {"ok": True, "purchase": serialize_user_equipment(row, equipment, brand, model)}
+        return {"ok": True, "purchase": serialize_user_equipment(row, equipment, brand, model, category)}
     finally:
         db.close()
 
@@ -4941,19 +5576,19 @@ def update_my_equipment(purchase_id: int, payload: dict, current_user: UserModel
 def delete_my_equipment(purchase_id: int, current_user: UserModel = Depends(get_current_user)):
     db = get_db()
     try:
-        row = db.query(UserEquipmentModel).filter_by(id=purchase_id, username=current_user.username).first()
+        row = db.query(EquipmentItemModel).filter_by(id=purchase_id, username=current_user.username).first()
         if not row:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Purchase not found")
-        equipment = db.query(EquipmentModel).filter_by(id=row.equipment_id).first()
-        brand = db.query(EquipmentBrandModel).filter_by(id=equipment.brand_id).first() if equipment and equipment.brand_id else None
+        equipment = db.query(EquipmentModelVersionModel).filter_by(id=row.model_version_id).first()
         model = db.query(EquipmentModelRef).filter_by(id=equipment.model_id).first() if equipment and equipment.model_id else None
+        brand = db.query(EquipmentBrandModel).filter_by(id=model.brand_id).first() if model else None
         write_audit_log(
             db,
             current_user.username,
             "delete_my_equipment",
-            "user_equipment",
+            "equipment_item",
             str(row.id),
-            f"Deleted owned equipment {build_equipment_display_name(equipment, brand, model) if equipment else row.equipment_id}",
+            f"Deleted owned equipment {build_equipment_display_name(equipment, brand, model) if equipment else row.model_version_id}",
         )
         db.delete(row)
         db.commit()

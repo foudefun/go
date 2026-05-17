@@ -28,6 +28,18 @@ test("normalizes equipment and purchase drafts", () => {
     link: "",
   });
   assert.equal(normalizePurchaseDraft({ equipment_id: "4", purchase_price: "129.955" }).purchase_price, 129.96);
+  const normalizedPurchase = normalizePurchaseDraft({ model_version_id: "4", variant_id: "9", purchase_currency: "chf", status: "retired", notes: " worn " });
+  assert.deepEqual(
+    {
+      equipment_id: normalizedPurchase.equipment_id,
+      model_version_id: normalizedPurchase.model_version_id,
+      variant_id: normalizedPurchase.variant_id,
+      purchase_currency: normalizedPurchase.purchase_currency,
+      status: normalizedPurchase.status,
+      note: normalizedPurchase.note,
+    },
+    { equipment_id: 4, model_version_id: 4, variant_id: 9, purchase_currency: "CHF", status: "retired", note: "worn" },
+  );
 });
 
 test("normalizes brand metadata drafts", () => {

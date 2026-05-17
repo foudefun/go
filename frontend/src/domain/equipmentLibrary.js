@@ -49,9 +49,19 @@ export function blankPurchase(equipmentId = "") {
   return {
     id: null,
     equipment_id: equipmentId || "",
+    model_version_id: equipmentId || "",
+    variant_id: "",
     purchase_date: todayIso(),
     purchase_price: "",
+    purchase_currency: "",
+    purchase_location: "",
+    purchase_shop_url: "",
+    purchase_condition: "",
+    serial_number: "",
+    nickname: "",
+    status: "owned",
     note: "",
+    notes: "",
   };
 }
 
@@ -113,13 +123,24 @@ export function normalizeEquipmentDraft(equipment = {}) {
 }
 
 export function normalizePurchaseDraft(purchase = {}) {
+  const equipmentId = normalizeOptionalInt(purchase.model_version_id || purchase.equipment_id) || "";
   return {
     ...blankPurchase(),
     id: purchase.id ?? null,
-    equipment_id: normalizeOptionalInt(purchase.equipment_id) || "",
+    equipment_id: equipmentId,
+    model_version_id: equipmentId,
+    variant_id: normalizeOptionalInt(purchase.variant_id) || "",
     purchase_date: String(purchase.purchase_date || "").trim() || todayIso(),
     purchase_price: normalizeOptionalFloat(purchase.purchase_price) ?? "",
-    note: String(purchase.note || "").trim(),
+    purchase_currency: String(purchase.purchase_currency || "").trim().toUpperCase().slice(0, 3),
+    purchase_location: String(purchase.purchase_location || "").trim(),
+    purchase_shop_url: String(purchase.purchase_shop_url || "").trim(),
+    purchase_condition: String(purchase.purchase_condition || "").trim(),
+    serial_number: String(purchase.serial_number || "").trim(),
+    nickname: String(purchase.nickname || "").trim(),
+    status: String(purchase.status || "owned").trim(),
+    note: String(purchase.note || purchase.notes || "").trim(),
+    notes: String(purchase.notes || purchase.note || "").trim(),
   };
 }
 

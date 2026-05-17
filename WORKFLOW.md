@@ -61,6 +61,21 @@ Exercise categories and movement families are now normalized in real tables with
 
 The API still accepts and returns the legacy `category` and `movement_family` fields for compatibility. Backend writes synchronize those fields into the normalized tables, and responses also include a `categories` array.
 
+## Equipment catalog
+
+Equipment brands, models, versions, variants, and owned items are normalized in real tables:
+
+- `equipment_categories`
+- `equipment_models`
+- `equipment_model_versions`
+- `equipment_model_colors`
+- `equipment_model_sizes`
+- `equipment_model_variants`
+- `equipment_items`
+- `equipment_item_events`
+
+The `/api/equipment` and `/api/my-equipment` endpoints keep their existing frontend-facing shape where practical, but they now persist to model versions and owned items. Purchase price and currency belong to `equipment_items` or `equipment_item_events`, not to generic models or model versions.
+
 ## Fast deployment on the VPS
 
 From the project directory on the VPS:
