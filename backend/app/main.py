@@ -2385,6 +2385,32 @@ def sanitize_upload_suffix(filename: str) -> str:
     return ""
 
 
+def detect_image_suffix(header: bytes) -> str:
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if header.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    if header.startswith(b"GIF87a") or header.startswith(b"GIF89a"):
+        return ".gif"
+    if len(header) >= 12 and header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+        return ".webp"
+    return ""
+
+
+def validate_image_upload(source_file, expected_suffix: str) -> str:
+    start_position = source_file.tell() if source_file.seekable() else None
+    header = source_file.read(32)
+    detected_suffix = detect_image_suffix(header)
+    if start_position is not None:
+        source_file.seek(start_position)
+    if not detected_suffix:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is not a supported image")
+    allowed_detected = {".jpg", ".jpeg"} if expected_suffix in {".jpg", ".jpeg"} else {expected_suffix}
+    if detected_suffix not in allowed_detected:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image content does not match the file extension")
+    return detected_suffix
+
+
 def sanitize_activity_source_suffix(filename: str, selected_format: str = "") -> str:
     detected_format = detect_activity_file_format(filename, selected_format)
     if detected_format in {"fit", "tcx", "gpx"}:
@@ -4898,6 +4924,7 @@ def upload_exercise_image(
         suffix = sanitize_upload_suffix(image_file.filename)
         if not suffix:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported image format")
+        suffix = validate_image_upload(image_file.file, suffix)
 
         safe_name = "".join(ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in row.name).strip("_") or "exercise"
         target_name = f"{safe_name}_{uuid.uuid4().hex[:12]}{suffix}"
@@ -5016,6 +5043,7 @@ def upload_activity_image(
         suffix = sanitize_upload_suffix(image_file.filename)
         if not suffix:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported image format")
+        suffix = validate_image_upload(image_file.file, suffix)
 
         safe_username = "".join(ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in current_user.username).strip("_") or "user"
         safe_date = date_str.replace("-", "")

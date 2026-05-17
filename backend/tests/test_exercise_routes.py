@@ -2,6 +2,9 @@ from io import BytesIO
 
 from app import main
 
+PNG_BYTES = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+JPEG_BYTES = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00"
+
 
 def create_exercise(client, name, **overrides):
     payload = {
@@ -45,14 +48,14 @@ def test_upload_set_primary_and_delete_exercise_image(client):
 
     first = client.post(
         "/api/exercises/bench_press/upload-image",
-        files={"image_file": ("first.png", BytesIO(b"first image"), "image/png")},
+        files={"image_file": ("first.png", BytesIO(PNG_BYTES), "image/png")},
     )
     assert first.status_code == 200, first.text
     first_url = first.json()["image_url"]
 
     second = client.post(
         "/api/exercises/bench_press/upload-image",
-        files={"image_file": ("second.jpg", BytesIO(b"second image"), "image/jpeg")},
+        files={"image_file": ("second.jpg", BytesIO(JPEG_BYTES), "image/jpeg")},
     )
     assert second.status_code == 200, second.text
     second_url = second.json()["image_url"]

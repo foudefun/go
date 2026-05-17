@@ -3,6 +3,8 @@ from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
 from uuid import uuid4
 
+PNG_BYTES = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+
 
 def test_equipment_catalog_writes_require_admin(non_admin_client):
     response = non_admin_client.post("/api/equipment/brands", json={"name": "Test Brand"})
@@ -126,8 +128,68 @@ def test_image_upload_size_limit_is_enforced(client):
     try:
         response = client.post(
             "/api/exercises/upload_limit_test/upload-image",
-            files={"image_file": ("too-large.png", b"12345", "image/png")},
+            files={"image_file": ("too-large.png", PNG_BYTES, "image/png")},
         )
         assert response.status_code == 413
     finally:
         main.MAX_IMAGE_UPLOAD_BYTES = original_limit
+
+
+def test_fake_image_upload_is_rejected(client):
+    db = main.SessionLocal()
+    try:
+        row = main.ExerciseModel(
+            name="fake_image_test",
+            display_name="Fake image test",
+            display_name_fr="Fake image test",
+            display_name_en="Fake image test",
+            category="test",
+            movement_family="",
+            tracking_mode="reps_weight",
+            weight_unit="kg",
+            description="",
+            link="",
+            image="",
+            images_json="[]",
+            document="",
+        )
+        db.add(row)
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.post(
+        "/api/exercises/fake_image_test/upload-image",
+        files={"image_file": ("fake.png", b"not really an image", "image/png")},
+    )
+    assert response.status_code == 400
+
+
+def test_image_extension_must_match_content(client):
+    db = main.SessionLocal()
+    try:
+        row = main.ExerciseModel(
+            name="mismatch_image_test",
+            display_name="Mismatch image test",
+            display_name_fr="Mismatch image test",
+            display_name_en="Mismatch image test",
+            category="test",
+            movement_family="",
+            tracking_mode="reps_weight",
+            weight_unit="kg",
+            description="",
+            link="",
+            image="",
+            images_json="[]",
+            document="",
+        )
+        db.add(row)
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.post(
+        "/api/exercises/mismatch_image_test/upload-image",
+        files={"image_file": ("mismatch.jpg", PNG_BYTES, "image/jpeg")},
+    )
+    assert response.status_code == 400
