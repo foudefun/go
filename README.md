@@ -41,7 +41,12 @@ The database also maintains normalized taxonomy tables:
 
 Application writes sync the compatibility fields into the normalized tables. API responses still include `category`, `categories`, and `movement_family` so existing frontend code and imports keep working.
 
+## Activity Source Files
+
+Day activities can keep multiple external source files, such as Garmin, Strava, MyWhoosh, Wahoo, or TrainingPeaks exports. Supported source formats are FIT, TCX, and GPX.
+
+Each source file is attached to one saved activity and stored under the backend upload directory. The activity JSON keeps a `source_files` list with parsed metric summaries and a `metric_source_preferences` map so heart rate, power, cadence, distance, duration, and calories can each use a different primary source while still showing comparisons.
+
 ## Deployment
 
 See [DEPLOY.md](DEPLOY.md) for VPS setup and [WORKFLOW.md](WORKFLOW.md) for local development and deployment workflow.
-

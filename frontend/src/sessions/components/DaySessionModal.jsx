@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getExercises } from "../../api/exerciseApi.js";
-import { deleteActivityImage, getSession, saveSession, uploadActivityImage } from "../../api/sessionApi.js";
+import {
+  deleteActivityImage,
+  getSession,
+  saveSession,
+  updateActivityMetricSources,
+  uploadActivityImage,
+  uploadActivitySourceFile,
+} from "../../api/sessionApi.js";
 import {
   ACTIVITY_TYPES,
   getActivityTypeLabel,
@@ -27,6 +34,8 @@ function blankActivity() {
     climbing_routes: [],
     performed_items: [],
     used_equipment: [],
+    source_files: [],
+    metric_source_preferences: {},
   };
 }
 
@@ -39,7 +48,8 @@ function activityHasContent(activity) {
       String(activity.image || "").trim() ||
       String(activity.physio_time || "").trim() ||
       (activity.performed_items || []).length ||
-      (activity.climbing_routes || []).length,
+      (activity.climbing_routes || []).length ||
+      (activity.source_files || []).length,
   );
 }
 
@@ -49,6 +59,10 @@ function normalizeActivity(activity) {
   next.performed_items = Array.isArray(next.performed_items) ? next.performed_items : [];
   next.climbing_routes = Array.isArray(next.climbing_routes) ? next.climbing_routes : [];
   next.used_equipment = Array.isArray(next.used_equipment) ? next.used_equipment : [];
+  next.source_files = Array.isArray(next.source_files) ? next.source_files : [];
+  next.metric_source_preferences = next.metric_source_preferences && typeof next.metric_source_preferences === "object"
+    ? next.metric_source_preferences
+    : {};
   if (!isStrengthActivity(next.activity_type)) {
     next.exercises = [];
     next.performed_items = [];
@@ -74,6 +88,8 @@ function getLegacyActivityFromSession(session) {
     performed_items: session.performed_items,
     exercises: session.exercises,
     used_equipment: session.used_equipment,
+    source_files: session.source_files,
+    metric_source_preferences: session.metric_source_preferences,
   });
 }
 
@@ -211,6 +227,145 @@ function ActivityImagePanel({ activity, canManage, uploading, error, onUpload, o
   );
 }
 
+const SOURCE_PROVIDERS = ["Garmin", "Strava", "MyWhoosh", "TrainingPeaks", "Wahoo", "Other"];
+
+const SOURCE_METRICS = [
+  { key: "heart_rate", label: "Heart rate" },
+  { key: "power", label: "Power" },
+  { key: "cadence", label: "Cadence" },
+  { key: "distance", label: "Distance" },
+  { key: "duration", label: "Duration" },
+  { key: "calories", label: "Calories" },
+];
+
+function formatMetricValue(metricKey, values) {
+  if (!values || typeof values !== "object") return "";
+  if (metricKey === "heart_rate") return [values.avg ? `${Math.round(values.avg)} avg` : "", values.max ? `${Math.round(values.max)} max` : ""].filter(Boolean).join(" / ");
+  if (metricKey === "power") return [values.avg ? `${Math.round(values.avg)} W avg` : "", values.max ? `${Math.round(values.max)} W max` : ""].filter(Boolean).join(" / ");
+  if (metricKey === "cadence") return values.avg ? `${Math.round(values.avg)} rpm` : "";
+  if (metricKey === "distance") return values.km ? `${Number(values.km).toFixed(2)} km` : "";
+  if (metricKey === "duration") {
+    const seconds = Number(values.seconds || 0);
+    if (!seconds) return "";
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return hours ? `${hours}h ${String(minutes).padStart(2, "0")}` : `${minutes} min`;
+  }
+  if (metricKey === "calories") return values.value ? `${Math.round(values.value)} kcal` : "";
+  return "";
+}
+
+function getSourceTitle(source, fallbackIndex) {
+  return String(source.label || source.provider || source.filename || `Source ${fallbackIndex + 1}`).trim();
+}
+
+function ActivitySourceFilesPanel({ activity, canManage, uploading, error, onUpload, onPreferenceChange, t }) {
+  const fileRef = useRef(null);
+  const [provider, setProvider] = useState("Garmin");
+  const [format, setFormat] = useState("");
+  const sourceFiles = Array.isArray(activity?.source_files) ? activity.source_files : [];
+  const preferences = activity?.metric_source_preferences || {};
+  const availableMetrics = SOURCE_METRICS.filter((metric) => sourceFiles.some((source) => source.metrics?.[metric.key]));
+
+  return (
+    <section className="activity-source-panel">
+      <div className="section-heading-row">
+        <div>
+          <p className="eyebrow">{t("External files")}</p>
+          <h3>{t("Activity sources")}</h3>
+        </div>
+      </div>
+      <div className="activity-source-controls">
+        <label>
+          {t("Provider")}
+          <select value={provider} onChange={(event) => setProvider(event.target.value)}>
+            {SOURCE_PROVIDERS.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("Format")}
+          <select value={format} onChange={(event) => setFormat(event.target.value)}>
+            <option value="">{t("Auto")}</option>
+            <option value="fit">FIT</option>
+            <option value="tcx">TCX</option>
+            <option value="gpx">GPX</option>
+          </select>
+        </label>
+        <button type="button" disabled={!canManage || uploading} onClick={() => fileRef.current?.click()}>
+          {uploading ? t("Uploading...") : t("Attach file")}
+        </button>
+      </div>
+      <input
+        ref={fileRef}
+        className="visually-hidden"
+        type="file"
+        accept=".fit,.tcx,.gpx"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) onUpload({ file, provider, format });
+          event.target.value = "";
+        }}
+      />
+      {!canManage ? <span className="visually-muted">{t("Save the activity before attaching files.")}</span> : null}
+      {error ? <div className="error-banner">{error}</div> : null}
+      {sourceFiles.length ? (
+        <div className="activity-source-list">
+          {sourceFiles.map((source, index) => (
+            <div className="activity-source-item" key={source.id || `${source.filename}-${index}`}>
+              <div>
+                <strong>{getSourceTitle(source, index)}</strong>
+                <span>{[source.provider, source.file_format?.toUpperCase(), source.filename].filter(Boolean).join(" | ")}</span>
+              </div>
+              <div className="activity-source-summary">
+                {SOURCE_METRICS.map((metric) => {
+                  const value = formatMetricValue(metric.key, source.metrics?.[metric.key]);
+                  return value ? <span key={metric.key}>{t(metric.label)}: {value}</span> : null;
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state compact">{t("No external source file attached.")}</div>
+      )}
+      {availableMetrics.length ? (
+        <div className="source-comparison-table">
+          <div className="source-comparison-row header">
+            <span>{t("Metric")}</span>
+            <span>{t("Primary source")}</span>
+            <span>{t("Comparison")}</span>
+          </div>
+          {availableMetrics.map((metric) => (
+            <div className="source-comparison-row" key={metric.key}>
+              <strong>{t(metric.label)}</strong>
+              <select
+                value={preferences[metric.key] || ""}
+                disabled={!canManage || uploading}
+                onChange={(event) => onPreferenceChange({ ...preferences, [metric.key]: event.target.value })}
+              >
+                {sourceFiles.filter((source) => source.metrics?.[metric.key]).map((source, index) => (
+                  <option key={source.id} value={source.id}>{getSourceTitle(source, index)}</option>
+                ))}
+              </select>
+              <span>
+                {sourceFiles
+                  .map((source, index) => {
+                    const value = formatMetricValue(metric.key, source.metrics?.[metric.key]);
+                    return value ? `${getSourceTitle(source, index)}: ${value}` : "";
+                  })
+                  .filter(Boolean)
+                  .join(" | ")}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function buildSavePayload(session, activeIndex, draftActivity = null) {
   const activities = (session.activities || []).map(normalizeActivity).filter(activityHasContent);
   let requestedIndex = activeIndex;
@@ -242,6 +397,8 @@ function buildSavePayload(session, activeIndex, draftActivity = null) {
     climbing_routes: activeActivity.climbing_routes || [],
     performed_items: activeActivity.performed_items || [],
     used_equipment: activeActivity.used_equipment || [],
+    source_files: activeActivity.source_files || [],
+    metric_source_preferences: activeActivity.metric_source_preferences || {},
     activities,
     draft_active_activity_index: safeIndex,
     draft_performed_editor: {},
@@ -265,6 +422,8 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
   const [exerciseError, setExerciseError] = useState("");
   const [imageStatus, setImageStatus] = useState("idle");
   const [imageError, setImageError] = useState("");
+  const [sourceStatus, setSourceStatus] = useState("idle");
+  const [sourceError, setSourceError] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -434,6 +593,38 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
     }
   }
 
+  async function handleActivitySourceUpload({ file, provider, format }) {
+    if (!file || activeIndex === null || !session) return;
+    setSourceStatus("uploading");
+    setSourceError("");
+    try {
+      await saveSession(date, buildSavePayload(session, activeIndex, draftActivity));
+      const result = await uploadActivitySourceFile(date, activeIndex, { file, provider, format });
+      applySessionPayload(result.session);
+      onSaved?.();
+    } catch (uploadError) {
+      setSourceError(uploadError.message);
+    } finally {
+      setSourceStatus("idle");
+    }
+  }
+
+  async function handleMetricSourceChange(preferences) {
+    if (activeIndex === null || !session) return;
+    setSourceStatus("uploading");
+    setSourceError("");
+    try {
+      await saveSession(date, buildSavePayload(session, activeIndex, draftActivity));
+      const result = await updateActivityMetricSources(date, activeIndex, preferences);
+      applySessionPayload(result.session);
+      onSaved?.();
+    } catch (preferenceError) {
+      setSourceError(preferenceError.message);
+    } finally {
+      setSourceStatus("idle");
+    }
+  }
+
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <section className="day-modal" role="dialog" aria-modal="true" aria-label={t("Edit date", { date })} onMouseDown={(event) => event.stopPropagation()}>
@@ -566,6 +757,16 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
                     error={imageError}
                     onUpload={handleActivityImageUpload}
                     onDelete={handleActivityImageDelete}
+                    t={t}
+                  />
+
+                  <ActivitySourceFilesPanel
+                    activity={activeActivity}
+                    canManage={activeIndex !== null}
+                    uploading={sourceStatus === "uploading"}
+                    error={sourceError}
+                    onUpload={handleActivitySourceUpload}
+                    onPreferenceChange={handleMetricSourceChange}
                     t={t}
                   />
 

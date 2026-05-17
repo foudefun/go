@@ -9,6 +9,7 @@
 
 ## Product
 
+- Add deletion/replacement controls for attached activity source files and show raw time-series overlays, not only summary metric comparisons.
 - Improve the exercise cleanup workflow with clearer duplicate detection, family grouping, and image coverage status.
 - Add richer equipment and "my gear" workflows: equipment images, ownership status, maintenance notes, and model-level details.
 - Add language-aware labels for normalized exercise categories and movement families.
@@ -20,4 +21,3 @@
 - Replace lightweight SQLite migrations with a real migration tool before adding larger schema changes.
 - Decide whether production deploy should stay manual-only or restore GitHub Actions with fixed VPS secrets.
 - Add CI steps for `python -m pytest backend/tests`, frontend tests, and frontend build.
-

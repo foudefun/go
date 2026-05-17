@@ -26,3 +26,23 @@ export function deleteActivityImage(date, activityIndex) {
     method: "POST",
   });
 }
+
+export function uploadActivitySourceFile(date, activityIndex, { file, format = "", provider = "", label = "" }) {
+  const formData = new FormData();
+  formData.append("activity_file", file);
+  formData.append("format", format);
+  formData.append("provider", provider);
+  formData.append("label", label);
+  return api(`/session/${date}/activities/${activityIndex}/source-files`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export function updateActivityMetricSources(date, activityIndex, metricSourcePreferences) {
+  return api(`/session/${date}/activities/${activityIndex}/metric-sources`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ metric_source_preferences: metricSourcePreferences }),
+  });
+}

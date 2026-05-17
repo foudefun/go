@@ -43,9 +43,11 @@ DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 UPLOADS_DIR = DB_PATH.parent / "uploads"
 EXERCISE_UPLOADS_DIR = UPLOADS_DIR / "exercises"
 ACTIVITY_UPLOADS_DIR = UPLOADS_DIR / "activities"
+ACTIVITY_SOURCE_UPLOADS_DIR = UPLOADS_DIR / "activity-sources"
 BRAND_LOGOS_DIR = UPLOADS_DIR / "equipment-brands"
 EXERCISE_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 ACTIVITY_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+ACTIVITY_SOURCE_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 BRAND_LOGOS_DIR.mkdir(parents=True, exist_ok=True)
 
 engine = create_engine(f"sqlite:///{DB_PATH.as_posix()}", connect_args={"check_same_thread": False})
@@ -848,6 +850,8 @@ DEFAULT_ACTIVITY = {
     "climbing_routes": [],
     "performed_items": [],
     "used_equipment": [],
+    "source_files": [],
+    "metric_source_preferences": {},
 }
 
 def normalize_physio_time(value) -> str:
@@ -1137,6 +1141,120 @@ def unique_names(values: list[str]) -> list[str]:
         seen.add(value)
     return out
 
+ACTIVITY_SOURCE_METRICS = {
+    "heart_rate": ("avg_hr", "max_hr"),
+    "power": ("avg_power", "max_power"),
+    "cadence": ("avg_cadence",),
+    "distance": ("distance_km",),
+    "duration": ("duration_seconds",),
+    "calories": ("calories",),
+}
+
+
+def normalize_activity_source_metrics(metrics: dict) -> dict:
+    if not isinstance(metrics, dict):
+        return {}
+    normalized = {}
+    for metric_name, values in metrics.items():
+        if metric_name not in ACTIVITY_SOURCE_METRICS or not isinstance(values, dict):
+            continue
+        cleaned_values = {}
+        for key, value in values.items():
+            numeric = normalize_optional_float(value)
+            if numeric is not None:
+                cleaned_values[str(key)] = numeric
+        if cleaned_values:
+            normalized[metric_name] = cleaned_values
+    return normalized
+
+
+def build_activity_source_metrics(parsed_activity: dict) -> dict:
+    metrics = {}
+    if parsed_activity.get("avg_hr") is not None or parsed_activity.get("max_hr") is not None:
+        metrics["heart_rate"] = {
+            key: value
+            for key, value in {
+                "avg": normalize_optional_float(parsed_activity.get("avg_hr")),
+                "max": normalize_optional_float(parsed_activity.get("max_hr")),
+            }.items()
+            if value is not None
+        }
+    if parsed_activity.get("avg_power") is not None or parsed_activity.get("max_power") is not None:
+        metrics["power"] = {
+            key: value
+            for key, value in {
+                "avg": normalize_optional_float(parsed_activity.get("avg_power")),
+                "max": normalize_optional_float(parsed_activity.get("max_power")),
+            }.items()
+            if value is not None
+        }
+    if parsed_activity.get("avg_cadence") is not None:
+        metrics["cadence"] = {"avg": normalize_optional_float(parsed_activity.get("avg_cadence"))}
+    if parsed_activity.get("distance_km") is not None:
+        metrics["distance"] = {"km": normalize_optional_float(parsed_activity.get("distance_km"))}
+    if parsed_activity.get("duration_seconds") is not None:
+        metrics["duration"] = {"seconds": normalize_optional_float(parsed_activity.get("duration_seconds"))}
+    if parsed_activity.get("calories") is not None:
+        metrics["calories"] = {"value": normalize_optional_float(parsed_activity.get("calories"))}
+    return normalize_activity_source_metrics(metrics)
+
+
+def normalize_activity_source_file(item: dict) -> dict:
+    if not isinstance(item, dict):
+        return {}
+    source_id = str(item.get("id", "") or "").strip()
+    if not source_id:
+        source_id = uuid.uuid4().hex
+    parsed = item.get("parsed") if isinstance(item.get("parsed"), dict) else {}
+    metrics = normalize_activity_source_metrics(item.get("metrics") if isinstance(item.get("metrics"), dict) else {})
+    if not metrics and parsed:
+        metrics = build_activity_source_metrics(parsed)
+    normalized = {
+        "id": source_id,
+        "provider": str(item.get("provider", "") or "").strip(),
+        "label": str(item.get("label", "") or "").strip(),
+        "filename": str(item.get("filename", "") or "").strip(),
+        "file_format": str(item.get("file_format", "") or "").strip().lower(),
+        "file_url": str(item.get("file_url", "") or "").strip(),
+        "imported_at": str(item.get("imported_at", "") or "").strip(),
+        "parsed": parsed,
+        "metrics": metrics,
+    }
+    return {key: value for key, value in normalized.items() if value not in ("", None, {}, [])}
+
+
+def normalize_activity_source_files(items) -> list[dict]:
+    if not isinstance(items, list):
+        return []
+    normalized = []
+    seen_ids = set()
+    for item in items:
+        source = normalize_activity_source_file(item)
+        source_id = source.get("id")
+        if not source_id or source_id in seen_ids:
+            continue
+        normalized.append(source)
+        seen_ids.add(source_id)
+    return normalized
+
+
+def normalize_metric_source_preferences(preferences: dict, source_files: list[dict]) -> dict:
+    if not isinstance(preferences, dict):
+        preferences = {}
+    source_by_id = {str(item.get("id", "")): item for item in source_files if item.get("id")}
+    normalized = {}
+    for metric_name in ACTIVITY_SOURCE_METRICS:
+        selected_id = str(preferences.get(metric_name, "") or "").strip()
+        if selected_id and selected_id in source_by_id and metric_name in source_by_id[selected_id].get("metrics", {}):
+            normalized[metric_name] = selected_id
+            continue
+        for source in source_files:
+            if metric_name in source.get("metrics", {}):
+                normalized[metric_name] = source["id"]
+                break
+    return normalized
+
+
 def activity_has_content(payload: dict) -> bool:
     return bool(
         payload.get("performed_items")
@@ -1144,6 +1262,7 @@ def activity_has_content(payload: dict) -> bool:
         or str(payload.get("activity_type", "") or "").strip()
         or str(payload.get("activity_details", "") or "").strip()
         or str(payload.get("image", "") or "").strip()
+        or payload.get("source_files")
         or payload.get("climbing_routes")
         or float(payload.get("load", 0) or 0) > 0
         or str(payload.get("physio_time", "") or "").strip()
@@ -1178,6 +1297,7 @@ def normalize_activity_entry(payload: dict) -> dict:
         exercise_names = unique_names(
             [item.get("exercise_name", "") for item in performed_items if item.get("exercise_name")] + exercise_names
         )
+    source_files = normalize_activity_source_files(base.get("source_files", []))
     raw_activity_type = str(base.get("activity_type", "") or "").strip()
     normalized_activity_type = normalize_activity_type(raw_activity_type)
     if not normalized_activity_type and (performed_items or exercise_names):
@@ -1204,6 +1324,11 @@ def normalize_activity_entry(payload: dict) -> dict:
             for item in base.get("used_equipment", [])
             if (normalized_item := normalize_used_equipment_item(item))
         ],
+        "source_files": source_files,
+        "metric_source_preferences": normalize_metric_source_preferences(
+            base.get("metric_source_preferences", {}),
+            source_files,
+        ),
     }
     normalized["status"] = "done" if activity_has_content(normalized) else "todo"
     if normalized["activity_type"] not in {"escalade", "outdoor_climbing"}:
@@ -1691,6 +1816,13 @@ def sanitize_upload_suffix(filename: str) -> str:
     return ""
 
 
+def sanitize_activity_source_suffix(filename: str, selected_format: str = "") -> str:
+    detected_format = detect_activity_file_format(filename, selected_format)
+    if detected_format in {"fit", "tcx", "gpx"}:
+        return f".{detected_format}"
+    return ""
+
+
 def resolve_uploaded_exercise_path(image_url: str) -> Path | None:
     prefix = "/api/uploads/exercises/"
     value = str(image_url or "").strip()
@@ -1711,6 +1843,29 @@ def resolve_uploaded_activity_path(image_url: str) -> Path | None:
     if not filename:
         return None
     return ACTIVITY_UPLOADS_DIR / filename
+
+
+def build_activity_source_file_record(
+    *,
+    source_id: str,
+    provider: str,
+    label: str,
+    filename: str,
+    file_format: str,
+    file_url: str,
+    parsed_activity: dict,
+) -> dict:
+    return normalize_activity_source_file({
+        "id": source_id,
+        "provider": str(provider or "").strip() or "Other",
+        "label": str(label or "").strip() or str(provider or "").strip() or parsed_activity.get("source_label", ""),
+        "filename": str(filename or "").strip(),
+        "file_format": str(file_format or "").strip().lower(),
+        "file_url": file_url,
+        "imported_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "parsed": parsed_activity,
+        "metrics": build_activity_source_metrics(parsed_activity),
+    })
 
 
 def set_exercise_images(row: ExerciseModel, images: list[str]) -> None:
@@ -4235,12 +4390,155 @@ def delete_activity_image(
         db.close()
 
 
+@app.post("/api/session/{date_str}/activities/{activity_index}/source-files")
+async def upload_activity_source_file(
+    date_str: str,
+    activity_index: int,
+    activity_file: UploadFile = File(...),
+    format: str = Form(""),
+    provider: str = Form(""),
+    label: str = Form(""),
+    current_user: UserModel = Depends(get_current_user),
+):
+    filename = str(activity_file.filename or "").strip()
+    if not filename:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="An activity file is required")
+    selected_format = detect_activity_file_format(filename, format)
+    suffix = sanitize_activity_source_suffix(filename, selected_format)
+    if not suffix:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please upload a FIT, TCX, or GPX activity file")
+
+    content = await activity_file.read()
+    if not content:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The uploaded file is empty")
+    parsed_activity = parse_activity_file(content, filename, selected_format)
+
+    db = get_db()
+    try:
+        row = get_session_obj(db, current_user.username, date_str)
+        if not row:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+        payload = session_payload_from_row(row)
+        activities = get_session_activities(payload)
+        if activity_index < 0 or activity_index >= len(activities):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Activity not found")
+
+        safe_username = "".join(ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in current_user.username).strip("_") or "user"
+        safe_date = date_str.replace("-", "")
+        source_id = uuid.uuid4().hex
+        target_name = f"{safe_username}_{safe_date}_activity_{activity_index + 1}_{source_id[:12]}{suffix}"
+        target_path = ACTIVITY_SOURCE_UPLOADS_DIR / target_name
+        target_path.write_bytes(content)
+
+        activity = normalize_activity_entry(activities[activity_index])
+        source_files = normalize_activity_source_files(activity.get("source_files", []))
+        source_record = build_activity_source_file_record(
+            source_id=source_id,
+            provider=provider,
+            label=label,
+            filename=filename,
+            file_format=selected_format,
+            file_url=f"/api/uploads/activity-sources/{target_name}",
+            parsed_activity=parsed_activity,
+        )
+        source_files.append(source_record)
+        activity["source_files"] = source_files
+        activity["metric_source_preferences"] = normalize_metric_source_preferences(
+            activity.get("metric_source_preferences", {}),
+            source_files,
+        )
+        activities[activity_index] = activity
+        row.data = json.dumps(normalize_session_payload({
+            "activities": activities,
+            "draft_active_activity_index": activity_index,
+        }, payload), ensure_ascii=False)
+        write_audit_log(
+            db,
+            current_user.username,
+            "upload_activity_source_file",
+            "session_activity",
+            f"{date_str}:{activity_index}",
+            f"Linked {selected_format.upper()} source file to activity {activity_index + 1} on {date_str}",
+        )
+        db.commit()
+        return {"ok": True, "source_file": source_record, "session": session_payload_from_row(row)}
+    finally:
+        activity_file.file.close()
+        db.close()
+
+
+@app.put("/api/session/{date_str}/activities/{activity_index}/metric-sources")
+def update_activity_metric_sources(
+    date_str: str,
+    activity_index: int,
+    payload: dict,
+    current_user: UserModel = Depends(get_current_user),
+):
+    db = get_db()
+    try:
+        row = get_session_obj(db, current_user.username, date_str)
+        if not row:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+        session_payload = session_payload_from_row(row)
+        activities = get_session_activities(session_payload)
+        if activity_index < 0 or activity_index >= len(activities):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Activity not found")
+
+        activity = normalize_activity_entry(activities[activity_index])
+        source_files = normalize_activity_source_files(activity.get("source_files", []))
+        source_by_id = {source["id"]: source for source in source_files if source.get("id")}
+        requested = payload.get("metric_source_preferences", payload) if isinstance(payload, dict) else {}
+        if not isinstance(requested, dict):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Metric source preferences must be an object")
+        requested = {**activity.get("metric_source_preferences", {}), **requested}
+        for metric_name, source_id in requested.items():
+            metric_name = str(metric_name or "").strip()
+            source_id = str(source_id or "").strip()
+            if metric_name and metric_name not in ACTIVITY_SOURCE_METRICS:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported metric: {metric_name}")
+            if source_id and source_id not in source_by_id:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown source file for {metric_name}")
+            if source_id and metric_name not in source_by_id[source_id].get("metrics", {}):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Selected source has no {metric_name} data")
+
+        activity["source_files"] = source_files
+        activity["metric_source_preferences"] = normalize_metric_source_preferences(requested, source_files)
+        activities[activity_index] = activity
+        row.data = json.dumps(normalize_session_payload({
+            "activities": activities,
+            "draft_active_activity_index": activity_index,
+        }, session_payload), ensure_ascii=False)
+        write_audit_log(
+            db,
+            current_user.username,
+            "update_activity_metric_sources",
+            "session_activity",
+            f"{date_str}:{activity_index}",
+            f"Updated source preferences for activity {activity_index + 1} on {date_str}",
+        )
+        db.commit()
+        return {"ok": True, "session": session_payload_from_row(row)}
+    finally:
+        db.close()
+
+
 @app.get("/api/uploads/activities/{filename}")
 def get_uploaded_activity_image(filename: str):
     safe_filename = Path(filename).name
     target_path = ACTIVITY_UPLOADS_DIR / safe_filename
     if not target_path.is_file():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+    return FileResponse(target_path)
+
+
+@app.get("/api/uploads/activity-sources/{filename}")
+def get_uploaded_activity_source_file(filename: str):
+    safe_filename = Path(filename).name
+    target_path = ACTIVITY_SOURCE_UPLOADS_DIR / safe_filename
+    if not target_path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Activity source file not found")
     return FileResponse(target_path)
 
 
