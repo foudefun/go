@@ -2,6 +2,7 @@
 
 ## High priority
 
+- Run a project security review covering auth/session handling, permissions, uploads, secrets, headers, dependency exposure, and VPS deployment settings.
 - Remove `legacy.html` after one stable release without needing fallback links.
 - Expand automated backend coverage around sessions, equipment foreign keys, and import workflows.
 - Finish translating remaining older admin/import/outdoor-climbing labels that are still hardcoded in React.

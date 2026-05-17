@@ -296,118 +296,137 @@ function TaxonomyPanel({
   onCancelModel,
 }) {
   const { t } = useTranslation();
+  const [activeCreator, setActiveCreator] = useState("");
   const brandModels = modelsForBrand(models, modelDraft.brand_id || brands[0]?.id);
+  const showBrandEditor = activeCreator === "brand" || Boolean(editingBrandId);
+  const showModelEditor = activeCreator === "model" || Boolean(editingModelId);
+
+  function closeBrandEditor() {
+    onCancelBrand();
+    setActiveCreator("");
+  }
+
+  function closeModelEditor() {
+    onCancelModel();
+    setActiveCreator("");
+  }
+
+  async function saveBrandAndClose() {
+    if (!brandDraft.name) return;
+    if (await onSaveBrand()) {
+      setActiveCreator("");
+    }
+  }
+
+  async function saveModelAndClose() {
+    if (!modelDraft.brand_id || !modelDraft.name) return;
+    if (await onSaveModel()) {
+      setActiveCreator("");
+    }
+  }
 
   return (
     <section className="equipment-taxonomy-grid">
-      <div className="app-panel equipment-editor-panel">
+      <div className="app-panel taxonomy-create-panel">
         <header className="strength-editor-header">
           <div>
-            <p className="eyebrow">{t("Brands")}</p>
-            <h2>{editingBrandId ? t("Edit Brand") : t("Add Brand")}</h2>
+            <p className="eyebrow">{t("Configuration")}</p>
+            <h2>{t("Brands and models")}</h2>
           </div>
-          {editingBrandId ? (
-            <button type="button" onClick={onCancelBrand}>
-              {t("Cancel")}
+          <div className="compact-actions">
+            <button type="button" onClick={() => {
+              onCancelModel();
+              onCancelBrand();
+              setActiveCreator((current) => (current === "brand" ? "" : "brand"));
+            }}>
+              {t("New brand")}
             </button>
-          ) : null}
+            <button type="button" onClick={() => {
+              onCancelBrand();
+              onCancelModel();
+              setActiveCreator((current) => (current === "model" ? "" : "model"));
+            }}>
+              {t("New model")}
+            </button>
+          </div>
         </header>
-        <div className="form-grid">
-          <label>
-            {t("Brand name")}
-            <input value={brandDraft.name || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, name: event.target.value }))} />
-          </label>
-          <label>
-            {t("Country")}
-            <select value={brandDraft.country_id || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, country_id: event.target.value }))}>
-              <option value="">{t("No country")}</option>
-              {countries.map((country) => (
-                <option value={country.id} key={country.id}>
-                  {country.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t("Established")}
-            <input
-              type="number"
-              min="1500"
-              max={new Date().getFullYear()}
-              value={brandDraft.year_established || ""}
-              onChange={(event) => onBrandDraftChange((current) => ({ ...current, year_established: event.target.value }))}
-            />
-          </label>
-          <label>
-            {t("Created at")}
-            <input type="date" value={brandDraft.created_at || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, created_at: event.target.value }))} />
-          </label>
-          <label>
-            {t("Website")}
-            <input value={brandDraft.website_url || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, website_url: event.target.value }))} placeholder="https://..." />
-          </label>
-          <label>
-            {t("Logo URL")}
-            <input value={brandDraft.logo_url || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, logo_url: event.target.value }))} placeholder="https://..." />
-          </label>
-        </div>
-        <label>
-          {t("Description")}
-          <textarea value={brandDraft.description || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, description: event.target.value }))} />
-        </label>
-        <label>
-          {t("History")}
-          <textarea value={brandDraft.history || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, history: event.target.value }))} />
-        </label>
-        <label className="toggle-row">
-          <input type="checkbox" checked={brandDraft.is_active !== false} onChange={(event) => onBrandDraftChange((current) => ({ ...current, is_active: event.target.checked }))} />
-          {t("Active")}
-        </label>
-        <button type="button" className="primary-action" onClick={onSaveBrand} disabled={saving || !brandDraft.name}>
-          {saving ? t("Saving...") : t("Save Brand")}
-        </button>
       </div>
 
-      <div className="app-panel equipment-editor-panel">
+      {showBrandEditor ? (
+        <div className="app-panel equipment-editor-panel taxonomy-editor-panel">
+          <header className="strength-editor-header">
+            <div>
+              <p className="eyebrow">{t("Brands")}</p>
+              <h2>{editingBrandId ? t("Edit Brand") : t("Add Brand")}</h2>
+            </div>
+            <button type="button" onClick={closeBrandEditor}>
+              {t("Cancel")}
+            </button>
+          </header>
+          <div className="form-grid">
+            <label>
+              {t("Brand name")}
+              <input value={brandDraft.name || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, name: event.target.value }))} />
+            </label>
+            <label>
+              {t("Country")}
+              <select value={brandDraft.country_id || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, country_id: event.target.value }))}>
+                <option value="">{t("No country")}</option>
+                {countries.map((country) => (
+                  <option value={country.id} key={country.id}>
+                    {country.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("Established")}
+              <input
+                type="number"
+                min="1500"
+                max={new Date().getFullYear()}
+                value={brandDraft.year_established || ""}
+                onChange={(event) => onBrandDraftChange((current) => ({ ...current, year_established: event.target.value }))}
+              />
+            </label>
+            <label>
+              {t("Created at")}
+              <input type="date" value={brandDraft.created_at || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, created_at: event.target.value }))} />
+            </label>
+            <label>
+              {t("Website")}
+              <input value={brandDraft.website_url || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, website_url: event.target.value }))} placeholder="https://..." />
+            </label>
+            <label>
+              {t("Logo URL")}
+              <input value={brandDraft.logo_url || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, logo_url: event.target.value }))} placeholder="https://..." />
+            </label>
+          </div>
+          <label>
+            {t("Description")}
+            <textarea value={brandDraft.description || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, description: event.target.value }))} />
+          </label>
+          <label>
+            {t("History")}
+            <textarea value={brandDraft.history || ""} onChange={(event) => onBrandDraftChange((current) => ({ ...current, history: event.target.value }))} />
+          </label>
+          <label className="toggle-row">
+            <input type="checkbox" checked={brandDraft.is_active !== false} onChange={(event) => onBrandDraftChange((current) => ({ ...current, is_active: event.target.checked }))} />
+            {t("Active")}
+          </label>
+          <button type="button" className="primary-action" onClick={saveBrandAndClose} disabled={saving || !brandDraft.name}>
+            {saving ? t("Saving...") : t("Save Brand")}
+          </button>
+        </div>
+      ) : null}
+
+      <div className="app-panel equipment-editor-panel taxonomy-model-list-panel">
         <header className="strength-editor-header">
           <div>
             <p className="eyebrow">{t("Models")}</p>
-            <h2>{editingModelId ? t("Edit Model") : t("Add Model")}</h2>
+            <h2>{t("Models")}</h2>
           </div>
-          {editingModelId ? (
-            <button type="button" onClick={onCancelModel}>
-                {t("Cancel")}
-            </button>
-          ) : null}
         </header>
-        <div className="form-grid">
-          <label>
-            {t("Brand")}
-            <select value={modelDraft.brand_id || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, brand_id: event.target.value }))}>
-              <option value="">{t("Choose brand")}</option>
-              {brands.map((brand) => (
-                <option value={brand.id} key={brand.id}>
-                  {brand.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t("Model name")}
-            <input value={modelDraft.name || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, name: event.target.value }))} />
-          </label>
-          <label>
-            {t("Created at")}
-            <input type="date" value={modelDraft.created_at || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, created_at: event.target.value }))} />
-          </label>
-        </div>
-        <label>
-          {t("History")}
-          <textarea value={modelDraft.history || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, history: event.target.value }))} />
-        </label>
-        <button type="button" className="primary-action" onClick={onSaveModel} disabled={saving || !modelDraft.brand_id || !modelDraft.name}>
-          {saving ? t("Saving...") : t("Save Model")}
-        </button>
         <div className="taxonomy-list">
           {brandModels.map((model) => (
             <article key={model.id} className="taxonomy-row">
@@ -416,7 +435,10 @@ function TaxonomyPanel({
                 <small>{model.brand_name || model.created_at}</small>
               </div>
               <div className="compact-actions">
-                <button type="button" onClick={() => onEditModel(model)}>
+                <button type="button" onClick={() => {
+                  setActiveCreator("model");
+                  onEditModel(model);
+                }}>
                   {t("Edit")}
                 </button>
                 {canDelete ? (
@@ -430,6 +452,48 @@ function TaxonomyPanel({
           {!brandModels.length ? <div className="empty-state compact">{t("No model for the selected brand yet.")}</div> : null}
         </div>
       </div>
+
+      {showModelEditor ? (
+        <div className="app-panel equipment-editor-panel taxonomy-editor-panel">
+          <header className="strength-editor-header">
+            <div>
+              <p className="eyebrow">{t("Models")}</p>
+              <h2>{editingModelId ? t("Edit Model") : t("Add Model")}</h2>
+            </div>
+            <button type="button" onClick={closeModelEditor}>
+              {t("Cancel")}
+            </button>
+          </header>
+          <div className="form-grid">
+            <label>
+              {t("Brand")}
+              <select value={modelDraft.brand_id || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, brand_id: event.target.value }))}>
+                <option value="">{t("Choose brand")}</option>
+                {brands.map((brand) => (
+                  <option value={brand.id} key={brand.id}>
+                    {brand.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("Model name")}
+              <input value={modelDraft.name || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, name: event.target.value }))} />
+            </label>
+            <label>
+              {t("Created at")}
+              <input type="date" value={modelDraft.created_at || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, created_at: event.target.value }))} />
+            </label>
+          </div>
+          <label>
+            {t("History")}
+            <textarea value={modelDraft.history || ""} onChange={(event) => onModelDraftChange((current) => ({ ...current, history: event.target.value }))} />
+          </label>
+          <button type="button" className="primary-action" onClick={saveModelAndClose} disabled={saving || !modelDraft.brand_id || !modelDraft.name}>
+            {saving ? t("Saving...") : t("Save Model")}
+          </button>
+        </div>
+      ) : null}
 
       <div className="app-panel equipment-editor-panel brand-list-panel">
         <header className="strength-editor-header">
@@ -450,7 +514,10 @@ function TaxonomyPanel({
                     <small>{[brand.country_name, brand.country_iso_code, brand.year_established ? `${t("Established")} ${brand.year_established}` : "", brand.is_active === false ? t("Inactive") : t("Active")].filter(Boolean).join(" - ") || brand.created_at}</small>
                   </div>
                   <div className="compact-actions">
-                    <button type="button" onClick={() => onEditBrand(brand)}>
+                    <button type="button" onClick={() => {
+                      setActiveCreator("brand");
+                      onEditBrand(brand);
+                    }}>
                       {t("Edit")}
                     </button>
                     {canDelete ? (
@@ -628,7 +695,7 @@ export default function EquipmentPage() {
 
   async function saveBrand() {
     const payload = normalizeBrandDraft(brandDraft);
-    if (!payload.name) return;
+    if (!payload.name) return false;
     setStatus("saving");
     setError("");
     try {
@@ -640,15 +707,17 @@ export default function EquipmentPage() {
       setEditingBrandId(null);
       setBrandDraft(blankBrand());
       await loadData(selectedEquipment?.id || "");
+      return true;
     } catch (saveError) {
       setError(saveError.message);
       setStatus("ready");
+      return false;
     }
   }
 
   async function saveModel() {
     const payload = normalizeModelDraft(modelDraft);
-    if (!payload.brand_id || !payload.name) return;
+    if (!payload.brand_id || !payload.name) return false;
     setStatus("saving");
     setError("");
     try {
@@ -660,9 +729,11 @@ export default function EquipmentPage() {
       setEditingModelId(null);
       setModelDraft(blankModel(payload.brand_id));
       await loadData(selectedEquipment?.id || "");
+      return true;
     } catch (saveError) {
       setError(saveError.message);
       setStatus("ready");
+      return false;
     }
   }
 
