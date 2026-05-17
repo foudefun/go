@@ -34,7 +34,7 @@ jobs:
           set -euo pipefail
           ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
             set -euo pipefail
-            cd /home/ubuntu/rehab
+            cd /opt/rehab
             bash ./deploy.sh
           '
 

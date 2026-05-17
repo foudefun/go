@@ -5,10 +5,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=ubuntu
-WorkingDirectory=/home/ubuntu/rehab
-EnvironmentFile=/home/ubuntu/rehab/.env.telegram-bot
-ExecStart=/usr/bin/env python3 /home/ubuntu/rehab/scripts/telegram_issue_bot.py
+User=deploy
+WorkingDirectory=/opt/rehab
+EnvironmentFile=/opt/rehab/.env.telegram-bot
+ExecStart=/usr/bin/env python3 /opt/rehab/scripts/telegram_issue_bot.py
 Restart=always
 RestartSec=5
 

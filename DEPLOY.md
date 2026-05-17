@@ -28,13 +28,15 @@ sudo ufw enable
 Example:
 
 ```bash
-scp -r ./rehab user@your-vps-ip:/home/user/rehab
+sudo mkdir -p /opt/rehab
+sudo chown deploy:deploy /opt/rehab
+scp -r ./rehab deploy@your-vps-ip:/opt/rehab
 ```
 
 ## 4. Start the app in production mode
 
 ```bash
-cd /home/user/rehab
+cd /opt/rehab
 cp .env.production.example .env.production
 chmod 600 .env.production
 docker compose -f docker-compose.prod.yml up -d --build
@@ -61,13 +63,13 @@ GitHub Actions deploy secrets:
 - `VPS_USER`: `deploy`.
 - `VPS_SSH_KEY`: private key for that deploy user only. Do not reuse a personal SSH key.
 
-The deploy workflow only needs repository read access, SSH to the VPS as `deploy`, and permission to run `/home/ubuntu/rehab/deploy.sh`. It does not need GitHub write permissions, repository administration permissions, or access to production application secrets.
+The deploy workflow only needs repository read access, SSH to the VPS as `deploy`, and permission to run `/opt/rehab/deploy.sh`. It does not need GitHub write permissions, repository administration permissions, or access to production application secrets.
 
 Current production setup:
 
 - GitHub Actions connects as `deploy`.
 - `deploy` has a dedicated SSH key and Docker access.
-- `deploy` can access `/home/ubuntu/rehab` for deployment.
+- `deploy` owns `/opt/rehab` for deployment.
 - `ubuntu` remains the manual admin fallback account and is not used by the deploy workflow.
 - If an older GitHub Actions deploy key still exists, revoke it after confirming the workflow succeeds with the `deploy` key.
 
@@ -102,7 +104,7 @@ npm run build
 ```
 
 ```bash
-cd /home/user/rehab
+cd /opt/rehab
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
@@ -119,7 +121,7 @@ This project includes a small Telegram bot that can turn a message into a GitHub
 1. Copy the environment example:
 
 ```bash
-cd /home/user/rehab
+cd /opt/rehab
 cp .env.telegram-bot.example .env.telegram-bot
 chmod 600 .env.telegram-bot
 ```
