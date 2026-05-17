@@ -58,10 +58,18 @@ Production environment notes:
 GitHub Actions deploy secrets:
 
 - `VPS_HOST`: production host name or IP only.
-- `VPS_USER`: the SSH user used for deployment. Prefer a dedicated deploy user with Docker access and no broad sudo access.
+- `VPS_USER`: `deploy`.
 - `VPS_SSH_KEY`: private key for that deploy user only. Do not reuse a personal SSH key.
 
-The deploy workflow only needs repository read access, SSH to the VPS, and permission to run `/home/ubuntu/rehab/deploy.sh`. It does not need GitHub write permissions, repository administration permissions, or access to production application secrets.
+The deploy workflow only needs repository read access, SSH to the VPS as `deploy`, and permission to run `/home/ubuntu/rehab/deploy.sh`. It does not need GitHub write permissions, repository administration permissions, or access to production application secrets.
+
+Current production setup:
+
+- GitHub Actions connects as `deploy`.
+- `deploy` has a dedicated SSH key and Docker access.
+- `deploy` can access `/home/ubuntu/rehab` for deployment.
+- `ubuntu` remains the manual admin fallback account and is not used by the deploy workflow.
+- If an older GitHub Actions deploy key still exists, revoke it after confirming the workflow succeeds with the `deploy` key.
 
 ## 5. Configure host Nginx
 
