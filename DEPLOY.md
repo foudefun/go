@@ -35,6 +35,8 @@ scp -r ./rehab user@your-vps-ip:/home/user/rehab
 
 ```bash
 cd /home/user/rehab
+cp .env.production.example .env.production
+chmod 600 .env.production
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
@@ -44,6 +46,13 @@ The production compose file binds:
 - backend to `127.0.0.1:8000`
 
 That keeps the containers private behind host Nginx.
+
+Production environment notes:
+
+- Keep real secrets only in `.env.production`; it is ignored by git.
+- `REHAB_DEFAULT_PASSWORD` is needed only when creating the very first admin in an empty database. Remove it from `.env.production` after the admin account exists.
+- Do not put API tokens, private keys, or real passwords in compose files or committed docs.
+- Confirm `.env.production` is not served by Nginx; the production Nginx config blocks `.env*` probes.
 
 ## 5. Configure host Nginx
 

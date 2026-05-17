@@ -33,6 +33,7 @@ uploads/
 # Docker / local env leftovers
 .env
 .env.*
+!.env.production.example
 
 # Generated previews / extracted assets / reports
 .pdf_preview/
