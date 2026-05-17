@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { api, clearStoredAuth, getStoredAuth, storeAuth } from "../api/client.js";
+import { api, clearStoredAuth, storeAuth } from "../api/client.js";
 
 const AuthContext = createContext(null);
 
@@ -21,13 +21,6 @@ export function AuthProvider({ children }) {
   const [error, setError] = useState("");
 
   const refreshUser = useCallback(async () => {
-    const { token } = getStoredAuth();
-    if (!token) {
-      setUser(null);
-      setIsBootstrapping(false);
-      return null;
-    }
-
     try {
       const payload = await api("/auth/me", {}, { allowUnauthorized: true });
       const normalized = normalizeUser(payload);
@@ -37,7 +30,7 @@ export function AuthProvider({ children }) {
     } catch (refreshError) {
       clearStoredAuth();
       setUser(null);
-      setError(refreshError.message);
+      setError(refreshError.message === "Authentication required" || refreshError.message === "Invalid session" ? "" : refreshError.message);
       return null;
     } finally {
       setIsBootstrapping(false);

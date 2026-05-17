@@ -114,11 +114,10 @@ def test_mutations_require_csrf_token():
     with TestClient(main.app) as test_client:
         login = test_client.post("/api/auth/login", json={"username": username, "password": password})
         assert login.status_code == 200, login.text
-        token = login.json()["token"]
+        assert main.AUTH_COOKIE_NAME in test_client.cookies
 
         response = test_client.put(
             "/api/auth/preferences",
-            headers={"Authorization": f"Bearer {token}"},
             json={"language": "en"},
         )
         assert response.status_code == 403
@@ -140,17 +139,36 @@ def test_mutations_accept_valid_csrf_token():
         login = test_client.post("/api/auth/login", json={"username": username, "password": password})
         assert login.status_code == 200, login.text
         payload = login.json()
+        assert "token" not in payload
+        assert payload["csrf_token"]
 
         response = test_client.put(
             "/api/auth/preferences",
-            headers={
-                "Authorization": f"Bearer {payload['token']}",
-                "X-CSRF-Token": payload["csrf_token"],
-            },
+            headers={"X-CSRF-Token": payload["csrf_token"]},
             json={"language": "en"},
         )
         assert response.status_code == 200
         assert response.json()["language"] == "en"
+
+
+def test_auth_me_refreshes_csrf_from_cookie():
+    username = f"cookie-user-{uuid4().hex[:8]}"
+    password = "correct-password"
+    db = main.SessionLocal()
+    try:
+        salt, password_hash = main.build_password_record(password)
+        db.add(main.UserModel(username=username, password_hash=password_hash, password_salt=salt, is_admin=False))
+        db.commit()
+    finally:
+        db.close()
+
+    with TestClient(main.app) as test_client:
+        login = test_client.post("/api/auth/login", json={"username": username, "password": password})
+        assert login.status_code == 200, login.text
+        response = test_client.get("/api/auth/me")
+        assert response.status_code == 200
+        assert response.json()["username"] == username
+        assert response.json()["csrf_token"] == login.json()["csrf_token"]
 
 
 def test_image_upload_size_limit_is_enforced(client):

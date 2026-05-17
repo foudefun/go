@@ -15,7 +15,7 @@ function installLocalStorage() {
 test("api sends CSRF header for authenticated mutations", async () => {
   installLocalStorage();
   clearStoredAuth();
-  storeAuth({ token: "auth-token", username: "user", csrf_token: "csrf-token" });
+  storeAuth({ username: "user", csrf_token: "csrf-token" });
 
   let request = null;
   globalThis.fetch = async (url, options) => {
@@ -26,19 +26,19 @@ test("api sends CSRF header for authenticated mutations", async () => {
   await api("/auth/preferences", { method: "PUT", headers: { "Content-Type": "application/json" }, body: "{}" });
 
   assert.equal(request.url, "/api/auth/preferences");
-  assert.equal(request.options.headers.Authorization, "Bearer auth-token");
   assert.equal(request.options.headers["X-CSRF-Token"], "csrf-token");
+  assert.equal(request.options.credentials, "same-origin");
 });
 
 test("api does not send CSRF header for login", async () => {
   installLocalStorage();
   clearStoredAuth();
-  storeAuth({ token: "auth-token", username: "user", csrf_token: "csrf-token" });
+  storeAuth({ username: "user", csrf_token: "csrf-token" });
 
   let request = null;
   globalThis.fetch = async (url, options) => {
     request = { url, options };
-    return new Response(JSON.stringify({ token: "new-token", username: "user", csrf_token: "new-csrf" }), { status: 200 });
+    return new Response(JSON.stringify({ username: "user", csrf_token: "new-csrf" }), { status: 200 });
   };
 
   await api("/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });

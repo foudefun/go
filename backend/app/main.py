@@ -17,7 +17,7 @@ from urllib.parse import quote, urlparse
 from urllib.request import Request, urlopen
 from xml.etree import ElementTree as ET
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request as FastAPIRequest, UploadFile, status
+from fastapi import Cookie, Depends, FastAPI, File, Form, Header, HTTPException, Request as FastAPIRequest, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
@@ -53,6 +53,7 @@ app.add_middleware(
 CSRF_HEADER_NAME = "x-csrf-token"
 CSRF_EXEMPT_PATHS = {"/api/auth/login"}
 CSRF_MUTATION_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+AUTH_COOKIE_NAME = "rehab_session"
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 db_path_setting = os.getenv("REHAB_DB_PATH", str(BACKEND_DIR / "data" / "dev.sqlite"))
@@ -91,6 +92,10 @@ MAX_ACTIVITY_SOURCE_UPLOAD_BYTES = int(os.getenv("REHAB_MAX_ACTIVITY_SOURCE_UPLO
 LOGIN_LOCK_MAX_FAILURES = int(os.getenv("REHAB_LOGIN_LOCK_MAX_FAILURES", "6"))
 LOGIN_LOCK_WINDOW_MINUTES = int(os.getenv("REHAB_LOGIN_LOCK_WINDOW_MINUTES", "10"))
 LOGIN_LOCK_DURATION_MINUTES = int(os.getenv("REHAB_LOGIN_LOCK_DURATION_MINUTES", "15"))
+
+def should_secure_auth_cookie(request: FastAPIRequest) -> bool:
+    host = str(request.headers.get("host", "") or "").split(":", 1)[0].lower()
+    return host not in {"localhost", "127.0.0.1", "::1", "testserver"}
 
 class SessionModel(Base):
     __tablename__ = "sessions"
@@ -3855,14 +3860,25 @@ def create_auth_token(db, username: str):
     db.commit()
     return token, expires_at.isoformat()
 
-def get_authorized_user(authorization: str | None):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+def extract_auth_token(authorization: str | None = None, session_cookie: str | None = None) -> str:
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+        if token:
+            return token
+    token = str(session_cookie or "").strip()
+    if token:
+        return token
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
 
-    token = authorization.split(" ", 1)[1].strip()
-    if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
 
+def extract_optional_auth_token(authorization: str | None = None, session_cookie: str | None = None) -> str:
+    try:
+        return extract_auth_token(authorization, session_cookie)
+    except HTTPException:
+        return ""
+
+
+def get_authorized_user(token: str):
     db = get_db()
     try:
         purge_expired_tokens(db)
@@ -3877,18 +3893,21 @@ def get_authorized_user(authorization: str | None):
     finally:
         db.close()
 
-def get_current_user(authorization: str | None = Header(default=None)):
-    return get_authorized_user(authorization)
+def get_current_user(
+    authorization: str | None = Header(default=None),
+    session_cookie: str | None = Cookie(default=None, alias=AUTH_COOKIE_NAME),
+):
+    return get_authorized_user(extract_auth_token(authorization, session_cookie))
 
-def get_current_token(authorization: str | None = Header(default=None)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
-    return authorization.split(" ", 1)[1].strip()
+def get_current_token(
+    authorization: str | None = Header(default=None),
+    session_cookie: str | None = Cookie(default=None, alias=AUTH_COOKIE_NAME),
+):
+    return extract_auth_token(authorization, session_cookie)
 
-def verify_csrf_token(authorization: str | None, csrf_token: str | None) -> bool:
-    if not authorization or not authorization.startswith("Bearer "):
+def verify_csrf_token(token: str | None, csrf_token: str | None) -> bool:
+    if not token:
         return False
-    token = authorization.split(" ", 1)[1].strip()
     expected = build_csrf_token(token) if token else ""
     provided = str(csrf_token or "").strip()
     return bool(expected and provided and hmac.compare_digest(provided, expected))
@@ -3900,7 +3919,10 @@ async def require_csrf_for_mutations(request: FastAPIRequest, call_next):
         and request.url.path.startswith("/api/")
         and request.url.path not in CSRF_EXEMPT_PATHS
         and get_current_user not in app.dependency_overrides
-        and not verify_csrf_token(request.headers.get("authorization"), request.headers.get(CSRF_HEADER_NAME))
+        and not verify_csrf_token(
+            extract_optional_auth_token(request.headers.get("authorization"), request.cookies.get(AUTH_COOKIE_NAME)),
+            request.headers.get(CSRF_HEADER_NAME),
+        )
     ):
         return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": "CSRF token is required"})
     return await call_next(request)
@@ -4489,7 +4511,7 @@ def save_climbing_calibration(
         db.close()
 
 @app.post("/api/auth/login")
-def login(payload: dict, request: FastAPIRequest):
+def login(payload: dict, request: FastAPIRequest, response: Response):
     username = str(payload.get("username", "")).strip()
     password = str(payload.get("password", ""))
     if not username or not password:
@@ -4535,10 +4557,17 @@ def login(payload: dict, request: FastAPIRequest):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
         token, expires_at = create_auth_token(db, user.username)
+        response.set_cookie(
+            AUTH_COOKIE_NAME,
+            token,
+            httponly=True,
+            secure=should_secure_auth_cookie(request),
+            samesite="lax",
+            max_age=TOKEN_TTL_HOURS * 60 * 60,
+        )
         write_audit_log(db, user.username, "login", "auth", user.username, "User logged in")
         db.commit()
         return {
-            "token": token,
             "csrf_token": build_csrf_token(token),
             "username": user.username,
             "is_admin": bool(user.is_admin),
@@ -4564,12 +4593,15 @@ def read_current_user(
 
 @app.post("/api/auth/logout")
 def logout(
+    request: FastAPIRequest,
+    response: Response,
     current_user: UserModel = Depends(get_current_user),
     token: str = Depends(get_current_token),
 ):
     db = get_db()
     try:
         db.query(AuthTokenModel).filter_by(token_hash=hash_token(token)).delete()
+        response.delete_cookie(AUTH_COOKIE_NAME, secure=should_secure_auth_cookie(request), httponly=True, samesite="lax")
         write_audit_log(db, current_user.username, "logout", "auth", current_user.username, "User logged out")
         db.commit()
         return {"ok": True}
