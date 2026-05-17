@@ -17,7 +17,7 @@ from urllib.parse import quote, urlparse
 from urllib.request import Request, urlopen
 from xml.etree import ElementTree as ET
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request as FastAPIRequest, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -84,6 +84,9 @@ TOKEN_TTL_HOURS = int(os.getenv("REHAB_TOKEN_TTL_HOURS", "168"))
 PASSWORD_ITERATIONS = 200_000
 MAX_IMAGE_UPLOAD_BYTES = int(os.getenv("REHAB_MAX_IMAGE_UPLOAD_BYTES", str(5 * 1024 * 1024)))
 MAX_ACTIVITY_SOURCE_UPLOAD_BYTES = int(os.getenv("REHAB_MAX_ACTIVITY_SOURCE_UPLOAD_BYTES", str(25 * 1024 * 1024)))
+LOGIN_LOCK_MAX_FAILURES = int(os.getenv("REHAB_LOGIN_LOCK_MAX_FAILURES", "6"))
+LOGIN_LOCK_WINDOW_MINUTES = int(os.getenv("REHAB_LOGIN_LOCK_WINDOW_MINUTES", "10"))
+LOGIN_LOCK_DURATION_MINUTES = int(os.getenv("REHAB_LOGIN_LOCK_DURATION_MINUTES", "15"))
 
 class SessionModel(Base):
     __tablename__ = "sessions"
@@ -2496,6 +2499,44 @@ def write_security_audit_log(username: str, action: str, target_type: str, targe
         db.close()
 
 
+def get_client_ip(request: FastAPIRequest | None) -> str:
+    if not request or not request.client:
+        return "unknown"
+    forwarded_for = str(request.headers.get("x-forwarded-for", "") or "").split(",", 1)[0].strip()
+    return forwarded_for or request.client.host or "unknown"
+
+
+def login_lock_key(username: str, client_ip: str) -> str:
+    return f"{normalize_text_key(username) or 'unknown'}|{str(client_ip or 'unknown').strip() or 'unknown'}"
+
+
+def is_login_locked(db, username: str, client_ip: str) -> bool:
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=LOGIN_LOCK_DURATION_MINUTES)).isoformat()
+    return (
+        db.query(AuditLogModel)
+        .filter(
+            AuditLogModel.action == "login_locked",
+            AuditLogModel.target_key == login_lock_key(username, client_ip),
+            AuditLogModel.created_at >= cutoff,
+        )
+        .first()
+        is not None
+    )
+
+
+def failed_login_count(db, username: str, client_ip: str) -> int:
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=LOGIN_LOCK_WINDOW_MINUTES)).isoformat()
+    return (
+        db.query(AuditLogModel)
+        .filter(
+            AuditLogModel.action == "login_failed",
+            AuditLogModel.target_key == login_lock_key(username, client_ip),
+            AuditLogModel.created_at >= cutoff,
+        )
+        .count()
+    )
+
+
 def merge_exercise_rows(target_row: ExerciseModel, source_row: ExerciseModel) -> None:
     target_categories = split_exercise_categories(target_row.category or "")
     source_categories = split_exercise_categories(source_row.category or "")
@@ -4322,7 +4363,7 @@ def save_climbing_calibration(
         db.close()
 
 @app.post("/api/auth/login")
-def login(payload: dict):
+def login(payload: dict, request: FastAPIRequest):
     username = str(payload.get("username", "")).strip()
     password = str(payload.get("password", ""))
     if not username or not password:
@@ -4330,7 +4371,21 @@ def login(payload: dict):
 
     db = get_db()
     try:
+        client_ip = get_client_ip(request)
+        target_key = login_lock_key(username, client_ip)
         purge_expired_tokens(db)
+        if is_login_locked(db, username, client_ip):
+            write_audit_log(
+                db,
+                username,
+                "login_locked",
+                "auth",
+                target_key,
+                f"Login blocked after repeated failures from {client_ip}",
+            )
+            db.commit()
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many login attempts. Try again later.")
+
         user = db.query(UserModel).filter_by(username=username).first()
         if not user or not verify_password(password, user.password_salt, user.password_hash):
             write_audit_log(
@@ -4338,9 +4393,18 @@ def login(payload: dict):
                 username,
                 "login_failed",
                 "auth",
-                username,
-                "Invalid username or password",
+                target_key,
+                f"Invalid username or password from {client_ip}",
             )
+            if failed_login_count(db, username, client_ip) >= LOGIN_LOCK_MAX_FAILURES:
+                write_audit_log(
+                    db,
+                    username,
+                    "login_locked",
+                    "auth",
+                    target_key,
+                    f"Login locked after {LOGIN_LOCK_MAX_FAILURES} failures from {client_ip}",
+                )
             db.commit()
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
@@ -4526,7 +4590,7 @@ def admin_activity_summary(_: UserModel = Depends(require_admin)):
             "logins_7d": logins_7d,
             "session_actions_7d": session_actions_7d,
             "latest_by_user": latest_by_user,
-            "latest_security": latest_actions(["login_failed", "admin_access_denied"], 8),
+            "latest_security": latest_actions(["login_failed", "login_locked", "admin_access_denied"], 8),
             "latest_imports": latest_actions(["import_program", "import_activity_file"], 5),
             "latest_sessions": latest_actions(["save_session", "import_activity_file"], 5),
         }

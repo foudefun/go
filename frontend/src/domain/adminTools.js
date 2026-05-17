@@ -1,6 +1,7 @@
 export const ADMIN_ACTIONS = [
   "login",
   "login_failed",
+  "login_locked",
   "logout",
   "change_password",
   "admin_access_denied",

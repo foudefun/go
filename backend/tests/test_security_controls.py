@@ -1,4 +1,5 @@
 from app import main
+from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
 from uuid import uuid4
 
@@ -42,6 +43,59 @@ def test_failed_login_is_audited():
         assert log.target_type == "auth"
     finally:
         db.close()
+
+
+def test_login_locks_after_six_failures():
+    username = f"locked-user-{uuid4().hex[:8]}"
+    db = main.SessionLocal()
+    try:
+        salt, password_hash = main.build_password_record("correct-password")
+        db.add(main.UserModel(username=username, password_hash=password_hash, password_salt=salt, is_admin=False))
+        db.commit()
+    finally:
+        db.close()
+
+    with TestClient(main.app) as test_client:
+        for _ in range(6):
+            response = test_client.post("/api/auth/login", json={"username": username, "password": "wrong-password"})
+            assert response.status_code == 401
+
+        locked_response = test_client.post("/api/auth/login", json={"username": username, "password": "correct-password"})
+        assert locked_response.status_code == 429
+
+    db = main.SessionLocal()
+    try:
+        key = main.login_lock_key(username, "testclient")
+        assert db.query(main.AuditLogModel).filter_by(action="login_failed", target_key=key).count() == 6
+        assert db.query(main.AuditLogModel).filter_by(action="login_locked", target_key=key).count() >= 1
+    finally:
+        db.close()
+
+
+def test_login_lock_expires_after_duration():
+    username = f"expired-lock-user-{uuid4().hex[:8]}"
+    db = main.SessionLocal()
+    try:
+        salt, password_hash = main.build_password_record("correct-password")
+        db.add(main.UserModel(username=username, password_hash=password_hash, password_salt=salt, is_admin=False))
+        old_time = (datetime.now(timezone.utc) - timedelta(minutes=main.LOGIN_LOCK_DURATION_MINUTES + 1)).isoformat()
+        db.add(
+            main.AuditLogModel(
+                username=username,
+                action="login_locked",
+                target_type="auth",
+                target_key=main.login_lock_key(username, "testclient"),
+                summary="old lock",
+                created_at=old_time,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    with TestClient(main.app) as test_client:
+        response = test_client.post("/api/auth/login", json={"username": username, "password": "correct-password"})
+        assert response.status_code == 200
 
 
 def test_image_upload_size_limit_is_enforced(client):
