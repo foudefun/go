@@ -297,9 +297,22 @@ function TaxonomyPanel({
 }) {
   const { t } = useTranslation();
   const [activeCreator, setActiveCreator] = useState("");
-  const brandModels = modelsForBrand(models, modelDraft.brand_id || brands[0]?.id);
+  const [selectedBrandId, setSelectedBrandId] = useState(brands[0]?.id || "");
+  const selectedBrand = brands.find((brand) => Number(brand.id) === Number(selectedBrandId)) || brands[0] || null;
+  const activeBrandId = selectedBrand?.id || "";
+  const brandModels = modelsForBrand(models, activeBrandId);
   const showBrandEditor = activeCreator === "brand" || Boolean(editingBrandId);
   const showModelEditor = activeCreator === "model" || Boolean(editingModelId);
+
+  useEffect(() => {
+    if (!brands.length) {
+      setSelectedBrandId("");
+      return;
+    }
+    if (!brands.some((brand) => Number(brand.id) === Number(selectedBrandId))) {
+      setSelectedBrandId(brands[0].id);
+    }
+  }, [brands, selectedBrandId]);
 
   function closeBrandEditor() {
     onCancelBrand();
@@ -334,20 +347,25 @@ function TaxonomyPanel({
             <h2>{t("Brands and models")}</h2>
           </div>
           <div className="compact-actions">
-            <button type="button" onClick={() => {
-              onCancelModel();
-              onCancelBrand();
-              setActiveCreator((current) => (current === "brand" ? "" : "brand"));
-            }}>
-              {t("New brand")}
-            </button>
-            <button type="button" onClick={() => {
-              onCancelBrand();
-              onCancelModel();
-              setActiveCreator((current) => (current === "model" ? "" : "model"));
-            }}>
-              {t("New model")}
-            </button>
+            {canDelete ? (
+              <>
+                <button type="button" onClick={() => {
+                  onCancelModel();
+                  onCancelBrand();
+                  setActiveCreator((current) => (current === "brand" ? "" : "brand"));
+                }}>
+                  {t("New brand")}
+                </button>
+                <button type="button" onClick={() => {
+                  onCancelBrand();
+                  onCancelModel();
+                  onModelDraftChange((current) => ({ ...current, brand_id: activeBrandId || current.brand_id }));
+                  setActiveCreator((current) => (current === "model" ? "" : "model"));
+                }}>
+                  {t("New model")}
+                </button>
+              </>
+            ) : null}
           </div>
         </header>
       </div>
@@ -424,7 +442,8 @@ function TaxonomyPanel({
         <header className="strength-editor-header">
           <div>
             <p className="eyebrow">{t("Models")}</p>
-            <h2>{t("Models")}</h2>
+            <h2>{selectedBrand ? selectedBrand.name : t("Models")}</h2>
+            <span>{t("Selected brand")}</span>
           </div>
         </header>
         <div className="taxonomy-list">
@@ -435,16 +454,18 @@ function TaxonomyPanel({
                 <small>{model.brand_name || model.created_at}</small>
               </div>
               <div className="compact-actions">
-                <button type="button" onClick={() => {
-                  setActiveCreator("model");
-                  onEditModel(model);
-                }}>
-                  {t("Edit")}
-                </button>
                 {canDelete ? (
-                  <button type="button" onClick={() => onDeleteModel(model)}>
-                    {t("Delete")}
-                  </button>
+                  <>
+                    <button type="button" onClick={() => {
+                      setActiveCreator("model");
+                      onEditModel(model);
+                    }}>
+                      {t("Edit")}
+                    </button>
+                    <button type="button" onClick={() => onDeleteModel(model)}>
+                      {t("Delete")}
+                    </button>
+                  </>
                 ) : null}
               </div>
             </article>
@@ -514,16 +535,21 @@ function TaxonomyPanel({
                     <small>{[brand.country_name, brand.country_iso_code, brand.year_established ? `${t("Established")} ${brand.year_established}` : "", brand.is_active === false ? t("Inactive") : t("Active")].filter(Boolean).join(" - ") || brand.created_at}</small>
                   </div>
                   <div className="compact-actions">
-                    <button type="button" onClick={() => {
-                      setActiveCreator("brand");
-                      onEditBrand(brand);
-                    }}>
-                      {t("Edit")}
+                    <button type="button" className={Number(activeBrandId) === Number(brand.id) ? "primary-action" : ""} onClick={() => setSelectedBrandId(brand.id)}>
+                      {Number(activeBrandId) === Number(brand.id) ? t("Selected") : t("Select")}
                     </button>
                     {canDelete ? (
-                      <button type="button" onClick={() => onDeleteBrand(brand)}>
-                        {t("Delete")}
-                      </button>
+                      <>
+                        <button type="button" onClick={() => {
+                          setActiveCreator("brand");
+                          onEditBrand(brand);
+                        }}>
+                          {t("Edit")}
+                        </button>
+                        <button type="button" onClick={() => onDeleteBrand(brand)}>
+                          {t("Delete")}
+                        </button>
+                      </>
                     ) : null}
                   </div>
                 </div>
