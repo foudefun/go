@@ -286,10 +286,6 @@ function ExerciseEditor({
             ))}
           </select>
         </label>
-        <label>
-          {t("Primary image URL")}
-          <input value={draft.image || ""} onChange={(event) => updateField("image", event.target.value)} placeholder="/api/uploads/exercises/..." />
-        </label>
       </div>
 
       <div className="category-choice-panel">

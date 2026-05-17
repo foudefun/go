@@ -151,7 +151,6 @@ const FR = {
   Provider: "Fournisseur",
   "PNG, JPEG, WebP or GIF": "PNG, JPEG, WebP ou GIF",
   "Primary source": "Source principale",
-  "Primary image URL": "URL de l'image principale",
   "Reps / weight": "Repetitions / poids",
   "Reps and weight": "Repetitions et poids",
   "Save Exercise": "Enregistrer l'exercice",
