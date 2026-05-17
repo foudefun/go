@@ -76,6 +76,8 @@ Equipment brands, models, versions, variants, and owned items are normalized in 
 
 The `/api/equipment` and `/api/my-equipment` endpoints keep their existing frontend-facing shape where practical, but they now persist to model versions and owned items. Purchase price and currency belong to `equipment_items` or `equipment_item_events`, not to generic models or model versions.
 
+Production deploy imports both `imports/equipment_brands_enriched.csv` and `imports/equipment_models_seed.csv`. The models seed favors broad model-line coverage over invented year data; add verified year/generation rows to the CSV when available.
+
 ## Fast deployment on the VPS
 
 From the project directory on the VPS:

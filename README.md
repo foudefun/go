@@ -61,6 +61,8 @@ Equipment now uses the normalized catalog structure:
 
 Purchase price and currency are stored on owned items/events, not on models or model versions, because price depends on the buyer, shop, date, condition, discount, and resale context.
 
+Seed data for model lines lives in `imports/equipment_models_seed.csv` and is imported by `scripts/import_equipment_models.py`. Release years are intentionally left empty unless they are verified; add dated generations as extra CSV rows when the source is reliable.
+
 ## Deployment
 
 See [DEPLOY.md](DEPLOY.md) for VPS setup and [WORKFLOW.md](WORKFLOW.md) for local development and deployment workflow.
