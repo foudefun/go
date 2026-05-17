@@ -2,7 +2,6 @@
 
 ## High priority
 
-- Complete a real production pass through the migrated calendar/day editor, including activity image upload and delete.
 - Remove `legacy.html` after one stable release without needing fallback links.
 - Expand automated backend coverage around sessions, equipment foreign keys, and import workflows.
 - Finish translating remaining older admin/import/outdoor-climbing labels that are still hardcoded in React.
