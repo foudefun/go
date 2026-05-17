@@ -53,7 +53,7 @@ Production environment notes:
 
 - Keep real secrets only in `.env.production`; it is ignored by git.
 - `REHAB_DEFAULT_PASSWORD` is needed only when creating the very first admin in an empty database. Remove it from `.env.production` after the admin account exists.
-- `REHAB_ALLOW_BEARER_AUTH=true` keeps temporary compatibility for old clients that still send `Authorization: Bearer ...`. Once the admin security events show no legitimate `bearer_auth_used` entries, switch it to `false` and redeploy.
+- Keep `REHAB_ALLOW_BEARER_AUTH=false` in production. Re-enable it only for a short, explicit migration window if an old client still sends `Authorization: Bearer ...`.
 - Do not put API tokens, private keys, or real passwords in compose files or committed docs.
 - Confirm `.env.production` is not served by Nginx; the production Nginx config blocks `.env*` probes.
 

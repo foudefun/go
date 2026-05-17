@@ -18,6 +18,7 @@
 
 ## Technical
 
+- Remove VPS backup `/home/ubuntu/rehab.backup.20260517-213317` after the `/opt/rehab` deployment path has stayed stable for a few days.
 - Move the backend out of the single large `main.py` into modules for auth, sessions, exercises, equipment, climbing, and admin.
 - Replace lightweight SQLite startup migrations with a real migration tool before the next large schema change.
 - Decide whether production deploy should stay manual-only or restore GitHub Actions with fixed VPS secrets.
