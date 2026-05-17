@@ -176,7 +176,7 @@ function ExerciseEditor({
   function updateField(field, value) {
     onChange((current) => {
       const next = { ...current, [field]: value };
-      if (field === "display_name" && mode === "create" && !current.name) {
+      if ((field === "display_name_fr" || field === "display_name_en") && mode === "create" && !current.name) {
         next.name = slugifyExerciseName(value);
       }
       return next;
@@ -234,14 +234,6 @@ function ExerciseEditor({
       </header>
 
       <div className="form-grid">
-        <label>
-          {t("Display name")}
-          <input
-            value={draft.display_name || ""}
-            onChange={(event) => updateField("display_name", event.target.value)}
-            placeholder="Back squat"
-          />
-        </label>
         <label>
           {t("Technical name")}
           <input
@@ -514,6 +506,7 @@ export default function ExercisesPage() {
 
   async function handleSave() {
     const payload = normalizeExerciseDraft(draft);
+    payload.display_name = payload.display_name_fr || payload.display_name_en || payload.display_name || payload.name.replaceAll("_", " ");
     if (!payload.name) return;
     setStatus("saving");
     setError("");
