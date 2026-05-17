@@ -176,6 +176,69 @@ export function getEquipmentSearchText(equipment = {}) {
     .toLowerCase();
 }
 
+const EQUIPMENT_ACTIVITY_RULES = [
+  {
+    value: "course_a_pied",
+    tokens: ["course a pied", "course", "running", "run", "trail running", "trail", "jog"],
+  },
+  {
+    value: "velo",
+    tokens: ["velo", "vélo", "cycling", "cyclisme", "bike", "road bike", "gravel", "trainer", "mywhoosh", "zwift"],
+  },
+  {
+    value: "vtt",
+    tokens: ["vtt", "mtb", "mountain bike", "enduro bike", "downhill"],
+  },
+  {
+    value: "hockey",
+    tokens: ["hockey", "stick", "skate", "puck", "bauer", "ccm"],
+  },
+  {
+    value: "escalade",
+    tokens: ["escalade", "climbing", "climb", "bouldering", "bloc", "rope", "harness", "belay", "grigri", "carabiner", "quickdraw"],
+  },
+  {
+    value: "outdoor_climbing",
+    tokens: ["outdoor climbing", "alpinism", "alpinisme", "mountaineering", "via ferrata", "ice climbing", "crampon", "ice axe"],
+  },
+  {
+    value: "musculation",
+    tokens: ["musculation", "strength", "fitness", "gym", "barbell", "dumbbell", "kettlebell", "rack", "bench"],
+  },
+  {
+    value: "yoga",
+    tokens: ["yoga", "yoga mat"],
+  },
+  {
+    value: "pilates",
+    tokens: ["pilates", "reformer"],
+  },
+];
+
+function normalizedEquipmentText(equipment = {}) {
+  return getEquipmentSearchText(equipment)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+export function getEquipmentActivityTypes(equipment = {}) {
+  const text = normalizedEquipmentText(equipment);
+  if (!text.trim()) return [];
+  return EQUIPMENT_ACTIVITY_RULES.filter((rule) => rule.tokens.some((token) => text.includes(token.normalize("NFD").replace(/[\u0300-\u036f]/g, "")))).map(
+    (rule) => rule.value,
+  );
+}
+
+export function getEquipmentActivities(equipment = []) {
+  return Array.from(
+    new Set(
+      (Array.isArray(equipment) ? equipment : [])
+        .flatMap((item) => getEquipmentActivityTypes(item))
+        .filter(Boolean),
+    ),
+  );
+}
+
 export function getEquipmentCategories(equipment = []) {
   return Array.from(
     new Set(
@@ -190,11 +253,13 @@ export function filterEquipment(equipment = [], filters = {}) {
   const query = String(filters.query || "").trim().toLowerCase();
   const brandId = normalizeOptionalInt(filters.brandId);
   const category = String(filters.category || "").trim();
+  const activity = String(filters.activity || "").trim();
 
   return (Array.isArray(equipment) ? equipment : [])
     .filter((item) => {
       if (brandId && Number(item.brand_id) !== brandId) return false;
       if (category && item.category !== category) return false;
+      if (activity && !getEquipmentActivityTypes(item).includes(activity)) return false;
       if (!query) return true;
       return getEquipmentSearchText(item).includes(query);
     })

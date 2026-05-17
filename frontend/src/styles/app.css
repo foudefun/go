@@ -808,7 +808,7 @@ label {
 
 .equipment-toolbar {
   display: grid;
-  grid-template-columns: auto minmax(180px, 1fr) minmax(150px, 220px) minmax(150px, 220px);
+  grid-template-columns: auto minmax(180px, 1fr) minmax(150px, 210px) minmax(150px, 210px) minmax(150px, 210px);
   align-items: end;
 }
 

@@ -19,12 +19,14 @@ import {
   updateMyEquipment,
 } from "../api/equipmentApi.js";
 import { useAuth } from "../auth/AuthProvider.jsx";
+import { ACTIVITY_TYPES, getActivityTypeLabel } from "../domain/activityTypes.js";
 import {
   blankBrand,
   blankEquipment,
   blankModel,
   blankPurchase,
   filterEquipment,
+  getEquipmentActivities,
   getEquipmentCategories,
   getEquipmentLabel,
   modelsForBrand,
@@ -626,6 +628,7 @@ export default function EquipmentPage() {
   const [error, setError] = useState("");
   const [view, setView] = useState("catalog");
   const [query, setQuery] = useState("");
+  const [activity, setActivity] = useState("");
   const [brandId, setBrandId] = useState("");
   const [category, setCategory] = useState("");
   const [selectedEquipmentId, setSelectedEquipmentId] = useState("");
@@ -669,10 +672,14 @@ export default function EquipmentPage() {
     loadData("");
   }, [user?.language]);
 
+  const activities = useMemo(() => {
+    const available = new Set(getEquipmentActivities(equipment));
+    return ACTIVITY_TYPES.filter((activityType) => activityType.value && available.has(activityType.value));
+  }, [equipment]);
   const categories = useMemo(() => getEquipmentCategories(equipment), [equipment]);
   const filteredEquipment = useMemo(
-    () => filterEquipment(equipment, { query, brandId, category }),
-    [equipment, query, brandId, category],
+    () => filterEquipment(equipment, { query, activity, brandId, category }),
+    [equipment, query, activity, brandId, category],
   );
   const selectedEquipment = useMemo(
     () =>
@@ -873,6 +880,17 @@ export default function EquipmentPage() {
             <label>
               {t("Search")}
               <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`${t("Brand")}, ${t("Model")}, ${t("Category")}...`} />
+            </label>
+            <label>
+              {t("Activity")}
+              <select value={activity} onChange={(event) => setActivity(event.target.value)}>
+                <option value="">{t("All activities")}</option>
+                {activities.map((activityType) => (
+                  <option value={activityType.value} key={activityType.value}>
+                    {t(getActivityTypeLabel(activityType.value))}
+                  </option>
+                ))}
+              </select>
             </label>
             <label>
               {t("Brand")}
