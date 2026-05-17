@@ -19,7 +19,7 @@ from xml.etree import ElementTree as ET
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request as FastAPIRequest, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine, event
 from sqlalchemy.orm import object_session, sessionmaker, declarative_base
@@ -49,6 +49,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+CSRF_HEADER_NAME = "x-csrf-token"
+CSRF_EXEMPT_PATHS = {"/api/auth/login"}
+CSRF_MUTATION_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 db_path_setting = os.getenv("REHAB_DB_PATH", str(BACKEND_DIR / "data" / "dev.sqlite"))
@@ -3554,6 +3558,9 @@ def verify_password(password: str, salt: str, expected_hash: str) -> bool:
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
+def build_csrf_token(token: str) -> str:
+    return hmac.new(token.encode("utf-8"), b"rehab-csrf-token", hashlib.sha256).hexdigest()
+
 def purge_expired_tokens(db):
     now = datetime.now(timezone.utc)
     rows = db.query(AuthTokenModel).all()
@@ -3877,6 +3884,26 @@ def get_current_token(authorization: str | None = Header(default=None)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
     return authorization.split(" ", 1)[1].strip()
+
+def verify_csrf_token(authorization: str | None, csrf_token: str | None) -> bool:
+    if not authorization or not authorization.startswith("Bearer "):
+        return False
+    token = authorization.split(" ", 1)[1].strip()
+    expected = build_csrf_token(token) if token else ""
+    provided = str(csrf_token or "").strip()
+    return bool(expected and provided and hmac.compare_digest(provided, expected))
+
+@app.middleware("http")
+async def require_csrf_for_mutations(request: FastAPIRequest, call_next):
+    if (
+        request.method.upper() in CSRF_MUTATION_METHODS
+        and request.url.path.startswith("/api/")
+        and request.url.path not in CSRF_EXEMPT_PATHS
+        and get_current_user not in app.dependency_overrides
+        and not verify_csrf_token(request.headers.get("authorization"), request.headers.get(CSRF_HEADER_NAME))
+    ):
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": "CSRF token is required"})
+    return await call_next(request)
 
 def require_admin(current_user: UserModel = Depends(get_current_user)):
     if not current_user.is_admin:
@@ -4512,6 +4539,7 @@ def login(payload: dict, request: FastAPIRequest):
         db.commit()
         return {
             "token": token,
+            "csrf_token": build_csrf_token(token),
             "username": user.username,
             "is_admin": bool(user.is_admin),
             "language": normalize_language(user.language),
@@ -4522,12 +4550,16 @@ def login(payload: dict, request: FastAPIRequest):
         db.close()
 
 @app.get("/api/auth/me")
-def read_current_user(current_user: UserModel = Depends(get_current_user)):
+def read_current_user(
+    current_user: UserModel = Depends(get_current_user),
+    token: str = Depends(get_current_token),
+):
     return {
         "username": current_user.username,
         "is_admin": bool(current_user.is_admin),
         "language": normalize_language(current_user.language),
         "must_change_password": using_default_password(current_user),
+        "csrf_token": build_csrf_token(token),
     }
 
 @app.post("/api/auth/logout")

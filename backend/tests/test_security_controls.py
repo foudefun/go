@@ -100,6 +100,59 @@ def test_login_lock_expires_after_duration():
         assert response.status_code == 200
 
 
+def test_mutations_require_csrf_token():
+    username = f"csrf-user-{uuid4().hex[:8]}"
+    password = "correct-password"
+    db = main.SessionLocal()
+    try:
+        salt, password_hash = main.build_password_record(password)
+        db.add(main.UserModel(username=username, password_hash=password_hash, password_salt=salt, is_admin=False))
+        db.commit()
+    finally:
+        db.close()
+
+    with TestClient(main.app) as test_client:
+        login = test_client.post("/api/auth/login", json={"username": username, "password": password})
+        assert login.status_code == 200, login.text
+        token = login.json()["token"]
+
+        response = test_client.put(
+            "/api/auth/preferences",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"language": "en"},
+        )
+        assert response.status_code == 403
+        assert response.json()["detail"] == "CSRF token is required"
+
+
+def test_mutations_accept_valid_csrf_token():
+    username = f"csrf-ok-user-{uuid4().hex[:8]}"
+    password = "correct-password"
+    db = main.SessionLocal()
+    try:
+        salt, password_hash = main.build_password_record(password)
+        db.add(main.UserModel(username=username, password_hash=password_hash, password_salt=salt, is_admin=False))
+        db.commit()
+    finally:
+        db.close()
+
+    with TestClient(main.app) as test_client:
+        login = test_client.post("/api/auth/login", json={"username": username, "password": password})
+        assert login.status_code == 200, login.text
+        payload = login.json()
+
+        response = test_client.put(
+            "/api/auth/preferences",
+            headers={
+                "Authorization": f"Bearer {payload['token']}",
+                "X-CSRF-Token": payload["csrf_token"],
+            },
+            json={"language": "en"},
+        )
+        assert response.status_code == 200
+        assert response.json()["language"] == "en"
+
+
 def test_image_upload_size_limit_is_enforced(client):
     db = main.SessionLocal()
     try:
