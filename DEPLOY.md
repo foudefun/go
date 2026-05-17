@@ -55,6 +55,14 @@ Production environment notes:
 - Do not put API tokens, private keys, or real passwords in compose files or committed docs.
 - Confirm `.env.production` is not served by Nginx; the production Nginx config blocks `.env*` probes.
 
+GitHub Actions deploy secrets:
+
+- `VPS_HOST`: production host name or IP only.
+- `VPS_USER`: the SSH user used for deployment. Prefer a dedicated deploy user with Docker access and no broad sudo access.
+- `VPS_SSH_KEY`: private key for that deploy user only. Do not reuse a personal SSH key.
+
+The deploy workflow only needs repository read access, SSH to the VPS, and permission to run `/home/ubuntu/rehab/deploy.sh`. It does not need GitHub write permissions, repository administration permissions, or access to production application secrets.
+
 ## 5. Configure host Nginx
 
 Use `deploy/nginx/rehab.conf` as a template. It is currently set up for `go.foudefun.ch`:

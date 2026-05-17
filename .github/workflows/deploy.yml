@@ -3,6 +3,9 @@ name: Deploy Production
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: production-deploy
   cancel-in-progress: false
