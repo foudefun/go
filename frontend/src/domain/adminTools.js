@@ -7,6 +7,7 @@ export const ADMIN_ACTIONS = [
   "admin_access_denied",
   "activity_source_upload_rejected",
   "activity_source_upload_created",
+  "bearer_auth_used",
   "update_preferences",
   "create_user",
   "update_user_role",

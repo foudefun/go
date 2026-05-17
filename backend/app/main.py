@@ -36,6 +36,11 @@ def parse_env_csv(value: str) -> list[str]:
             seen.add(item)
     return items
 
+def parse_env_bool(value: str, default: bool = False) -> bool:
+    if str(value or "").strip() == "":
+        return default
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
 CORS_ALLOWED_ORIGINS = parse_env_csv(os.getenv("REHAB_CORS_ALLOWED_ORIGINS")) or [
     "https://go.foudefun.ch",
     "http://localhost",
@@ -92,6 +97,7 @@ MAX_ACTIVITY_SOURCE_UPLOAD_BYTES = int(os.getenv("REHAB_MAX_ACTIVITY_SOURCE_UPLO
 LOGIN_LOCK_MAX_FAILURES = int(os.getenv("REHAB_LOGIN_LOCK_MAX_FAILURES", "6"))
 LOGIN_LOCK_WINDOW_MINUTES = int(os.getenv("REHAB_LOGIN_LOCK_WINDOW_MINUTES", "10"))
 LOGIN_LOCK_DURATION_MINUTES = int(os.getenv("REHAB_LOGIN_LOCK_DURATION_MINUTES", "15"))
+ALLOW_BEARER_AUTH = parse_env_bool(os.getenv("REHAB_ALLOW_BEARER_AUTH"), True)
 
 def should_secure_auth_cookie(request: FastAPIRequest) -> bool:
     host = str(request.headers.get("host", "") or "").split(":", 1)[0].lower()
@@ -3861,13 +3867,20 @@ def create_auth_token(db, username: str):
     return token, expires_at.isoformat()
 
 def extract_auth_token(authorization: str | None = None, session_cookie: str | None = None) -> str:
+    token, _ = extract_auth_token_with_source(authorization, session_cookie)
+    return token
+
+
+def extract_auth_token_with_source(authorization: str | None = None, session_cookie: str | None = None) -> tuple[str, str]:
     if authorization and authorization.startswith("Bearer "):
         token = authorization.split(" ", 1)[1].strip()
         if token:
-            return token
+            if not ALLOW_BEARER_AUTH:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Bearer authentication is disabled")
+            return token, "bearer"
     token = str(session_cookie or "").strip()
     if token:
-        return token
+        return token, "cookie"
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
 
 
@@ -3897,7 +3910,17 @@ def get_current_user(
     authorization: str | None = Header(default=None),
     session_cookie: str | None = Cookie(default=None, alias=AUTH_COOKIE_NAME),
 ):
-    return get_authorized_user(extract_auth_token(authorization, session_cookie))
+    token, source = extract_auth_token_with_source(authorization, session_cookie)
+    user = get_authorized_user(token)
+    if source == "bearer":
+        write_security_audit_log(
+            user.username,
+            "bearer_auth_used",
+            "auth",
+            user.username,
+            "Legacy Bearer authentication was used",
+        )
+    return user
 
 def get_current_token(
     authorization: str | None = Header(default=None),
@@ -4753,7 +4776,7 @@ def admin_activity_summary(_: UserModel = Depends(require_admin)):
             "logins_7d": logins_7d,
             "session_actions_7d": session_actions_7d,
             "latest_by_user": latest_by_user,
-            "latest_security": latest_actions(["login_failed", "login_locked", "admin_access_denied", "activity_source_upload_rejected"], 8),
+            "latest_security": latest_actions(["login_failed", "login_locked", "admin_access_denied", "activity_source_upload_rejected", "bearer_auth_used"], 8),
             "latest_imports": latest_actions(["import_program", "import_activity_file"], 5),
             "latest_sessions": latest_actions(["save_session", "import_activity_file"], 5),
         }

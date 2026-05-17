@@ -171,6 +171,55 @@ def test_auth_me_refreshes_csrf_from_cookie():
         assert response.json()["csrf_token"] == login.json()["csrf_token"]
 
 
+def test_bearer_auth_is_audited_while_enabled():
+    username = f"bearer-user-{uuid4().hex[:8]}"
+    db = main.SessionLocal()
+    try:
+        salt, password_hash = main.build_password_record("correct-password")
+        db.add(main.UserModel(username=username, password_hash=password_hash, password_salt=salt, is_admin=False))
+        db.commit()
+        token, _ = main.create_auth_token(db, username)
+    finally:
+        db.close()
+
+    original = main.ALLOW_BEARER_AUTH
+    main.ALLOW_BEARER_AUTH = True
+    try:
+        with TestClient(main.app) as test_client:
+            response = test_client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+
+        db = main.SessionLocal()
+        try:
+            assert db.query(main.AuditLogModel).filter_by(action="bearer_auth_used", username=username).count() == 1
+        finally:
+            db.close()
+    finally:
+        main.ALLOW_BEARER_AUTH = original
+
+
+def test_bearer_auth_can_be_disabled():
+    username = f"bearer-disabled-user-{uuid4().hex[:8]}"
+    db = main.SessionLocal()
+    try:
+        salt, password_hash = main.build_password_record("correct-password")
+        db.add(main.UserModel(username=username, password_hash=password_hash, password_salt=salt, is_admin=False))
+        db.commit()
+        token, _ = main.create_auth_token(db, username)
+    finally:
+        db.close()
+
+    original = main.ALLOW_BEARER_AUTH
+    main.ALLOW_BEARER_AUTH = False
+    try:
+        with TestClient(main.app) as test_client:
+            response = test_client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Bearer authentication is disabled"
+    finally:
+        main.ALLOW_BEARER_AUTH = original
+
+
 def test_image_upload_size_limit_is_enforced(client):
     db = main.SessionLocal()
     try:
