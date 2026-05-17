@@ -2489,6 +2489,45 @@ def resolve_uploaded_activity_path(image_url: str) -> Path | None:
     return ACTIVITY_UPLOADS_DIR / filename
 
 
+IMAGE_RESPONSE_MEDIA_TYPES = {
+    ".gif": "image/gif",
+    ".jpeg": "image/jpeg",
+    ".jpg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+}
+
+ACTIVITY_SOURCE_RESPONSE_MEDIA_TYPES = {
+    ".fit": "application/octet-stream",
+    ".gpx": "application/gpx+xml",
+    ".tcx": "application/vnd.garmin.tcx+xml",
+}
+
+
+def uploaded_file_response(
+    *,
+    upload_dir: Path,
+    filename: str,
+    allowed_media_types: dict[str, str],
+    missing_detail: str,
+    attachment: bool = False,
+) -> FileResponse:
+    safe_filename = Path(filename).name
+    suffix = Path(safe_filename).suffix.lower()
+    media_type = allowed_media_types.get(suffix)
+    if not safe_filename or not media_type:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=missing_detail)
+    target_path = upload_dir / safe_filename
+    if not target_path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=missing_detail)
+    return FileResponse(
+        target_path,
+        media_type=media_type,
+        filename=safe_filename if attachment else None,
+        headers={"X-Content-Type-Options": "nosniff"},
+    )
+
+
 def build_activity_source_file_record(
     *,
     source_id: str,
@@ -5047,11 +5086,12 @@ def delete_exercise_image(name: str, payload: dict, current_user: UserModel = De
 
 @app.get("/api/uploads/exercises/{filename}")
 def get_uploaded_exercise_image(filename: str):
-    safe_filename = Path(filename).name
-    target_path = EXERCISE_UPLOADS_DIR / safe_filename
-    if not target_path.is_file():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
-    return FileResponse(target_path)
+    return uploaded_file_response(
+        upload_dir=EXERCISE_UPLOADS_DIR,
+        filename=filename,
+        allowed_media_types=IMAGE_RESPONSE_MEDIA_TYPES,
+        missing_detail="Image not found",
+    )
 
 
 @app.post("/api/session/{date_str}/activities/{activity_index}/upload-image")
@@ -5306,29 +5346,33 @@ def update_activity_metric_sources(
 
 @app.get("/api/uploads/activities/{filename}")
 def get_uploaded_activity_image(filename: str):
-    safe_filename = Path(filename).name
-    target_path = ACTIVITY_UPLOADS_DIR / safe_filename
-    if not target_path.is_file():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
-    return FileResponse(target_path)
+    return uploaded_file_response(
+        upload_dir=ACTIVITY_UPLOADS_DIR,
+        filename=filename,
+        allowed_media_types=IMAGE_RESPONSE_MEDIA_TYPES,
+        missing_detail="Image not found",
+    )
 
 
 @app.get("/api/uploads/activity-sources/{filename}")
 def get_uploaded_activity_source_file(filename: str):
-    safe_filename = Path(filename).name
-    target_path = ACTIVITY_SOURCE_UPLOADS_DIR / safe_filename
-    if not target_path.is_file():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Activity source file not found")
-    return FileResponse(target_path)
+    return uploaded_file_response(
+        upload_dir=ACTIVITY_SOURCE_UPLOADS_DIR,
+        filename=filename,
+        allowed_media_types=ACTIVITY_SOURCE_RESPONSE_MEDIA_TYPES,
+        missing_detail="Activity source file not found",
+        attachment=True,
+    )
 
 
 @app.get("/api/uploads/equipment-brands/{filename}")
 def get_uploaded_brand_logo(filename: str):
-    safe_filename = Path(filename).name
-    target_path = BRAND_LOGOS_DIR / safe_filename
-    if not target_path.is_file():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Logo not found")
-    return FileResponse(target_path)
+    return uploaded_file_response(
+        upload_dir=BRAND_LOGOS_DIR,
+        filename=filename,
+        allowed_media_types=IMAGE_RESPONSE_MEDIA_TYPES,
+        missing_detail="Logo not found",
+    )
 
 @app.delete("/api/exercises/{name}")
 def delete_exercise(name: str, current_user: UserModel = Depends(require_admin)):

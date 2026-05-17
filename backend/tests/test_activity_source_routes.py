@@ -45,6 +45,11 @@ def test_activity_can_keep_multiple_source_files_and_metric_preferences(client):
     )
     assert garmin.status_code == 200, garmin.text
     garmin_source = garmin.json()["source_file"]
+    downloaded = client.get(garmin_source["file_url"])
+    assert downloaded.status_code == 200
+    assert downloaded.headers["content-type"].startswith("application/gpx+xml")
+    assert downloaded.headers["x-content-type-options"] == "nosniff"
+    assert "attachment" in downloaded.headers["content-disposition"]
 
     mywhoosh = client.post(
         "/api/session/2026-05-17/activities/0/source-files",
@@ -131,3 +136,12 @@ def test_activity_source_rejects_fake_activity_file(client):
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Uploaded file is not a supported activity source"
+
+
+def test_activity_source_download_rejects_unexpected_extension(client):
+    (main.ACTIVITY_SOURCE_UPLOADS_DIR / "unsafe.html").write_text("<script>alert(1)</script>", encoding="utf-8")
+    try:
+        response = client.get("/api/uploads/activity-sources/unsafe.html")
+        assert response.status_code == 404
+    finally:
+        (main.ACTIVITY_SOURCE_UPLOADS_DIR / "unsafe.html").unlink(missing_ok=True)

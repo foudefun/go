@@ -193,3 +193,28 @@ def test_image_extension_must_match_content(client):
         files={"image_file": ("mismatch.jpg", PNG_BYTES, "image/jpeg")},
     )
     assert response.status_code == 400
+
+
+def test_uploaded_images_are_served_with_strict_headers(client):
+    filename = f"security-image-{uuid4().hex[:8]}.png"
+    target = main.EXERCISE_UPLOADS_DIR / filename
+    target.write_bytes(PNG_BYTES)
+    try:
+        response = client.get(f"/api/uploads/exercises/{filename}")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("image/png")
+        assert response.headers["x-content-type-options"] == "nosniff"
+        assert "content-disposition" not in response.headers
+    finally:
+        target.unlink(missing_ok=True)
+
+
+def test_uploaded_image_routes_reject_unexpected_extensions(client):
+    filename = f"security-image-{uuid4().hex[:8]}.html"
+    target = main.EXERCISE_UPLOADS_DIR / filename
+    target.write_text("<script>alert(1)</script>", encoding="utf-8")
+    try:
+        response = client.get(f"/api/uploads/exercises/{filename}")
+        assert response.status_code == 404
+    finally:
+        target.unlink(missing_ok=True)
