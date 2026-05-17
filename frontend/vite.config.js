@@ -70,7 +70,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         app: path.resolve(rootDir, "index.html"),
-        legacy: path.resolve(rootDir, "legacy.html"),
       },
     },
   },

@@ -21,10 +21,6 @@ Open:
 - frontend: `http://localhost`
 - backend: `http://localhost:8000`
 
-The previous static app is still available at:
-
-- legacy tracker: `http://localhost/legacy.html`
-
 If you change frontend dependencies or Docker settings, rebuild the frontend container:
 
 ```bash
