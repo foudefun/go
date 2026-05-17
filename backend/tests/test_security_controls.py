@@ -1,4 +1,5 @@
 from app import main
+from fastapi.testclient import TestClient
 
 
 def test_equipment_catalog_writes_require_admin(non_admin_client):
@@ -10,6 +11,35 @@ def test_equipment_catalog_writes_require_admin(non_admin_client):
 
     response = non_admin_client.post("/api/equipment", json={"brand_id": 1, "model_id": 1, "name": "test"})
     assert response.status_code == 403
+
+    db = main.SessionLocal()
+    try:
+        denied_logs = db.query(main.AuditLogModel).filter_by(action="admin_access_denied", username="member").count()
+        assert denied_logs == 3
+    finally:
+        db.close()
+
+
+def test_failed_login_is_audited():
+    db = main.SessionLocal()
+    try:
+        salt, password_hash = main.build_password_record("correct-password")
+        db.add(main.UserModel(username="audited-user", password_hash=password_hash, password_salt=salt, is_admin=False))
+        db.commit()
+    finally:
+        db.close()
+
+    with TestClient(main.app) as test_client:
+        response = test_client.post("/api/auth/login", json={"username": "audited-user", "password": "wrong-password"})
+    assert response.status_code == 401
+
+    db = main.SessionLocal()
+    try:
+        log = db.query(main.AuditLogModel).filter_by(action="login_failed", username="audited-user").first()
+        assert log is not None
+        assert log.target_type == "auth"
+    finally:
+        db.close()
 
 
 def test_image_upload_size_limit_is_enforced(client):

@@ -2487,6 +2487,15 @@ def write_audit_log(
     )
 
 
+def write_security_audit_log(username: str, action: str, target_type: str, target_key: str, summary: str = "") -> None:
+    db = get_db()
+    try:
+        write_audit_log(db, username, action, target_type, target_key, summary)
+        db.commit()
+    finally:
+        db.close()
+
+
 def merge_exercise_rows(target_row: ExerciseModel, source_row: ExerciseModel) -> None:
     target_categories = split_exercise_categories(target_row.category or "")
     source_categories = split_exercise_categories(source_row.category or "")
@@ -3731,6 +3740,13 @@ def get_current_token(authorization: str | None = Header(default=None)):
 
 def require_admin(current_user: UserModel = Depends(get_current_user)):
     if not current_user.is_admin:
+        write_security_audit_log(
+            current_user.username,
+            "admin_access_denied",
+            "auth",
+            current_user.username,
+            "Non-admin user attempted to access an admin endpoint",
+        )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return current_user
 
@@ -4317,6 +4333,15 @@ def login(payload: dict):
         purge_expired_tokens(db)
         user = db.query(UserModel).filter_by(username=username).first()
         if not user or not verify_password(password, user.password_salt, user.password_hash):
+            write_audit_log(
+                db,
+                username,
+                "login_failed",
+                "auth",
+                username,
+                "Invalid username or password",
+            )
+            db.commit()
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
         token, expires_at = create_auth_token(db, user.username)
