@@ -1482,6 +1482,10 @@ label {
   align-items: start;
 }
 
+.brand-list-panel {
+  grid-column: 1 / -1;
+}
+
 .equipment-owned-list {
   overflow: hidden;
 }
@@ -1588,7 +1592,7 @@ label {
   color: #344054;
   font-size: 14px;
   line-height: 1.45;
-  max-width: 74ch;
+  max-width: 110ch;
 }
 
 .brand-taxonomy-content .brand-history {

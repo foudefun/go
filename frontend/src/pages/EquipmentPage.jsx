@@ -366,41 +366,6 @@ function TaxonomyPanel({
         <button type="button" className="primary-action" onClick={onSaveBrand} disabled={saving || !brandDraft.name}>
           {saving ? t("Saving...") : t("Save Brand")}
         </button>
-        <div className="taxonomy-list">
-          {brands.map((brand) => (
-            <article key={brand.id} className="taxonomy-row brand-taxonomy-row">
-              <BrandLogo brand={brand} />
-              <div className="brand-taxonomy-content">
-                <div className="brand-card-header">
-                  <div>
-                    <strong>{brand.name}</strong>
-                    <small>{[brand.country_name, brand.country_iso_code, brand.year_established ? `${t("Established")} ${brand.year_established}` : "", brand.is_active === false ? t("Inactive") : t("Active")].filter(Boolean).join(" - ") || brand.created_at}</small>
-                  </div>
-                  <div className="compact-actions">
-                    <button type="button" onClick={() => onEditBrand(brand)}>
-                      {t("Edit")}
-                    </button>
-                    {canDelete ? (
-                      <button type="button" onClick={() => onDeleteBrand(brand)}>
-                        {t("Delete")}
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-                {brand.description ? <p>{brand.description}</p> : null}
-                {brand.history ? <p className="brand-history">{brand.history}</p> : null}
-                <div className="brand-link-row">
-                  {brand.website_url ? (
-                    <a href={brand.website_url} target="_blank" rel="noreferrer">
-                      {t("Website")}
-                    </a>
-                  ) : null}
-                  {brand.normalized_name ? <span>{brand.normalized_name}</span> : null}
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
       </div>
 
       <div className="app-panel equipment-editor-panel">
@@ -463,6 +428,51 @@ function TaxonomyPanel({
             </article>
           ))}
           {!brandModels.length ? <div className="empty-state compact">{t("No model for the selected brand yet.")}</div> : null}
+        </div>
+      </div>
+
+      <div className="app-panel equipment-editor-panel brand-list-panel">
+        <header className="strength-editor-header">
+          <div>
+            <p className="eyebrow">{t("Brands")}</p>
+            <h2>{t("All brands")}</h2>
+          </div>
+          <span className="visually-muted">{t("Brand count", { count: brands.length })}</span>
+        </header>
+        <div className="taxonomy-list">
+          {brands.map((brand) => (
+            <article key={brand.id} className="taxonomy-row brand-taxonomy-row">
+              <BrandLogo brand={brand} />
+              <div className="brand-taxonomy-content">
+                <div className="brand-card-header">
+                  <div>
+                    <strong>{brand.name}</strong>
+                    <small>{[brand.country_name, brand.country_iso_code, brand.year_established ? `${t("Established")} ${brand.year_established}` : "", brand.is_active === false ? t("Inactive") : t("Active")].filter(Boolean).join(" - ") || brand.created_at}</small>
+                  </div>
+                  <div className="compact-actions">
+                    <button type="button" onClick={() => onEditBrand(brand)}>
+                      {t("Edit")}
+                    </button>
+                    {canDelete ? (
+                      <button type="button" onClick={() => onDeleteBrand(brand)}>
+                        {t("Delete")}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+                {brand.description ? <p>{brand.description}</p> : null}
+                {brand.history ? <p className="brand-history">{brand.history}</p> : null}
+                <div className="brand-link-row">
+                  {brand.website_url ? (
+                    <a href={brand.website_url} target="_blank" rel="noreferrer">
+                      {t("Website")}
+                    </a>
+                  ) : null}
+                  {brand.normalized_name ? <span>{brand.normalized_name}</span> : null}
+                </div>
+              </div>
+            </article>
+          ))}
         </div>
       </div>
     </section>
