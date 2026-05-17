@@ -136,7 +136,11 @@ def import_brands(conn: sqlite3.Connection, records: list[dict]) -> tuple[int, i
             year_established = excluded.year_established,
             website_url = excluded.website_url,
             description = excluded.description,
-            logo_url = excluded.logo_url,
+            logo_url = CASE
+                WHEN equipment_brands.logo_url LIKE '/api/uploads/equipment-brands/%'
+                THEN equipment_brands.logo_url
+                ELSE excluded.logo_url
+            END,
             is_active = excluded.is_active,
             created_at = excluded.created_at,
             updated_at = excluded.updated_at,

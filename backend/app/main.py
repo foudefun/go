@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import math
+import mimetypes
 import os
 import re
 import secrets
@@ -13,6 +14,8 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from io import BytesIO, StringIO
 from pathlib import Path
+from urllib.parse import quote, urlparse
+from urllib.request import Request, urlopen
 from xml.etree import ElementTree as ET
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, status
@@ -1866,6 +1869,95 @@ def serialize_brand(row: EquipmentBrandModel, country: CountryModel | None = Non
         "history": row.history or "",
     }
 
+
+def is_local_brand_logo(value: str) -> bool:
+    return str(value or "").strip().startswith("/api/uploads/equipment-brands/")
+
+
+def is_http_url(value: str) -> bool:
+    cleaned = str(value or "").strip().lower()
+    return cleaned.startswith("https://") or cleaned.startswith("http://")
+
+
+def brand_logo_slug(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "_", str(value or "").lower()).strip("_")
+    return slug or "brand"
+
+
+def brand_domain_from_url(value: str) -> str:
+    parsed = urlparse(value if "://" in str(value or "") else f"https://{value}")
+    return parsed.netloc.removeprefix("www.").strip().lower()
+
+
+def brand_logo_extension(url: str, content_type: str) -> str:
+    normalized_content_type = str(content_type or "").split(";", 1)[0].strip().lower()
+    if normalized_content_type == "image/svg+xml":
+        return ".svg"
+    guessed = mimetypes.guess_extension(normalized_content_type)
+    if guessed in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"}:
+        return ".jpg" if guessed == ".jpeg" else guessed
+    suffix = Path(urlparse(url).path).suffix.lower()
+    if suffix in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"}:
+        return ".jpg" if suffix == ".jpeg" else suffix
+    return ".png"
+
+
+def download_brand_logo(url: str) -> tuple[bytes, str] | None:
+    request = Request(url, headers={"User-Agent": "RehabTracker/1.0"})
+    with urlopen(request, timeout=8) as response:
+        content_type = response.headers.get("Content-Type", "")
+        if "image/" not in content_type:
+            return None
+        data = response.read(1_500_001)
+        if not data or len(data) > 1_500_000:
+            return None
+        return data, brand_logo_extension(url, content_type)
+
+
+def brand_logo_candidates(row: EquipmentBrandModel) -> list[str]:
+    candidates: list[str] = []
+    logo_url = str(row.logo_url or "").strip()
+    website_url = str(row.website_url or "").strip()
+    if is_http_url(logo_url):
+        candidates.append(logo_url)
+    if website_url:
+        domain = brand_domain_from_url(website_url)
+        if domain:
+            candidates.append(f"https://www.google.com/s2/favicons?domain={quote(domain)}&sz=256")
+    return candidates
+
+
+def cache_existing_brand_logos(limit: int = 100) -> None:
+    db = SessionLocal()
+    cached = 0
+    try:
+        rows = db.query(EquipmentBrandModel).order_by(EquipmentBrandModel.name).all()
+        for row in rows:
+            if cached >= limit:
+                break
+            if is_local_brand_logo(row.logo_url or ""):
+                continue
+            for candidate in brand_logo_candidates(row):
+                try:
+                    result = download_brand_logo(candidate)
+                except Exception:
+                    continue
+                if not result:
+                    continue
+                data, extension = result
+                filename = f"{brand_logo_slug(row.name)}_{row.id}{extension}"
+                (BRAND_LOGOS_DIR / filename).write_bytes(data)
+                row.logo_url = f"/api/uploads/equipment-brands/{filename}"
+                row.updated_at = date.today().isoformat()
+                cached += 1
+                break
+        if cached:
+            db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+
 def serialize_equipment_model(row: EquipmentModelRef, brand: EquipmentBrandModel | None = None) -> dict:
     return {
         "id": row.id,
@@ -2922,6 +3014,7 @@ def seed_default_user():
     db.close()
 
 seed_default_user()
+cache_existing_brand_logos()
 
 def seed_climbing_data():
     db = SessionLocal()
