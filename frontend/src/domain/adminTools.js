@@ -5,6 +5,8 @@ export const ADMIN_ACTIONS = [
   "logout",
   "change_password",
   "admin_access_denied",
+  "activity_source_upload_rejected",
+  "activity_source_upload_created",
   "update_preferences",
   "create_user",
   "update_user_role",

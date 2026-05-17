@@ -2418,6 +2418,40 @@ def sanitize_activity_source_suffix(filename: str, selected_format: str = "") ->
     return ""
 
 
+def detect_activity_source_content_format(content: bytes) -> str:
+    if len(content) >= 12 and content[8:12] == b".FIT":
+        return "fit"
+    try:
+        root = ET.fromstring(content)
+    except ET.ParseError:
+        return ""
+    root_name = root.tag.rsplit("}", 1)[-1].lower()
+    if root_name == "gpx":
+        return "gpx"
+    if root_name == "trainingcenterdatabase":
+        return "tcx"
+    return ""
+
+
+def validate_activity_source_upload(filename: str, selected_format: str, content: bytes) -> str:
+    suffix_format = Path(str(filename or "")).suffix.lower().lstrip(".")
+    if suffix_format not in {"fit", "tcx", "gpx"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please upload a FIT, TCX, or GPX activity file")
+
+    requested_format = str(selected_format or "").strip().lower()
+    if requested_format and requested_format not in {"fit", "tcx", "gpx"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please upload a FIT, TCX, or GPX activity file")
+    if requested_format and requested_format != suffix_format:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Activity file format does not match the file extension")
+
+    detected_format = detect_activity_source_content_format(content)
+    if not detected_format:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is not a supported activity source")
+    if detected_format != suffix_format:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Activity file content does not match the file extension")
+    return detected_format
+
+
 def save_upload_file_with_limit(source_file, target_path: Path, max_bytes: int) -> int:
     written = 0
     try:
@@ -4616,7 +4650,7 @@ def admin_activity_summary(_: UserModel = Depends(require_admin)):
             "logins_7d": logins_7d,
             "session_actions_7d": session_actions_7d,
             "latest_by_user": latest_by_user,
-            "latest_security": latest_actions(["login_failed", "login_locked", "admin_access_denied"], 8),
+            "latest_security": latest_actions(["login_failed", "login_locked", "admin_access_denied", "activity_source_upload_rejected"], 8),
             "latest_imports": latest_actions(["import_program", "import_activity_file"], 5),
             "latest_sessions": latest_actions(["save_session", "import_activity_file"], 5),
         }
@@ -5135,19 +5169,29 @@ async def upload_activity_source_file(
     current_user: UserModel = Depends(get_current_user),
 ):
     filename = str(activity_file.filename or "").strip()
+    target_key = f"{date_str}:{activity_index}"
     if not filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="An activity file is required")
-    selected_format = detect_activity_file_format(filename, format)
-    suffix = sanitize_activity_source_suffix(filename, selected_format)
-    if not suffix:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please upload a FIT, TCX, or GPX activity file")
 
-    content = await activity_file.read()
-    if not content:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The uploaded file is empty")
-    if len(content) > MAX_ACTIVITY_SOURCE_UPLOAD_BYTES:
-        raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="Uploaded file is too large")
-    parsed_activity = parse_activity_file(content, filename, selected_format)
+    selected_format = ""
+    try:
+        content = await activity_file.read()
+        if not content:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The uploaded file is empty")
+        if len(content) > MAX_ACTIVITY_SOURCE_UPLOAD_BYTES:
+            raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="Uploaded file is too large")
+        selected_format = validate_activity_source_upload(filename, format, content)
+        suffix = f".{selected_format}"
+        parsed_activity = parse_activity_file(content, filename, selected_format)
+    except HTTPException as exc:
+        write_security_audit_log(
+            current_user.username,
+            "activity_source_upload_rejected",
+            "session_activity",
+            target_key,
+            f"Rejected activity source upload {filename}: {exc.detail}",
+        )
+        raise
 
     db = get_db()
     try:
@@ -5192,9 +5236,9 @@ async def upload_activity_source_file(
         write_audit_log(
             db,
             current_user.username,
-            "upload_activity_source_file",
+            "activity_source_upload_created",
             "session_activity",
-            f"{date_str}:{activity_index}",
+            target_key,
             f"Linked {selected_format.upper()} source file to activity {activity_index + 1} on {date_str}",
         )
         db.commit()
