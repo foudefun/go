@@ -45,8 +45,19 @@ test("drops empty planned items", () => {
 });
 
 test("gets planned item labels from library metadata", () => {
-  const exerciseMap = new Map([["goblet_squat", { name: "goblet_squat", display_name: "Goblet squat" }]]);
-  assert.equal(getPlannedItemTitle({ exercise_name: "goblet_squat" }, exerciseMap), "Goblet squat");
+  const exerciseMap = new Map([
+    [
+      "goblet_squat",
+      {
+        name: "goblet_squat",
+        display_name: "Legacy goblet squat",
+        display_name_fr: "Squat gobelet",
+        display_name_en: "Goblet squat",
+      },
+    ],
+  ]);
+  assert.equal(getPlannedItemTitle({ exercise_name: "goblet_squat" }, exerciseMap, "fr"), "Squat gobelet");
+  assert.equal(getPlannedItemTitle({ exercise_name: "goblet_squat" }, exerciseMap, "en"), "Goblet squat");
   assert.equal(getPlannedItemTitle({ custom_name: "Outdoor stairs" }, exerciseMap), "Outdoor stairs");
 });
 

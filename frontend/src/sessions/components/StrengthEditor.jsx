@@ -16,14 +16,14 @@ import {
 } from "../strengthItems.js";
 import { useTranslation } from "../../i18n/translations.js";
 
-function getItemTitle(item, exerciseMap) {
+function getItemTitle(item, exerciseMap, language) {
   const exercise = exerciseMap.get(item.exercise_name);
-  return item.custom_name || getExerciseDisplayName(exercise) || item.exercise_name || "Strength item";
+  return item.custom_name || getExerciseDisplayName(exercise, language) || item.exercise_name || "Strength item";
 }
 
-function sortExercises(exercises) {
+function sortExercises(exercises, language) {
   return [...(Array.isArray(exercises) ? exercises : [])].sort((left, right) =>
-    getExerciseDisplayName(left).localeCompare(getExerciseDisplayName(right)),
+    getExerciseDisplayName(left, language).localeCompare(getExerciseDisplayName(right, language)),
   );
 }
 
@@ -47,9 +47,9 @@ function hasSetDraftContent(setDraft) {
 }
 
 export default function StrengthEditor({ activity, exercises, loading, error, onChange }) {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const exerciseMap = useMemo(() => buildExerciseMap(exercises), [exercises]);
-  const sortedExercises = useMemo(() => sortExercises(exercises), [exercises]);
+  const sortedExercises = useMemo(() => sortExercises(exercises, language), [exercises, language]);
   const items = useMemo(
     () => normalizePerformedItems(activity?.performed_items, exercises),
     [activity?.performed_items, exercises],
@@ -139,7 +139,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
           {items.map((item, index) => (
             <article className="performed-item-card" key={`${item.exercise_name}-${item.custom_name}-${index}`}>
               <div>
-                <strong>{getItemTitle(item, exerciseMap)}</strong>
+                <strong>{getItemTitle(item, exerciseMap, language)}</strong>
                 <span>
                   {t(WORK_TYPES.find((workType) => workType.value === item.work_type)?.label || "Resistance")} -{" "}
                   {t(WORK_MODES.find((workMode) => workMode.value === item.work_mode)?.label || "Normal")}
@@ -190,7 +190,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
               ) : null}
               {sortedExercises.map((exercise) => (
                 <option value={exercise.name} key={exercise.name}>
-                  {getExerciseDisplayName(exercise)}
+                  {getExerciseDisplayName(exercise, language)}
                 </option>
               ))}
             </select>

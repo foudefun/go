@@ -70,9 +70,9 @@ export function normalizePlannedItems(rawItems = []) {
     );
 }
 
-export function getPlannedItemTitle(item = {}, exerciseMap = new Map()) {
+export function getPlannedItemTitle(item = {}, exerciseMap = new Map(), language = "fr") {
   const exercise = exerciseMap.get(item.exercise_name);
-  return item.custom_name || getExerciseDisplayName(exercise) || item.exercise_name || "Planned item";
+  return item.custom_name || getExerciseDisplayName(exercise, language) || item.exercise_name || "Planned item";
 }
 
 export function formatPlannedItem(item = {}) {

@@ -11,9 +11,9 @@ import {
 } from "../plannedItems.js";
 import { useTranslation } from "../../i18n/translations.js";
 
-function sortExercises(exercises) {
+function sortExercises(exercises, language) {
   return [...(Array.isArray(exercises) ? exercises : [])].sort((left, right) =>
-    getExerciseDisplayName(left).localeCompare(getExerciseDisplayName(right)),
+    getExerciseDisplayName(left, language).localeCompare(getExerciseDisplayName(right, language)),
   );
 }
 
@@ -32,9 +32,9 @@ function hasPlannedItemContent(item) {
 }
 
 export default function PlannedSessionEditor({ session, exercises, loading, error, onChange, onDone }) {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const exerciseMap = useMemo(() => buildPlannedExerciseMap(exercises), [exercises]);
-  const sortedExercises = useMemo(() => sortExercises(exercises), [exercises]);
+  const sortedExercises = useMemo(() => sortExercises(exercises, language), [exercises, language]);
   const plannedItems = useMemo(
     () => normalizePlannedItems(session?.planned_items),
     [session?.planned_items],
@@ -176,7 +176,7 @@ export default function PlannedSessionEditor({ session, exercises, loading, erro
           {plannedItems.map((item, index) => (
             <article className="performed-item-card" key={`${item.exercise_name}-${item.custom_name}-${index}`}>
               <div>
-                <strong>{getPlannedItemTitle(item, exerciseMap)}</strong>
+                <strong>{getPlannedItemTitle(item, exerciseMap, language)}</strong>
                 <span>{formatPlannedItem(item) || t("Planned work")}</span>
               </div>
               {item.notes ? <p>{item.notes}</p> : null}
@@ -218,7 +218,7 @@ export default function PlannedSessionEditor({ session, exercises, loading, erro
               ) : null}
               {sortedExercises.map((exercise) => (
                 <option value={exercise.name} key={exercise.name}>
-                  {getExerciseDisplayName(exercise)}
+                  {getExerciseDisplayName(exercise, language)}
                 </option>
               ))}
             </select>

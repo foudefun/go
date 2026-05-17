@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   formatPerformedSet,
+  getExerciseDisplayName,
   getUniqueExerciseNames,
   normalizePerformedItems,
   normalizePerformedSet,
@@ -50,6 +51,22 @@ test("builds unique exercise mirrors for backend calendar summaries", () => {
       { custom_name: "No library item" },
     ]),
     ["squat", "bench"],
+  );
+});
+
+test("gets exercise display names in the selected language", () => {
+  const exercise = {
+    name: "split_squat",
+    display_name: "Legacy split squat",
+    display_name_fr: "Fente bulgare",
+    display_name_en: "Bulgarian split squat",
+  };
+
+  assert.equal(getExerciseDisplayName(exercise, "fr"), "Fente bulgare");
+  assert.equal(getExerciseDisplayName(exercise, "en"), "Bulgarian split squat");
+  assert.equal(
+    getExerciseDisplayName({ name: "front_squat", display_name: "Legacy front squat" }, "fr"),
+    "Legacy front squat",
   );
 });
 

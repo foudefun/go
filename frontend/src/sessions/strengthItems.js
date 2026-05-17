@@ -42,11 +42,15 @@ export function normalizeOptionalFloat(value) {
   return Math.round(numberValue * 100) / 100;
 }
 
-export function getExerciseDisplayName(exercise) {
+export function getExerciseDisplayName(exercise, language = "fr") {
+  const localizedName =
+    language === "en"
+      ? String(exercise?.display_name_en || "").trim()
+      : String(exercise?.display_name_fr || "").trim();
   return (
+    localizedName ||
     String(exercise?.display_name || "").trim() ||
-    String(exercise?.display_name_en || "").trim() ||
-    String(exercise?.display_name_fr || "").trim() ||
+    String(language === "en" ? exercise?.display_name_fr || "" : exercise?.display_name_en || "").trim() ||
     String(exercise?.name || "").replaceAll("_", " ").trim()
   );
 }
