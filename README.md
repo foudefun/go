@@ -25,6 +25,19 @@ npm test
 npm run build
 ```
 
+Security audit:
+
+```bash
+python -m pip install pip-audit
+python scripts/security_audit.py
+```
+
+Full local secret scan, including ignored `.env` files:
+
+```bash
+python scripts/secret_scan.py
+```
+
 ## Exercise Data Model
 
 Exercises keep their existing compatibility fields:

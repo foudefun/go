@@ -52,14 +52,17 @@ test("filters exercises by query, category, and tracking mode", () => {
     },
     { name: "squat", display_name: "Back Squat", display_name_fr: "Squat arriere", category: "legs, glutes", tracking_mode: "reps_weight" },
     { name: "bike", display_name: "Bike Intervals", display_name_en: "Bike Intervals", category: "conditioning", tracking_mode: "time_watts" },
+    { name: "romanian_deadlift", display_name_fr: "Souleve de terre jambes tendues", display_name_en: "RDL", category: "legs", tracking_mode: "reps_weight" },
   ];
 
   assert.deepEqual(filterExercises(exercises, { query: "bike" }).map((item) => item.name), ["bike"]);
   assert.deepEqual(filterExercises(exercises, { query: "bench" }).map((item) => item.name), ["developpe_couche"]);
   assert.deepEqual(filterExercises(exercises, { query: "developpe" }).map((item) => item.name), ["developpe_couche"]);
   assert.deepEqual(filterExercises(exercises, { query: "developpe couche" }).map((item) => item.name), ["developpe_couche"]);
+  assert.deepEqual(filterExercises(exercises, { query: "romanian deadlift" }).map((item) => item.name), ["romanian_deadlift"]);
+  assert.deepEqual(filterExercises(exercises, { query: "romanian_deadlift" }).map((item) => item.name), ["romanian_deadlift"]);
   assert.deepEqual(filterExercises(exercises, { query: "squat arriere" }).map((item) => item.name), ["squat"]);
-  assert.deepEqual(filterExercises(exercises, { category: "legs" }).map((item) => item.name), ["squat"]);
+  assert.deepEqual(filterExercises(exercises, { category: "legs" }).map((item) => item.name), ["squat", "romanian_deadlift"]);
   assert.deepEqual(filterExercises(exercises, { trackingMode: "time_watts" }).map((item) => item.name), ["bike"]);
 });
 

@@ -84,9 +84,10 @@ export function normalizeExerciseSearchValue(value = "") {
 }
 
 export function getExerciseSearchText(exercise = {}) {
-  return [
+  const technicalName = String(exercise.name || "").trim();
+  return normalizeExerciseSearchValue([
     exercise.name,
-    String(exercise.name || "").replaceAll("_", " "),
+    technicalName.replaceAll("_", " "),
     exercise.display_name,
     exercise.display_name_fr,
     exercise.display_name_en,
@@ -94,11 +95,7 @@ export function getExerciseSearchText(exercise = {}) {
     exercise.movement_family,
     exercise.variant_label,
     exercise.description,
-  ]
-    .join(" ")
-    .split(" ")
-    .map((value) => normalizeExerciseSearchValue(value))
-    .join(" ");
+  ].join(" "));
 }
 
 export function getExerciseCategoryList(exercise = {}) {

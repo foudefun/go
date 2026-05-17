@@ -8,6 +8,7 @@
 
 ## Product
 
+- Redesign the activity creation workflow end to end: clearer entry point, less confusing fields, better defaults, explicit activity type/source handling, and a cleaner path for uploads/images/linked external files.
 - Add deletion/replacement controls for attached activity source files and show raw time-series overlays, not only summary metric comparisons.
 - Improve the exercise cleanup workflow with clearer duplicate detection, family grouping, and image coverage status.
 - Build out the equipment UI for model versions, variants, ownership status, maintenance events, and item history now that the normalized tables exist.

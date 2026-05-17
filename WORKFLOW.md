@@ -50,6 +50,21 @@ npm test
 npm run build
 ```
 
+Security audit:
+
+```bash
+python -m pip install pip-audit
+python scripts/security_audit.py
+```
+
+This runs a tracked-file secret scan plus Python and npm dependency audits. For a full local scan that also checks ignored `.env` files, run:
+
+```bash
+python scripts/secret_scan.py
+```
+
+GitHub also runs the `Security Audit` workflow on pull requests, on manual dispatch, and weekly.
+
 ## Exercise taxonomy
 
 Exercise categories and movement families are now normalized in real tables with foreign keys:
