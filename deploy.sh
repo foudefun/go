@@ -9,5 +9,6 @@ if [ -d .git ]; then
 fi
 
 python3 scripts/import_equipment_brands.py
+python3 scripts/cache_equipment_brand_logos.py
 docker compose -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.prod.yml ps

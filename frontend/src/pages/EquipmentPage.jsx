@@ -44,6 +44,15 @@ function EquipmentImage({ item, large = false }) {
   return <img className={large ? "equipment-image large" : "equipment-image"} src={item.image} alt={getEquipmentLabel(item)} />;
 }
 
+function BrandLogo({ brand }) {
+  const [failed, setFailed] = useState(false);
+  const logoUrl = String(brand?.logo_url || "").trim();
+  if (!logoUrl || failed) {
+    return <div className="brand-logo placeholder">{String(brand?.name || "?").slice(0, 2).toUpperCase()}</div>;
+  }
+  return <img className="brand-logo" src={logoUrl} alt="" loading="lazy" onError={() => setFailed(true)} />;
+}
+
 function EquipmentDetail({ item, canDelete, onEdit, onNew, onDelete, onAddOwned }) {
   const { t } = useTranslation();
   if (!item) {
@@ -360,11 +369,23 @@ function TaxonomyPanel({
         <div className="taxonomy-list">
           {brands.map((brand) => (
             <article key={brand.id} className="taxonomy-row brand-taxonomy-row">
-              {brand.logo_url ? <img className="brand-logo" src={brand.logo_url} alt="" loading="lazy" /> : <div className="brand-logo placeholder">{brand.name.slice(0, 2).toUpperCase()}</div>}
+              <BrandLogo brand={brand} />
               <div className="brand-taxonomy-content">
-                <div>
-                  <strong>{brand.name}</strong>
-                  <small>{[brand.country_name, brand.country_iso_code, brand.year_established ? `${t("Established")} ${brand.year_established}` : "", brand.is_active === false ? t("Inactive") : ""].filter(Boolean).join(" - ") || brand.created_at}</small>
+                <div className="brand-card-header">
+                  <div>
+                    <strong>{brand.name}</strong>
+                    <small>{[brand.country_name, brand.country_iso_code, brand.year_established ? `${t("Established")} ${brand.year_established}` : "", brand.is_active === false ? t("Inactive") : t("Active")].filter(Boolean).join(" - ") || brand.created_at}</small>
+                  </div>
+                  <div className="compact-actions">
+                    <button type="button" onClick={() => onEditBrand(brand)}>
+                      {t("Edit")}
+                    </button>
+                    {canDelete ? (
+                      <button type="button" onClick={() => onDeleteBrand(brand)}>
+                        {t("Delete")}
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
                 {brand.description ? <p>{brand.description}</p> : null}
                 {brand.history ? <p className="brand-history">{brand.history}</p> : null}
@@ -376,16 +397,6 @@ function TaxonomyPanel({
                   ) : null}
                   {brand.normalized_name ? <span>{brand.normalized_name}</span> : null}
                 </div>
-              </div>
-              <div className="compact-actions">
-                <button type="button" onClick={() => onEditBrand(brand)}>
-                  {t("Edit")}
-                </button>
-                {canDelete ? (
-                  <button type="button" onClick={() => onDeleteBrand(brand)}>
-                    {t("Delete")}
-                  </button>
-                ) : null}
               </div>
             </article>
           ))}

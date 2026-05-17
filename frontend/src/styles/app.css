@@ -1541,17 +1541,20 @@ label {
 }
 
 .brand-taxonomy-row {
-  grid-template-columns: 44px minmax(0, 1fr) auto;
+  grid-template-columns: 64px minmax(0, 1fr);
   align-items: start;
+  gap: 14px;
+  padding: 14px;
 }
 
 .brand-logo {
-  width: 44px;
-  height: 44px;
+  width: 64px;
+  height: 64px;
   border: 1px solid #e4eaf3;
   border-radius: 8px;
   object-fit: contain;
   background: #fff;
+  padding: 6px;
 }
 
 .brand-logo.placeholder {
@@ -1565,14 +1568,27 @@ label {
 
 .brand-taxonomy-content {
   display: grid;
-  gap: 7px;
+  min-width: 0;
+  gap: 9px;
+}
+
+.brand-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.brand-card-header > div:first-child {
+  min-width: 0;
 }
 
 .brand-taxonomy-content p {
   margin: 0;
   color: #344054;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.45;
+  max-width: 74ch;
 }
 
 .brand-taxonomy-content .brand-history {
@@ -1993,6 +2009,19 @@ label {
   .owned-equipment-row,
   .taxonomy-row {
     grid-template-columns: 1fr;
+  }
+
+  .brand-taxonomy-row {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .brand-logo {
+    width: 52px;
+    height: 52px;
+  }
+
+  .brand-card-header {
+    flex-direction: column;
   }
 
   .settings-field-grid,

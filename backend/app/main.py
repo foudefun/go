@@ -40,8 +40,10 @@ DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 UPLOADS_DIR = DB_PATH.parent / "uploads"
 EXERCISE_UPLOADS_DIR = UPLOADS_DIR / "exercises"
 ACTIVITY_UPLOADS_DIR = UPLOADS_DIR / "activities"
+BRAND_LOGOS_DIR = UPLOADS_DIR / "equipment-brands"
 EXERCISE_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 ACTIVITY_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+BRAND_LOGOS_DIR.mkdir(parents=True, exist_ok=True)
 
 engine = create_engine(f"sqlite:///{DB_PATH.as_posix()}", connect_args={"check_same_thread": False})
 
@@ -4146,6 +4148,15 @@ def get_uploaded_activity_image(filename: str):
     target_path = ACTIVITY_UPLOADS_DIR / safe_filename
     if not target_path.is_file():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+    return FileResponse(target_path)
+
+
+@app.get("/api/uploads/equipment-brands/{filename}")
+def get_uploaded_brand_logo(filename: str):
+    safe_filename = Path(filename).name
+    target_path = BRAND_LOGOS_DIR / safe_filename
+    if not target_path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Logo not found")
     return FileResponse(target_path)
 
 @app.delete("/api/exercises/{name}")
