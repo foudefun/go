@@ -590,9 +590,14 @@ export default function DaySessionModal({
     setStatus("saving");
     setError("");
     try {
-      await saveSession(date, buildSavePayload(session, activeIndex, draftActivity));
+      const payload = buildSavePayload(session, activeIndex, draftActivity);
+      await saveSession(date, payload);
       setStatus("ready");
       onSaved?.();
+      if (draftActivity) {
+        applySessionPayload(payload);
+        return;
+      }
       onClose();
     } catch (saveError) {
       setStatus("ready");
