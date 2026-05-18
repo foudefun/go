@@ -450,6 +450,7 @@ export default function DaySessionModal({
   const [sourceStatus, setSourceStatus] = useState("idle");
   const [sourceError, setSourceError] = useState("");
   const [isActivityTypeMenuOpen, setIsActivityTypeMenuOpen] = useState(false);
+  const [showImportPanel, setShowImportPanel] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -464,6 +465,7 @@ export default function DaySessionModal({
         setSession(nextSession);
         setDraftActivity(createNewOnOpen ? normalizeActivity({ ...blankActivity(), ...(initialActivity || {}) }) : null);
         setShowPlanEditor(false);
+        setShowImportPanel(false);
         setActiveIndex(
           createNewOnOpen
             ? null
@@ -553,6 +555,15 @@ export default function DaySessionModal({
   function addActivity() {
     setDraftActivity(blankActivity());
     setActiveIndex(null);
+    setShowImportPanel(false);
+  }
+
+  function importActivity() {
+    if (!hasActivityEditor) {
+      setDraftActivity(blankActivity());
+      setActiveIndex(null);
+    }
+    setShowImportPanel(true);
   }
 
   function cancelDraftActivity() {
@@ -682,9 +693,14 @@ export default function DaySessionModal({
           </div>
           <div className="day-modal-actions">
             {session && status !== "loading" ? (
-              <button type="button" className="primary-action" onClick={addActivity}>
-                {t("+ Activity")}
-              </button>
+              <>
+                <button type="button" className="primary-action" onClick={addActivity}>
+                  {t("+ Activity")}
+                </button>
+                <button type="button" onClick={importActivity}>
+                  {t("Import Activity")}
+                </button>
+              </>
             ) : null}
             <button type="button" onClick={onClose}>
               {t("Close")}
@@ -705,7 +721,10 @@ export default function DaySessionModal({
                     type="button"
                     className={index === activeIndex ? "activity-select active" : "activity-select"}
                     key={`${index}-${activity.title}-${activity.activity_type}`}
-                    onClick={() => setActiveIndex(index)}
+                    onClick={() => {
+                      setActiveIndex(index);
+                      setShowImportPanel(false);
+                    }}
                   >
                     <strong>{getActivityTitle(activity, index, t)}</strong>
                     <span>{t(getActivityTypeLabel(activity.activity_type))}</span>
@@ -748,14 +767,6 @@ export default function DaySessionModal({
                 <>
                   <div className="form-grid">
                     <label>
-                      {t("Title")}
-                      <input
-                        value={activeActivity.title || ""}
-                        onChange={(event) => updateActiveActivity({ title: event.target.value })}
-                        placeholder={t("Morning ride, climbing session, match...")}
-                      />
-                    </label>
-                    <label>
                       {t("Activity Type")}
                       <span className="activity-type-combobox">
                         <input
@@ -787,72 +798,89 @@ export default function DaySessionModal({
                         ) : null}
                       </span>
                     </label>
-                    <label>
-                      {t("Time")}
-                      <input
-                        type="time"
-                        value={activeActivity.physio_time || ""}
-                        onChange={(event) => updateActiveActivity({ physio_time: event.target.value })}
-                      />
-                    </label>
                   </div>
 
-                  <label>
-                    {t("Details")}
-                    <input
-                      value={activeActivity.activity_details || ""}
-                      onChange={(event) => updateActiveActivity({ activity_details: event.target.value })}
-                      placeholder={t("Duration, zone, location, quick summary...")}
-                    />
-                  </label>
-                  <label>
-                    {t("Notes")}
-                    <textarea
-                      value={activeActivity.note || ""}
-                      onChange={(event) => updateActiveActivity({ note: event.target.value })}
-                      placeholder={t("How it felt, context, anything useful for later.")}
-                    />
-                  </label>
-
-                  <ActivityImagePanel
-                    activity={activeActivity}
-                    canManage={activityHasContent(activeActivity)}
-                    uploading={imageStatus === "uploading"}
-                    error={imageError}
-                    onUpload={handleActivityImageUpload}
-                    onDelete={handleActivityImageDelete}
-                    t={t}
-                  />
-
-                  <ActivitySourceFilesPanel
-                    activity={activeActivity}
-                    canManage={activityHasContent(activeActivity)}
-                    uploading={sourceStatus === "uploading"}
-                    error={sourceError}
-                    onUpload={handleActivitySourceUpload}
-                    onPreferenceChange={handleMetricSourceChange}
-                    t={t}
-                  />
-
-                  {isActiveStrengthActivity ? (
-                    <StrengthEditor
+                  {showImportPanel ? (
+                    <ActivitySourceFilesPanel
                       activity={activeActivity}
-                      exercises={exerciseList}
-                      loading={exerciseStatus === "loading"}
-                      error={exerciseError}
-                      onChange={updateActiveActivity}
-                      sessionDate={date}
+                      canManage={activityHasContent(activeActivity)}
+                      uploading={sourceStatus === "uploading"}
+                      error={sourceError}
+                      onUpload={handleActivitySourceUpload}
+                      onPreferenceChange={handleMetricSourceChange}
+                      t={t}
                     />
                   ) : null}
 
-                  {((hasAdvancedStrengthData && !isActiveStrengthActivity) || hasClimbingLogData) && (
-                    <div className="notice-panel">
-                      {hasAdvancedStrengthData && !isActiveStrengthActivity ? (
-                        <span>{t("Strength items preserved", { count: activeActivity.performed_items.length })}</span>
+                  {!showImportPanel && activeIndex !== null ? (
+                    <>
+                      <div className="form-grid">
+                        <label>
+                          {t("Title")}
+                          <input
+                            value={activeActivity.title || ""}
+                            onChange={(event) => updateActiveActivity({ title: event.target.value })}
+                            placeholder={t("Morning ride, climbing session, match...")}
+                          />
+                        </label>
+                        <label>
+                          {t("Time")}
+                          <input
+                            type="time"
+                            value={activeActivity.physio_time || ""}
+                            onChange={(event) => updateActiveActivity({ physio_time: event.target.value })}
+                          />
+                        </label>
+                      </div>
+
+                      <label>
+                        {t("Details")}
+                        <input
+                          value={activeActivity.activity_details || ""}
+                          onChange={(event) => updateActiveActivity({ activity_details: event.target.value })}
+                          placeholder={t("Duration, zone, location, quick summary...")}
+                        />
+                      </label>
+                      <label>
+                        {t("Notes")}
+                        <textarea
+                          value={activeActivity.note || ""}
+                          onChange={(event) => updateActiveActivity({ note: event.target.value })}
+                          placeholder={t("How it felt, context, anything useful for later.")}
+                        />
+                      </label>
+
+                      <ActivityImagePanel
+                        activity={activeActivity}
+                        canManage={activityHasContent(activeActivity)}
+                        uploading={imageStatus === "uploading"}
+                        error={imageError}
+                        onUpload={handleActivityImageUpload}
+                        onDelete={handleActivityImageDelete}
+                        t={t}
+                      />
+
+                      {isActiveStrengthActivity ? (
+                        <StrengthEditor
+                          activity={activeActivity}
+                          exercises={exerciseList}
+                          loading={exerciseStatus === "loading"}
+                          error={exerciseError}
+                          onChange={updateActiveActivity}
+                          sessionDate={date}
+                        />
                       ) : null}
-                      {hasClimbingLogData ? <span>{t("Climbing routes preserved", { count: activeActivity.climbing_routes.length })}</span> : null}
-                    </div>
-                  )}
+
+                      {((hasAdvancedStrengthData && !isActiveStrengthActivity) || hasClimbingLogData) && (
+                        <div className="notice-panel">
+                          {hasAdvancedStrengthData && !isActiveStrengthActivity ? (
+                            <span>{t("Strength items preserved", { count: activeActivity.performed_items.length })}</span>
+                          ) : null}
+                          {hasClimbingLogData ? <span>{t("Climbing routes preserved", { count: activeActivity.climbing_routes.length })}</span> : null}
+                        </div>
+                      )}
+                    </>
+                  ) : null}
                 </>
               ) : (
                 <section className="empty-state activity-empty-panel">
