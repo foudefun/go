@@ -753,7 +753,7 @@ export default function DaySessionModal({
 
               {hasActivityEditor ? (
                 <>
-                  <div className="form-grid">
+                  <div className="activity-type-only-row">
                     <label>
                       {t("Activity Type")}
                       <span className="activity-type-combobox">

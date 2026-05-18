@@ -799,24 +799,24 @@ label {
   gap: 12px;
 }
 
+.activity-type-only-row {
+  display: grid;
+  max-width: 520px;
+}
+
 .activity-type-combobox {
-  position: relative;
   display: block;
 }
 
 .activity-type-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  left: 0;
-  z-index: 5;
   display: grid;
-  max-height: 240px;
+  max-height: 260px;
   overflow: auto;
   border: 1px solid #dce4f0;
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+  margin-top: 4px;
   padding: 4px;
 }
 
