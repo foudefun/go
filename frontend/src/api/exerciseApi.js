@@ -4,6 +4,13 @@ export function getExercises() {
   return api("/exercises");
 }
 
+export function getExercisePerformance(name, { excludeDate = "" } = {}) {
+  const params = new URLSearchParams();
+  if (excludeDate) params.set("exclude_date", excludeDate);
+  const query = params.toString();
+  return api(`/exercises/${encodeURIComponent(name)}/performance${query ? `?${query}` : ""}`);
+}
+
 export function createExercise(payload) {
   return api("/exercises", {
     method: "POST",

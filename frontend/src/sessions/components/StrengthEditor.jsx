@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { getExercisePerformance } from "../../api/exerciseApi.js";
 import {
   WORK_MODES,
   WORK_TYPES,
@@ -46,7 +47,113 @@ function hasSetDraftContent(setDraft) {
   return Object.values(setDraft || {}).some((value) => value !== "" && value !== null && value !== undefined);
 }
 
-export default function StrengthEditor({ activity, exercises, loading, error, onChange }) {
+function formatDuration(seconds) {
+  const totalSeconds = Number(seconds || 0);
+  if (!totalSeconds) return "";
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainingSeconds = totalSeconds % 60;
+  return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
+}
+
+function formatWeight(value, unit = "kg") {
+  return value || value === 0 ? `${Number(value).toFixed(1).replace(/\.0$/, "")} ${unit}` : "";
+}
+
+function formatTopSet(set = {}, unit = "kg") {
+  if (!set || typeof set !== "object") return "";
+  if (set.duration_sec !== null && set.duration_sec !== undefined) {
+    return [formatDuration(set.duration_sec), set.watts ? `${Math.round(set.watts)} W` : ""].filter(Boolean).join(" @ ");
+  }
+  return [set.reps !== null && set.reps !== undefined ? `${set.reps} reps` : "", formatWeight(set.weight, set.weight_unit || unit)].filter(Boolean).join(" x ");
+}
+
+function formatRecommendation(recommendation, t) {
+  if (!recommendation) return "";
+  if (recommendation.tracking_mode === "time_watts") {
+    return t("Performance watts recommendation", {
+      wattsLow: Math.round(recommendation.suggested_watts_low || 0),
+      wattsHigh: Math.round(recommendation.suggested_watts_high || 0),
+      durationLow: recommendation.target_duration_low || 0,
+      durationHigh: recommendation.target_duration_high || 0,
+    });
+  }
+  return t("Performance weight recommendation", {
+    weightLow: recommendation.suggested_weight_low || 0,
+    weightHigh: recommendation.suggested_weight_high || 0,
+    unit: recommendation.weight_unit || "kg",
+    repsLow: recommendation.target_reps_low || 0,
+    repsHigh: recommendation.target_reps_high || 0,
+  });
+}
+
+function ExercisePerformancePanel({ summary, status, error, t }) {
+  if (status === "idle") {
+    return <div className="performance-panel empty">{t("Choose an exercise to see history and PRs.")}</div>;
+  }
+  if (status === "loading") {
+    return <div className="performance-panel empty">{t("Loading exercise history...")}</div>;
+  }
+  if (error) {
+    return <div className="performance-panel empty error">{error}</div>;
+  }
+  if (!summary || !summary.total_sessions) {
+    return <div className="performance-panel empty">{t("No previous performance for this exercise yet.")}</div>;
+  }
+
+  const records = summary.personal_records || {};
+  const unit = summary.weight_unit || "kg";
+  const recordItems = [
+    records.heaviest_weight || records.heaviest_weight === 0
+      ? [t("Heaviest"), formatWeight(records.heaviest_weight, unit)]
+      : null,
+    records.best_estimated_1rm || records.best_estimated_1rm === 0
+      ? [t("Estimated 1RM"), formatWeight(records.best_estimated_1rm, unit)]
+      : null,
+    records.max_watts || records.max_watts === 0 ? [t("Max watts"), `${Math.round(records.max_watts)} W`] : null,
+    records.longest_duration_sec || records.longest_duration_sec === 0 ? [t("Longest duration"), formatDuration(records.longest_duration_sec)] : null,
+  ].filter(Boolean);
+
+  return (
+    <section className="performance-panel">
+      <div>
+        <p className="eyebrow">{t("History")}</p>
+        <h4>{t("Previous performance")}</h4>
+        <span>
+          {t("Performance session count", {
+            total: summary.total_sessions,
+            validated: summary.validated_sessions || 0,
+          })}
+        </span>
+      </div>
+      {summary.last_session ? (
+        <div className="performance-last">
+          <strong>{t("Last session")}</strong>
+          <span>
+            {summary.last_session.date} - {formatTopSet(summary.last_session.top_set, unit)}
+          </span>
+        </div>
+      ) : null}
+      {recordItems.length ? (
+        <div className="performance-records">
+          {recordItems.map(([label, value]) => (
+            <span key={label}>
+              <strong>{label}</strong>
+              {value}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {summary.recommendation ? (
+        <div className="notice-panel">
+          <strong>{t("Suggested range")}</strong>
+          <span>{formatRecommendation(summary.recommendation, t)}</span>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+export default function StrengthEditor({ activity, exercises, loading, error, onChange, sessionDate = "" }) {
   const { language, t } = useTranslation();
   const exerciseMap = useMemo(() => buildExerciseMap(exercises), [exercises]);
   const sortedExercises = useMemo(() => sortExercises(exercises, language), [exercises, language]);
@@ -56,9 +163,42 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
   );
   const [draft, setDraft] = useState(createBlankStrengthItem);
   const [editIndex, setEditIndex] = useState(null);
+  const [performance, setPerformance] = useState(null);
+  const [performanceStatus, setPerformanceStatus] = useState("idle");
+  const [performanceError, setPerformanceError] = useState("");
   const trackingMode = getDraftTrackingMode(draft, exerciseMap);
   const weightUnit = getDraftWeightUnit(draft, exerciseMap);
   const [currentSet, setCurrentSet] = useState(() => createBlankSetDraft("reps_weight", "kg"));
+
+  useEffect(() => {
+    let isMounted = true;
+    const exerciseName = String(draft.exercise_name || "").trim();
+    if (!exerciseName) {
+      setPerformance(null);
+      setPerformanceStatus("idle");
+      setPerformanceError("");
+      return () => {
+        isMounted = false;
+      };
+    }
+    setPerformanceStatus("loading");
+    setPerformanceError("");
+    getExercisePerformance(exerciseName, { excludeDate: sessionDate })
+      .then((payload) => {
+        if (!isMounted) return;
+        setPerformance(payload);
+        setPerformanceStatus("ready");
+      })
+      .catch((performanceLoadError) => {
+        if (!isMounted) return;
+        setPerformance(null);
+        setPerformanceError(performanceLoadError.message);
+        setPerformanceStatus("error");
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [draft.exercise_name, sessionDate]);
 
   function emitItems(nextItems) {
     onChange({
@@ -230,6 +370,8 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
             </select>
           </label>
         </div>
+
+        <ExercisePerformancePanel summary={performance} status={performanceStatus} error={performanceError} t={t} />
 
         <label>
           {t("Item notes")}

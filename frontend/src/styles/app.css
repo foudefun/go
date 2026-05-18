@@ -277,6 +277,26 @@ label {
   flex-wrap: wrap;
 }
 
+.activity-create-panel {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 16px;
+}
+
+.activity-create-panel h2 {
+  margin: 0;
+  color: #111827;
+  line-height: 1.1;
+}
+
+.activity-create-grid {
+  display: grid;
+  grid-template-columns: minmax(150px, 190px) minmax(170px, 230px) minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
 .activity-add-controls label {
   min-width: 180px;
 }
@@ -329,6 +349,17 @@ label {
 .activity-card small,
 .account-panel small {
   color: #667085;
+}
+
+.clickable-card {
+  width: 100%;
+  border-color: #dce4f0;
+  text-align: left;
+}
+
+.clickable-card:hover {
+  border-color: #9fb0c8;
+  background: #f8fafc;
 }
 
 .table-panel,
@@ -1999,6 +2030,61 @@ label {
   padding-top: 12px;
 }
 
+.performance-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #dce4f0;
+  border-radius: 8px;
+  background: #fff;
+  padding: 12px;
+}
+
+.performance-panel.empty {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.performance-panel.error {
+  color: #9f1d1d;
+}
+
+.performance-panel h4 {
+  margin: 0;
+  color: #172033;
+}
+
+.performance-panel span,
+.performance-last span {
+  color: #667085;
+  font-size: 13px;
+}
+
+.performance-last {
+  display: grid;
+  gap: 2px;
+}
+
+.performance-records {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.performance-records span {
+  display: grid;
+  gap: 2px;
+  border: 1px solid #e4eaf3;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 9px;
+}
+
+.performance-records strong {
+  color: #172033;
+  font-size: 12px;
+}
+
 .set-builder {
   display: grid;
   gap: 10px;
@@ -2189,6 +2275,7 @@ label {
   }
 
   .exercise-toolbar,
+  .activity-create-grid,
   .equipment-toolbar,
   .settings-layout,
   .import-layout,

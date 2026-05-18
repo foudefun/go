@@ -113,11 +113,11 @@ function normalizeSession(session) {
   };
 }
 
-function getActivityTitle(activity, index) {
+function getActivityTitle(activity, index, t = (value) => value) {
   return (
     String(activity.title || "").trim() ||
-    getActivityTypeLabel(activity.activity_type) ||
-    `Activity ${index + 1}`
+    t(getActivityTypeLabel(activity.activity_type)) ||
+    t("Activity number", { number: index + 1 })
   );
 }
 
@@ -133,24 +133,24 @@ function hasPlanContent(session) {
   );
 }
 
-function getPlanTitle(session) {
+function getPlanTitle(session, t = (value) => value) {
   const plannedItems = normalizePlannedItems(session?.planned_items);
   const plannedType = session?.plan_activity_type || (plannedItems.length ? "musculation" : "");
   return (
     String(session?.plan_title || "").trim() ||
-    getActivityTypeLabel(plannedType) ||
-    "Planned session"
+    t(getActivityTypeLabel(plannedType)) ||
+    t("Planned session")
   );
 }
 
-function getPlanSummary(session) {
+function getPlanSummary(session, t = (value) => value) {
   const parts = [];
   if (session?.plan_time) parts.push(session.plan_time);
   if (session?.duration_target_min) parts.push(`${session.duration_target_min} min`);
   if (session?.location) parts.push(session.location);
   const plannedCount = normalizePlannedItems(session?.planned_items).length;
-  if (plannedCount) parts.push(`${plannedCount} item${plannedCount === 1 ? "" : "s"}`);
-  return parts.join(" | ") || "Plan saved for this day";
+  if (plannedCount) parts.push(t("Item count", { count: plannedCount }));
+  return parts.join(" | ") || t("Plan saved for this day");
 }
 
 function buildActivityFromPlan(session) {
@@ -409,7 +409,7 @@ function buildSavePayload(session, activeIndex, draftActivity = null) {
   };
 }
 
-export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpen = false }) {
+export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpen = false, initialActivity = null }) {
   const { t } = useTranslation();
   const [session, setSession] = useState(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -436,7 +436,7 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
         const nextActivities = (normalized.activities || []).filter(activityHasContent);
         const nextSession = { ...normalized, activities: nextActivities };
         setSession(nextSession);
-        setDraftActivity(createNewOnOpen ? blankActivity() : null);
+        setDraftActivity(createNewOnOpen ? normalizeActivity({ ...blankActivity(), ...(initialActivity || {}) }) : null);
         setShowPlanEditor(false);
         setActiveIndex(
           createNewOnOpen
@@ -453,7 +453,7 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
     return () => {
       isMounted = false;
     };
-  }, [date, createNewOnOpen]);
+  }, [date, createNewOnOpen, initialActivity]);
 
   useEffect(() => {
     let isMounted = true;
@@ -519,7 +519,7 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
   function deleteSelectedActivity() {
     if (activeIndex === null || !session?.activities?.[activeIndex]) return;
     const activity = session.activities[activeIndex];
-    if (!window.confirm(t('Delete "{name}"?', { name: getActivityTitle(activity, activeIndex) }))) return;
+    if (!window.confirm(t('Delete "{name}"?', { name: getActivityTitle(activity, activeIndex, t) }))) return;
     setSession((current) => {
       if (!current) return current;
       const activities = current.activities.filter((_, index) => index !== activeIndex);
@@ -561,12 +561,13 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
   }
 
   async function handleActivityImageUpload(file) {
-    if (!file || activeIndex === null || !session) return;
+    if (!file || !session) return;
     setImageStatus("uploading");
     setImageError("");
     try {
+      const targetIndex = activeIndex === null ? savedActivities.length : activeIndex;
       await saveSession(date, buildSavePayload(session, activeIndex, draftActivity));
-      const result = await uploadActivityImage(date, activeIndex, file);
+      const result = await uploadActivityImage(date, targetIndex, file);
       applySessionPayload(result.session);
       onSaved?.();
     } catch (uploadError) {
@@ -594,12 +595,13 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
   }
 
   async function handleActivitySourceUpload({ file, provider, format }) {
-    if (!file || activeIndex === null || !session) return;
+    if (!file || !session) return;
     setSourceStatus("uploading");
     setSourceError("");
     try {
+      const targetIndex = activeIndex === null ? savedActivities.length : activeIndex;
       await saveSession(date, buildSavePayload(session, activeIndex, draftActivity));
-      const result = await uploadActivitySourceFile(date, activeIndex, { file, provider, format });
+      const result = await uploadActivitySourceFile(date, targetIndex, { file, provider, format });
       applySessionPayload(result.session);
       onSaved?.();
     } catch (uploadError) {
@@ -655,8 +657,8 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
                   key={`${index}-${activity.title}-${activity.activity_type}`}
                   onClick={() => setActiveIndex(index)}
                 >
-                  <strong>{getActivityTitle(activity, index)}</strong>
-                  <span>{getActivityTypeLabel(activity.activity_type)}</span>
+                  <strong>{getActivityTitle(activity, index, t)}</strong>
+                  <span>{t(getActivityTypeLabel(activity.activity_type))}</span>
                 </button>
               ))}
               {draftActivity ? (
@@ -673,8 +675,8 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
                 <section className="day-plan-summary">
                   <div>
                     <p className="eyebrow">{t("Plan")}</p>
-                    <h3>{getPlanTitle(session)}</h3>
-                    <span>{getPlanSummary(session)}</span>
+                    <h3>{getPlanTitle(session, t)}</h3>
+                    <span>{getPlanSummary(session, t)}</span>
                   </div>
                   <div className="compact-actions">
                     <button type="button" className="primary-action" onClick={startFromPlan}>
@@ -718,7 +720,7 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
                         <option value="">{t("Choose type")}</option>
                         {ACTIVITY_TYPES.filter((activityType) => activityType.value).map((activityType) => (
                           <option key={activityType.value} value={activityType.value}>
-                            {activityType.label}
+                            {t(activityType.label)}
                           </option>
                         ))}
                       </select>
@@ -752,7 +754,7 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
 
                   <ActivityImagePanel
                     activity={activeActivity}
-                    canManage={activeIndex !== null}
+                    canManage={activityHasContent(activeActivity)}
                     uploading={imageStatus === "uploading"}
                     error={imageError}
                     onUpload={handleActivityImageUpload}
@@ -762,7 +764,7 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
 
                   <ActivitySourceFilesPanel
                     activity={activeActivity}
-                    canManage={activeIndex !== null}
+                    canManage={activityHasContent(activeActivity)}
                     uploading={sourceStatus === "uploading"}
                     error={sourceError}
                     onUpload={handleActivitySourceUpload}
@@ -777,6 +779,7 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
                       loading={exerciseStatus === "loading"}
                       error={exerciseError}
                       onChange={updateActiveActivity}
+                      sessionDate={date}
                     />
                   ) : null}
 
