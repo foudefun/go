@@ -1816,6 +1816,21 @@ def activity_has_content(payload: dict) -> bool:
         or str(payload.get("note", "") or "").strip()
     )
 
+
+def activity_has_history_content(payload: dict) -> bool:
+    return bool(
+        payload.get("performed_items")
+        or str(payload.get("title", "") or "").strip()
+        or str(payload.get("activity_details", "") or "").strip()
+        or str(payload.get("image", "") or "").strip()
+        or payload.get("source_files")
+        or payload.get("climbing_routes")
+        or float(payload.get("load", 0) or 0) > 0
+        or str(payload.get("physio_time", "") or "").strip()
+        or str(payload.get("note", "") or "").strip()
+    )
+
+
 def get_session_activities(payload: dict) -> list[dict]:
     activities = payload.get("activities", [])
     return activities if isinstance(activities, list) else []
@@ -1935,7 +1950,7 @@ def get_calendar_display_exercises(payload: dict) -> list[str]:
 def build_calendar_activity_entries(payload: dict) -> list[dict]:
     activities = [normalize_activity_entry(item) for item in get_session_activities(payload)]
     if activities:
-        return [activity for activity in activities if activity_has_content(activity)]
+        return [activity for activity in activities if activity_has_history_content(activity)]
 
     legacy_activity = normalize_activity_entry({
         "title": payload.get("title", ""),
@@ -1949,7 +1964,7 @@ def build_calendar_activity_entries(payload: dict) -> list[dict]:
         "physio_time": payload.get("physio_time", ""),
         "note": payload.get("note", ""),
     })
-    return [legacy_activity] if activity_has_content(legacy_activity) else []
+    return [legacy_activity] if activity_has_history_content(legacy_activity) else []
 
 
 def get_calendar_activity_summary(activity: dict) -> str:
@@ -6166,7 +6181,7 @@ def get_calendar(
                 "planned_exercises": planned_exercises,
                 "performed_exercises": performed_exercises,
                 "plan_title": payload.get("plan_title", ""),
-                "activity_count": len(activities),
+                "activity_count": len(activity_entries),
             })
         return out
     finally:

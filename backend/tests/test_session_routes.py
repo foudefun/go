@@ -119,3 +119,18 @@ def test_calendar_activity_entries_include_performed_exercise_image(client):
     assert calendar.status_code == 200, calendar.text
     entries = calendar.json()[0]["activity_entries"]
     assert entries[0]["exercise_image"] == "/api/uploads/exercises/image-test-squat.jpg"
+
+
+def test_calendar_does_not_show_type_only_strength_activity(client):
+    saved = client.post(
+        "/api/session/2026-06-04",
+        json={"activities": [{"activity_type": "musculation"}]},
+    )
+    assert saved.status_code == 200, saved.text
+
+    calendar = client.get("/api/calendar?start_date=2026-06-04&end_date=2026-06-04")
+    assert calendar.status_code == 200, calendar.text
+    row = calendar.json()[0]
+    assert row["activity_count"] == 0
+    assert row["activity_entries"] == []
+    assert row["activity_types"] == []
