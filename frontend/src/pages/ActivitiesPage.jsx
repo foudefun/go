@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCalendar } from "../api/calendarApi.js";
-import { ACTIVITY_TYPES, getActivityTypeLabel } from "../domain/activityTypes.js";
+import { ACTIVITY_TYPES, getActivityTypeColor, getActivityTypeLabel } from "../domain/activityTypes.js";
 import { useTranslation } from "../i18n/translations.js";
 import DaySessionModal from "../sessions/components/DaySessionModal.jsx";
 
@@ -188,7 +188,7 @@ export default function ActivitiesPage() {
                   <small>{t("Trace")}</small>
                 </span>
               ) : (
-                <span className="activity-type-thumb">
+                <span className="activity-type-thumb" style={{ backgroundColor: getActivityTypeColor(activity.activityType) }}>
                   {t(getActivityTypeLabel(activity.activityType))}
                 </span>
               )}
@@ -199,7 +199,9 @@ export default function ActivitiesPage() {
               {activity.details ? <small>{activity.details}</small> : null}
             </span>
             <span className="activity-list-meta">
-              <span className="activity-type-badge compact">{t(getActivityTypeLabel(activity.activityType))}</span>
+              <span className="activity-type-badge compact" style={{ backgroundColor: getActivityTypeColor(activity.activityType) }}>
+                {t(getActivityTypeLabel(activity.activityType))}
+              </span>
               {activity.sourceFiles.length ? <span>{t("Source count", { count: activity.sourceFiles.length })}</span> : null}
               {getActivityMetrics(activity).map((metric) => (
                 <span key={metric.key}>{metric.value}</span>
