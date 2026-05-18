@@ -131,6 +131,14 @@ Recommended daily cron for the `deploy` user:
 17 2 * * * cd /opt/rehab && ./scripts/backup_prod.sh >> /opt/rehab/backups/backup.log 2>&1
 ```
 
+Download the latest production backup to a local Windows machine:
+
+```powershell
+.\scripts\download_latest_backup.ps1
+```
+
+By default this copies the newest archive into `~/rehab-backups`.
+
 ## 9. Optional: Telegram -> GitHub issue bot
 
 This project includes a small Telegram bot that can turn a message into a GitHub issue.
