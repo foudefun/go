@@ -699,6 +699,10 @@ label {
   padding: 16px;
 }
 
+.day-modal-header .day-modal-actions {
+  justify-content: flex-end;
+}
+
 .day-modal-header h2 {
   margin: 0;
   line-height: 1.1;
@@ -715,6 +719,10 @@ label {
   grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
   gap: 16px;
   padding: 16px;
+}
+
+.day-editor-grid.no-activity-sidebar {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .day-activity-list {
@@ -739,12 +747,6 @@ label {
 
 .activity-select.draft {
   border-style: dashed;
-}
-
-.active-draft-action {
-  border-color: #0f766e;
-  background: #ecfdf5;
-  color: #0f766e;
 }
 
 .activity-select span {
@@ -784,32 +786,6 @@ label {
   border: 1px dashed #cdd7e6;
   border-radius: 8px;
   background: #fbfcfe;
-}
-
-.activity-start-panel {
-  display: grid;
-  gap: 10px;
-  border: 1px solid #dce4f0;
-  border-radius: 8px;
-  background: #fbfcfe;
-  padding: 14px;
-}
-
-.activity-start-panel h3 {
-  margin: 0;
-  color: #172033;
-}
-
-.activity-start-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.activity-start-actions button.active {
-  border-color: #0f766e;
-  background: #ecfdf5;
-  color: #0f766e;
 }
 
 .form-grid {

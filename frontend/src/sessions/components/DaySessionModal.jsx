@@ -153,6 +153,24 @@ function getPlanSummary(session, t = (value) => value) {
   return parts.join(" | ") || t("Plan saved for this day");
 }
 
+function getActivityTypeInputValue(value, t = (item) => item) {
+  const knownType = ACTIVITY_TYPES.find((activityType) => activityType.value === value);
+  return knownType ? t(knownType.label) : value || "";
+}
+
+function normalizeActivityTypeInput(input, t = (item) => item) {
+  const normalizedInput = String(input || "").trim().toLowerCase();
+  const knownType = ACTIVITY_TYPES.find((activityType) => {
+    if (!activityType.value) return false;
+    return (
+      activityType.value.toLowerCase() === normalizedInput ||
+      activityType.label.toLowerCase() === normalizedInput ||
+      t(activityType.label).toLowerCase() === normalizedInput
+    );
+  });
+  return knownType?.value || input;
+}
+
 function buildActivityFromPlan(session) {
   const plannedItems = normalizePlannedItems(session?.planned_items);
   const plannedType = session?.plan_activity_type || (plannedItems.length ? "musculation" : "");
@@ -496,7 +514,6 @@ export default function DaySessionModal({
   const planExists = hasPlanContent(session);
   const hasActivityEditor = activeIndex === null ? Boolean(draftActivity) : Boolean(savedActivities[activeIndex]);
   const isNewActivityDraft = activeIndex === null && Boolean(draftActivity);
-  const shouldShowActivityStarter = isNewActivityDraft && !String(activeActivity.activity_type || "").trim();
   const targetSummary = useMemo(() => {
     if (!session) return "";
     return session.target_load !== null && session.target_load !== undefined
@@ -549,11 +566,6 @@ export default function DaySessionModal({
   function startFromPlan() {
     if (!session) return;
     setDraftActivity(buildActivityFromPlan(session));
-    setActiveIndex(null);
-  }
-
-  function startBlankActivity(activityType = "") {
-    setDraftActivity(normalizeActivity({ ...blankActivity(), activity_type: activityType }));
     setActiveIndex(null);
   }
 
@@ -656,37 +668,39 @@ export default function DaySessionModal({
             <h2>{date}</h2>
             {session ? <span>{targetSummary}</span> : null}
           </div>
-          <button type="button" onClick={onClose}>
-            {t("Close")}
-          </button>
+          <div className="day-modal-actions">
+            {session && status !== "loading" ? (
+              <button type="button" className="primary-action" onClick={addActivity}>
+                {t("+ Activity")}
+              </button>
+            ) : null}
+            <button type="button" onClick={onClose}>
+              {t("Close")}
+            </button>
+          </div>
         </header>
 
         {status === "loading" ? <div className="empty-state">{t("Loading day...")}</div> : null}
         {error ? <div className="error-banner">{error}</div> : null}
 
         {session && status !== "loading" ? (
-          <div className="day-editor-grid">
-            <aside className="day-activity-list">
-              <button
-                type="button"
-                className={isNewActivityDraft ? "primary-action active-draft-action" : "primary-action"}
-                onClick={addActivity}
-              >
-                {isNewActivityDraft ? t("New activity") : t("+ Activity")}
-              </button>
-              {savedActivities.map((activity, index) => (
-                <button
-                  type="button"
-                  className={index === activeIndex ? "activity-select active" : "activity-select"}
-                  key={`${index}-${activity.title}-${activity.activity_type}`}
-                  onClick={() => setActiveIndex(index)}
-                >
-                  <strong>{getActivityTitle(activity, index, t)}</strong>
-                  <span>{t(getActivityTypeLabel(activity.activity_type))}</span>
-                </button>
-              ))}
-              {!savedActivities.length && !draftActivity ? <div className="empty-state compact">{t("No activity yet.")}</div> : null}
-            </aside>
+          <div className={savedActivities.length ? "day-editor-grid" : "day-editor-grid no-activity-sidebar"}>
+            {savedActivities.length ? (
+              <aside className="day-activity-list">
+                {isNewActivityDraft ? <div className="activity-select active draft">{t("New activity")}</div> : null}
+                {savedActivities.map((activity, index) => (
+                  <button
+                    type="button"
+                    className={index === activeIndex ? "activity-select active" : "activity-select"}
+                    key={`${index}-${activity.title}-${activity.activity_type}`}
+                    onClick={() => setActiveIndex(index)}
+                  >
+                    <strong>{getActivityTitle(activity, index, t)}</strong>
+                    <span>{t(getActivityTypeLabel(activity.activity_type))}</span>
+                  </button>
+                ))}
+              </aside>
+            ) : null}
 
             <section className="day-form">
               {planExists && !showPlanEditor ? (
@@ -703,32 +717,6 @@ export default function DaySessionModal({
                     <button type="button" onClick={() => setShowPlanEditor(true)}>
                       {t("Edit plan")}
                     </button>
-                  </div>
-                </section>
-              ) : null}
-
-              {shouldShowActivityStarter ? (
-                <section className="activity-start-panel">
-                  <div>
-                    <p className="eyebrow">{t("New activity")}</p>
-                    <h3>{t("Start with")}</h3>
-                  </div>
-                  <div className="activity-start-actions">
-                    {planExists ? (
-                      <button type="button" className="primary-action" onClick={startFromPlan}>
-                        {t("Planned activity")}
-                      </button>
-                    ) : null}
-                    {ACTIVITY_TYPES.filter((activityType) => activityType.value).map((activityType) => (
-                      <button
-                        type="button"
-                        className={activeActivity.activity_type === activityType.value ? "active" : ""}
-                        key={activityType.value}
-                        onClick={() => startBlankActivity(activityType.value)}
-                      >
-                        {t(activityType.label)}
-                      </button>
-                    ))}
                   </div>
                 </section>
               ) : null}
@@ -757,17 +745,17 @@ export default function DaySessionModal({
                     </label>
                     <label>
                       {t("Activity Type")}
-                      <select
-                        value={activeActivity.activity_type || ""}
-                        onChange={(event) => updateActiveActivity({ activity_type: event.target.value })}
-                      >
-                        <option value="">{t("Choose type")}</option>
+                      <input
+                        list="activity-type-options"
+                        value={getActivityTypeInputValue(activeActivity.activity_type, t)}
+                        onChange={(event) => updateActiveActivity({ activity_type: normalizeActivityTypeInput(event.target.value, t) })}
+                        placeholder={t("Choose type")}
+                      />
+                      <datalist id="activity-type-options">
                         {ACTIVITY_TYPES.filter((activityType) => activityType.value).map((activityType) => (
-                          <option key={activityType.value} value={activityType.value}>
-                            {t(activityType.label)}
-                          </option>
+                          <option key={activityType.value} value={t(activityType.label)} />
                         ))}
-                      </select>
+                      </datalist>
                     </label>
                     <label>
                       {t("Time")}
