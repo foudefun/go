@@ -17,6 +17,7 @@ import {
   getAuditTargetLabel,
   normalizeAdminSummary,
 } from "../domain/adminTools.js";
+import { useTranslation } from "../i18n/translations.js";
 
 function MetricCard({ label, value }) {
   return (
@@ -59,47 +60,49 @@ function UserRow({
   onPasswordChange,
   onResetPassword,
   onDelete,
+  t,
 }) {
   return (
     <article className="admin-user-row">
       <div>
         <strong>{user.username}</strong>
         <span>
-          {user.is_admin ? "Admin" : "User"}
-          {isCurrentUser ? " - current session" : ""}
-          {user.is_default_admin ? " - default admin" : ""}
+          {user.is_admin ? t("Admin") : t("User")}
+          {isCurrentUser ? ` - ${t("current session")}` : ""}
+          {user.is_default_admin ? ` - ${t("default admin")}` : ""}
         </span>
       </div>
       <label>
-        Role
+        {t("Role")}
         <select value={roleDraft} onChange={(event) => onRoleChange(user.username, event.target.value === "admin")}>
-          <option value="user">User</option>
-          <option value="admin">Admin</option>
+          <option value="user">{t("User")}</option>
+          <option value="admin">{t("Admin")}</option>
         </select>
       </label>
       <button type="button" onClick={() => onSaveRole(user)} disabled={saving}>
-        Save Role
+        {t("Save Role")}
       </button>
       <label>
-        New password
+        {t("New password")}
         <input
           type="password"
           value={passwordDraft || ""}
           onChange={(event) => onPasswordChange(user.username, event.target.value)}
-          placeholder="minimum 8 characters"
+          placeholder={t("minimum 8 characters")}
         />
       </label>
       <button type="button" onClick={() => onResetPassword(user)} disabled={saving || !passwordDraft}>
-        Reset Password
+        {t("Reset Password")}
       </button>
       <button type="button" onClick={() => onDelete(user)} disabled={saving || isCurrentUser}>
-        Delete
+        {t("Delete")}
       </button>
     </article>
   );
 }
 
 export default function AdminPage() {
+  const { t } = useTranslation();
   const { user, refreshUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [summary, setSummary] = useState(() => normalizeAdminSummary());
@@ -114,12 +117,12 @@ export default function AdminPage() {
 
   const summaryMetrics = useMemo(
     () => [
-      ["Actions 7d", summary.total_actions_7d],
-      ["Active Users", summary.active_users_7d],
-      ["Logins", summary.logins_7d],
-      ["Sessions / Imports", summary.session_actions_7d],
+      [t("Actions 7d"), summary.total_actions_7d],
+      [t("Active Users"), summary.active_users_7d],
+      [t("Logins"), summary.logins_7d],
+      [t("Sessions / Imports"), summary.session_actions_7d],
     ],
-    [summary],
+    [summary, t],
   );
 
   function syncRoleDrafts(userRows) {
@@ -172,7 +175,7 @@ export default function AdminPage() {
     try {
       await createAdminUser(newUser);
       setNewUser({ username: "", password: "", is_admin: false });
-      setSuccess(`Created user ${newUser.username}.`);
+      setSuccess(t("Created user", { username: newUser.username }));
       await loadAdminData();
     } catch (createError) {
       setError(createError.message);
@@ -189,7 +192,7 @@ export default function AdminPage() {
       if (targetUser.username === user?.username) {
         await refreshUser();
       }
-      setSuccess(`Updated role for ${targetUser.username}.`);
+      setSuccess(t("Updated role for", { username: targetUser.username }));
       await loadAdminData();
     } catch (roleError) {
       setError(roleError.message);
@@ -206,7 +209,7 @@ export default function AdminPage() {
     try {
       await resetAdminUserPassword(targetUser.username, { new_password: password });
       setPasswordDrafts((current) => ({ ...current, [targetUser.username]: "" }));
-      setSuccess(`Password reset for ${targetUser.username}.`);
+      setSuccess(t("Password reset for", { username: targetUser.username }));
       await loadAdminData();
     } catch (passwordError) {
       setError(passwordError.message);
@@ -215,13 +218,13 @@ export default function AdminPage() {
   }
 
   async function handleDeleteUser(targetUser) {
-    if (!window.confirm(`Delete user "${targetUser.username}"?`)) return;
+    if (!window.confirm(t('Delete user "{username}"?', { username: targetUser.username }))) return;
     setStatus("saving");
     setError("");
     setSuccess("");
     try {
       await deleteAdminUser(targetUser.username);
-      setSuccess(`Deleted user ${targetUser.username}.`);
+      setSuccess(t("Deleted user", { username: targetUser.username }));
       await loadAdminData();
     } catch (deleteError) {
       setError(deleteError.message);
@@ -232,7 +235,7 @@ export default function AdminPage() {
   if (!user?.isAdmin) {
     return (
       <main className="page-shell">
-        <section className="app-panel empty-state">Admin access required.</section>
+        <section className="app-panel empty-state">{t("Admin access required.")}</section>
       </main>
     );
   }
@@ -241,12 +244,12 @@ export default function AdminPage() {
     <main className="page-shell">
       <section className="module-header">
         <div>
-          <p className="eyebrow">Admin</p>
-          <h1>Administration</h1>
+          <p className="eyebrow">{t("Admin")}</p>
+          <h1>{t("Administration")}</h1>
         </div>
       </section>
 
-      {status === "loading" ? <div className="app-panel empty-state">Loading admin data...</div> : null}
+      {status === "loading" ? <div className="app-panel empty-state">{t("Loading admin data...")}</div> : null}
       {error ? <div className="error-banner">{error}</div> : null}
       {success ? <div className="success-banner">{success}</div> : null}
 
@@ -260,25 +263,25 @@ export default function AdminPage() {
         <div className="settings-form-column">
           <section className="app-panel admin-panel">
             <div>
-              <p className="eyebrow">Users</p>
-              <h2>User Management</h2>
+              <p className="eyebrow">{t("Users")}</p>
+              <h2>{t("User Management")}</h2>
             </div>
             <form className="admin-create-user" onSubmit={handleCreateUser}>
               <label>
-                Username
+                {t("Username")}
                 <input
                   value={newUser.username}
                   onChange={(event) => setNewUser((current) => ({ ...current, username: event.target.value }))}
-                  placeholder="new user"
+                  placeholder={t("new user")}
                 />
               </label>
               <label>
-                Initial password
+                {t("Initial password")}
                 <input
                   type="password"
                   value={newUser.password}
                   onChange={(event) => setNewUser((current) => ({ ...current, password: event.target.value }))}
-                  placeholder="minimum 8 characters"
+                  placeholder={t("minimum 8 characters")}
                 />
               </label>
               <label className="toggle-row">
@@ -287,10 +290,10 @@ export default function AdminPage() {
                   checked={newUser.is_admin}
                   onChange={(event) => setNewUser((current) => ({ ...current, is_admin: event.target.checked }))}
                 />
-                Admin
+                {t("Admin")}
               </label>
               <button type="submit" className="primary-action" disabled={status === "saving"}>
-                Add User
+                {t("Add User")}
               </button>
             </form>
 
@@ -308,6 +311,7 @@ export default function AdminPage() {
                   onPasswordChange={(username, password) => setPasswordDrafts((current) => ({ ...current, [username]: password }))}
                   onResetPassword={handleResetPassword}
                   onDelete={handleDeleteUser}
+                  t={t}
                 />
               ))}
             </div>
@@ -315,14 +319,14 @@ export default function AdminPage() {
 
           <section className="app-panel admin-panel">
             <div>
-              <p className="eyebrow">Audit</p>
-              <h2>Activity Log</h2>
+              <p className="eyebrow">{t("Audit")}</p>
+              <h2>{t("Activity Log")}</h2>
             </div>
             <form className="admin-audit-filters" onSubmit={applyAuditFilters}>
               <label>
-                User
+                {t("User")}
                 <select value={auditFilters.username} onChange={(event) => updateAuditFilter("username", event.target.value)}>
-                  <option value="">All users</option>
+                  <option value="">{t("All users")}</option>
                   {users.map((adminUser) => (
                     <option value={adminUser.username} key={adminUser.username}>
                       {adminUser.username}
@@ -331,9 +335,9 @@ export default function AdminPage() {
                 </select>
               </label>
               <label>
-                Action
+                {t("Action")}
                 <select value={auditFilters.action} onChange={(event) => updateAuditFilter("action", event.target.value)}>
-                  <option value="">All actions</option>
+                  <option value="">{t("All actions")}</option>
                   {ADMIN_ACTIONS.map((action) => (
                     <option value={action} key={action}>
                       {action}
@@ -342,15 +346,15 @@ export default function AdminPage() {
                 </select>
               </label>
               <label>
-                From
+                {t("From")}
                 <input type="date" value={auditFilters.dateFrom} onChange={(event) => updateAuditFilter("dateFrom", event.target.value)} />
               </label>
               <label>
-                To
+                {t("To")}
                 <input type="date" value={auditFilters.dateTo} onChange={(event) => updateAuditFilter("dateTo", event.target.value)} />
               </label>
               <label>
-                Rows
+                {t("Rows")}
                 <select value={auditFilters.limit} onChange={(event) => updateAuditFilter("limit", event.target.value)}>
                   {AUDIT_LIMITS.map((limit) => (
                     <option value={limit} key={limit}>
@@ -360,17 +364,17 @@ export default function AdminPage() {
                 </select>
               </label>
               <button type="submit" className="secondary-action">
-                Refresh
+                {t("Refresh")}
               </button>
             </form>
 
             <div className="admin-audit-table">
               <div className="admin-audit-row header">
-                <div>Date</div>
-                <div>User</div>
-                <div>Action</div>
-                <div>Target</div>
-                <div>Summary</div>
+                <div>{t("Date")}</div>
+                <div>{t("User")}</div>
+                <div>{t("Action")}</div>
+                <div>{t("Target")}</div>
+                <div>{t("Summary")}</div>
               </div>
               {auditLogs.map((entry) => (
                 <div className="admin-audit-row" key={entry.id}>
@@ -381,7 +385,7 @@ export default function AdminPage() {
                   <div>{entry.summary || "-"}</div>
                 </div>
               ))}
-              {!auditLogs.length ? <div className="empty-state compact">No audit rows for these filters.</div> : null}
+              {!auditLogs.length ? <div className="empty-state compact">{t("No audit rows for these filters.")}</div> : null}
             </div>
           </section>
         </div>
@@ -389,26 +393,26 @@ export default function AdminPage() {
         <aside className="admin-side-column">
           <section className="app-panel admin-panel">
             <div>
-              <p className="eyebrow">Users</p>
-              <h2>Latest By User</h2>
+              <p className="eyebrow">{t("Users")}</p>
+              <h2>{t("Latest By User")}</h2>
             </div>
             <div className="admin-latest-user-list">
               {summary.latest_by_user.map((entry) => (
                 <article key={entry.username}>
                   <strong>
                     {entry.username}
-                    {entry.is_admin ? " (admin)" : ""}
+                    {entry.is_admin ? ` (${t("admin")})` : ""}
                   </strong>
                   <span>{formatAuditDateTime(entry.last_seen_at)}</span>
-                  <small>{entry.last_action || "-"} - {entry.actions_7d || 0} actions</small>
+                  <small>{t("User actions count", { action: entry.last_action || "-", count: entry.actions_7d || 0 })}</small>
                 </article>
               ))}
-              {!summary.latest_by_user.length ? <div className="empty-state compact">No user activity yet.</div> : null}
+              {!summary.latest_by_user.length ? <div className="empty-state compact">{t("No user activity yet.")}</div> : null}
             </div>
           </section>
-          <RecentAuditList title="Security Events" items={summary.latest_security} emptyText="No recent security events." />
-          <RecentAuditList title="Latest Imports" items={summary.latest_imports} emptyText="No recent imports." />
-          <RecentAuditList title="Latest Sessions" items={summary.latest_sessions} emptyText="No recent sessions." />
+          <RecentAuditList title={t("Security Events")} items={summary.latest_security} emptyText={t("No recent security events.")} />
+          <RecentAuditList title={t("Latest Imports")} items={summary.latest_imports} emptyText={t("No recent imports.")} />
+          <RecentAuditList title={t("Latest Sessions")} items={summary.latest_sessions} emptyText={t("No recent sessions.")} />
         </aside>
       </section>
     </main>

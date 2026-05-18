@@ -9,8 +9,10 @@ import {
   detectProgramImportFormat,
   summarizeProgramImport,
 } from "../domain/importTools.js";
+import { useTranslation } from "../i18n/translations.js";
 
 function ProgramImportPanel() {
+  const { t } = useTranslation();
   const [format, setFormat] = useState("json");
   const [content, setContent] = useState("");
   const [status, setStatus] = useState("idle");
@@ -40,13 +42,13 @@ function ProgramImportPanel() {
       setResult({ copiedPrompt: true });
       setError("");
     } catch {
-      setError("Clipboard copy failed. Select the prompt text and copy it manually.");
+      setError(t("Clipboard copy failed. Select the prompt text and copy it manually."));
     }
   }
 
   async function handleImport() {
     if (!content.trim()) {
-      setError("Add JSON or CSV content to import.");
+      setError(t("Add JSON or CSV content to import."));
       return;
     }
     setStatus("importing");
@@ -67,24 +69,24 @@ function ProgramImportPanel() {
       <div className="settings-form-column">
         <section className="app-panel import-panel">
           <div>
-            <p className="eyebrow">Program</p>
-            <h2>Import A Program</h2>
-            <p>Paste JSON or CSV content, or load a local file into the editor before importing.</p>
+            <p className="eyebrow">{t("Program")}</p>
+            <h2>{t("Import A Program")}</h2>
+            <p>{t("Paste JSON or CSV content, or load a local file into the editor before importing.")}</p>
           </div>
 
           <div className="form-grid">
             <label>
-              Format
+              {t("Format")}
               <select value={format} onChange={(event) => setFormat(event.target.value)}>
                 {IMPORT_FORMATS.map((option) => (
                   <option value={option.value} key={option.value}>
-                    {option.label}
+                    {t(option.label)}
                   </option>
                 ))}
               </select>
             </label>
             <label>
-              File
+              {t("File")}
               <input type="file" accept=".json,.csv,text/csv,application/json" onChange={(event) => loadFile(event.target.files?.[0])} />
             </label>
           </div>
@@ -105,11 +107,11 @@ function ProgramImportPanel() {
               loadFile(event.dataTransfer.files?.[0]);
             }}
           >
-            Drop a JSON or CSV file here
+            {t("Drop a JSON or CSV file here")}
           </div>
 
           <label>
-            Content
+            {t("Content")}
             <textarea
               className="import-textarea"
               value={content}
@@ -118,16 +120,16 @@ function ProgramImportPanel() {
                 setContent(nextContent);
                 setFormat(detectProgramImportFormat(nextContent, ""));
               }}
-              placeholder="Paste JSON or CSV here"
+              placeholder={t("Paste JSON or CSV here")}
             />
           </label>
 
           <div className="day-modal-actions">
             <button type="button" className="primary-action" onClick={handleImport} disabled={status === "importing"}>
-              {status === "importing" ? "Importing..." : "Import Program"}
+              {status === "importing" ? t("Importing...") : t("Import Program")}
             </button>
             <button type="button" className="secondary-action" onClick={loadSample}>
-              Load Sample
+              {t("Load Sample")}
             </button>
           </div>
         </section>
@@ -136,21 +138,25 @@ function ProgramImportPanel() {
         {result ? (
           <div className="success-banner">
             {result.copiedPrompt
-              ? "Prompt copied."
-              : `Import finished. Sessions: ${result.imported_sessions}, exercises created: ${result.created_exercises}, exercises updated: ${result.updated_exercises}.`}
+              ? t("Prompt copied.")
+              : t("Import finished summary", {
+                  sessions: result.imported_sessions,
+                  created: result.created_exercises,
+                  updated: result.updated_exercises,
+                })}
           </div>
         ) : null}
       </div>
 
       <section className="app-panel import-panel">
         <div>
-          <p className="eyebrow">AI Helper</p>
-          <h2>Prompt Template</h2>
-          <p>Use this prompt to convert a free-text program into the importer JSON shape.</p>
+          <p className="eyebrow">{t("AI Helper")}</p>
+          <h2>{t("Prompt Template")}</h2>
+          <p>{t("Use this prompt to convert a free-text program into the importer JSON shape.")}</p>
         </div>
         <textarea className="import-prompt" value={aiPrompt} readOnly />
         <button type="button" className="secondary-action" onClick={copyPrompt}>
-          Copy Prompt
+          {t("Copy Prompt")}
         </button>
       </section>
     </section>
@@ -158,6 +164,7 @@ function ProgramImportPanel() {
 }
 
 function ActivityImportPanel() {
+  const { t } = useTranslation();
   const fileRef = useRef(null);
   const [file, setFile] = useState(null);
   const [dateOverride, setDateOverride] = useState("");
@@ -171,7 +178,7 @@ function ActivityImportPanel() {
 
   async function handleImport() {
     if (!file) {
-      setError("Choose a .fit, .tcx, or .gpx file to import.");
+      setError(t("Choose a .fit, .tcx, or .gpx file to import."));
       return;
     }
     setStatus("importing");
@@ -201,13 +208,13 @@ function ActivityImportPanel() {
       <div className="settings-form-column">
         <section className="app-panel import-panel">
           <div>
-            <p className="eyebrow">Activity File</p>
-            <h2>Import An Activity</h2>
-            <p>Add a new activity from a device file without overwriting existing activities on that day.</p>
+            <p className="eyebrow">{t("Activity File")}</p>
+            <h2>{t("Import An Activity")}</h2>
+            <p>{t("Add a new activity from a device file without overwriting existing activities on that day.")}</p>
           </div>
 
           <label>
-            Activity file
+            {t("Activity file")}
             <input
               ref={fileRef}
               type="file"
@@ -223,22 +230,22 @@ function ActivityImportPanel() {
           {file ? (
             <div className="notice-panel">
               <span>{file.name}</span>
-              <span>Detected format: {detectedFormat.toUpperCase()}</span>
+              <span>{t("Detected format", { format: detectedFormat.toUpperCase() })}</span>
             </div>
           ) : null}
 
           <div className="form-grid">
             <label>
-              Date override
+              {t("Date override")}
               <input type="date" value={dateOverride} onChange={(event) => setDateOverride(event.target.value)} />
             </label>
             <label>
-              Activity type override
+              {t("Activity type override")}
               <select value={activityTypeOverride} onChange={(event) => setActivityTypeOverride(event.target.value)}>
-                <option value="">Use file sport</option>
+                <option value="">{t("Use file sport")}</option>
                 {ACTIVITY_TYPES.filter((activityType) => activityType.value).map((activityType) => (
                   <option value={activityType.value} key={activityType.value}>
-                    {activityType.label}
+                    {t(activityType.label)}
                   </option>
                 ))}
               </select>
@@ -246,24 +253,27 @@ function ActivityImportPanel() {
           </div>
 
           <label>
-            Title
-            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Morning ride, Zwift test..." />
+            {t("Title")}
+            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t("Morning ride, Zwift test...")} />
           </label>
 
           <label>
-            Note
-            <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional note added to the imported summary" />
+            {t("Note")}
+            <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder={t("Optional note added to the imported summary")} />
           </label>
 
           <button type="button" className="primary-action" onClick={handleImport} disabled={status === "importing"}>
-            {status === "importing" ? "Importing..." : "Import Activity"}
+            {status === "importing" ? t("Importing...") : t("Import Activity")}
           </button>
         </section>
 
         {error ? <div className="error-banner">{error}</div> : null}
         {result ? (
           <div className="success-banner">
-            Activity imported on {result.imported_date || "-"} as {getActivityTypeLabel(result.activity_type)}.
+            {t("Activity imported summary", {
+              date: result.imported_date || "-",
+              type: t(getActivityTypeLabel(result.activity_type)),
+            })}
             {result.summary ? <span className="import-summary-text">{result.summary}</span> : null}
           </div>
         ) : null}
@@ -273,24 +283,25 @@ function ActivityImportPanel() {
 }
 
 export default function ImportPage() {
+  const { t } = useTranslation();
   const [mode, setMode] = useState("program");
 
   return (
     <main className="page-shell">
       <section className="module-header">
         <div>
-          <p className="eyebrow">Data</p>
-          <h1>Import</h1>
+          <p className="eyebrow">{t("Data")}</p>
+          <h1>{t("Import")}</h1>
         </div>
       </section>
 
       <section className="calendar-toolbar app-panel import-mode-toolbar">
         <div className="view-switch">
           <button type="button" className={mode === "program" ? "active" : ""} onClick={() => setMode("program")}>
-            Program
+            {t("Program")}
           </button>
           <button type="button" className={mode === "activity" ? "active" : ""} onClick={() => setMode("activity")}>
-            Activity File
+            {t("Activity File")}
           </button>
         </div>
       </section>

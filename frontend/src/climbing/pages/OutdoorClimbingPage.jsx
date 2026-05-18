@@ -5,9 +5,11 @@ import {
   getClimbingSectors,
   getSectorTopoBundle,
 } from "../../api/climbingApi.js";
+import { useTranslation } from "../../i18n/translations.js";
 import TopoViewer from "../components/TopoViewer.jsx";
 
 export default function OutdoorClimbingPage() {
+  const { t } = useTranslation();
   const [areas, setAreas] = useState([]);
   const [crags, setCrags] = useState([]);
   const [sectors, setSectors] = useState([]);
@@ -152,16 +154,16 @@ export default function OutdoorClimbingPage() {
     <main className="page-shell climbing-shell">
       <section className="module-header">
         <div>
-          <p className="eyebrow">Outdoor Climbing</p>
-          <h1>Topo Overlay</h1>
+          <p className="eyebrow">{t("Outdoor Climbing")}</p>
+          <h1>{t("Topo Overlay")}</h1>
         </div>
       </section>
 
       <section className="climbing-workspace">
         <aside className="app-panel selection-panel">
-          <h2>Sector</h2>
+          <h2>{t("Sector")}</h2>
           <label>
-            Area
+            {t("Area")}
             <select
               disabled={isBusy || areas.length === 0}
               value={selectedAreaId}
@@ -174,12 +176,12 @@ export default function OutdoorClimbingPage() {
                   </option>
                 ))
               ) : (
-                <option>No areas loaded</option>
+                <option>{t("No areas loaded")}</option>
               )}
             </select>
           </label>
           <label>
-            Crag
+            {t("Crag")}
             <select
               disabled={isBusy || crags.length === 0}
               value={selectedCragId}
@@ -192,12 +194,12 @@ export default function OutdoorClimbingPage() {
                   </option>
                 ))
               ) : (
-                <option>Select an area first</option>
+                <option>{t("Select an area first")}</option>
               )}
             </select>
           </label>
           <label>
-            Sector
+            {t("Sector")}
             <select
               disabled={isBusy || sectors.length === 0}
               value={selectedSectorId}
@@ -210,7 +212,7 @@ export default function OutdoorClimbingPage() {
                   </option>
                 ))
               ) : (
-                <option>Select a crag first</option>
+                <option>{t("Select a crag first")}</option>
               )}
             </select>
           </label>
@@ -218,17 +220,17 @@ export default function OutdoorClimbingPage() {
           <div className="panel-divider" />
 
           <label>
-            Route search
+            {t("Route search")}
             <input
               value={routeSearch}
               onChange={(event) => setRouteSearch(event.target.value)}
-              placeholder="Name, grade, style"
+              placeholder={t("Name, grade, style")}
             />
           </label>
           <label>
-            Grade
+            {t("Grade")}
             <select value={gradeFilter} onChange={(event) => setGradeFilter(event.target.value)}>
-              <option value="">All grades</option>
+              <option value="">{t("All grades")}</option>
               {grades.map((grade) => (
                 <option key={grade} value={grade}>
                   {grade}
@@ -237,9 +239,9 @@ export default function OutdoorClimbingPage() {
             </select>
           </label>
           <label>
-            Style
+            {t("Style")}
             <select value={styleFilter} onChange={(event) => setStyleFilter(event.target.value)}>
-              <option value="">All styles</option>
+              <option value="">{t("All styles")}</option>
               {styles.map((style) => (
                 <option key={style} value={style}>
                   {style}
@@ -248,7 +250,7 @@ export default function OutdoorClimbingPage() {
             </select>
           </label>
           <label>
-            Overlay opacity
+            {t("Overlay opacity")}
             <input
               type="range"
               min="0.2"
@@ -264,7 +266,7 @@ export default function OutdoorClimbingPage() {
               checked={showNames}
               onChange={(event) => setShowNames(event.target.checked)}
             />
-            Show names
+            {t("Show names")}
           </label>
           <label className="toggle-row">
             <input
@@ -272,7 +274,7 @@ export default function OutdoorClimbingPage() {
               checked={showGrades}
               onChange={(event) => setShowGrades(event.target.checked)}
             />
-            Show grades
+            {t("Show grades")}
           </label>
         </aside>
 
@@ -280,9 +282,9 @@ export default function OutdoorClimbingPage() {
           {status === "error" ? (
             <div className="topo-placeholder">
               <div>
-                <strong>Topo viewer</strong>
-                <span>No climbing data available yet.</span>
-                {message ? <small className="visually-muted">Backend response: {message}</small> : null}
+                <strong>{t("Topo viewer")}</strong>
+                <span>{t("No climbing data available yet.")}</span>
+                {message ? <small className="visually-muted">{t("Backend response", { message })}</small> : null}
               </div>
             </div>
           ) : (
@@ -296,7 +298,7 @@ export default function OutdoorClimbingPage() {
           )}
           <div className="route-drawer">
             <div>
-              <strong>{visibleRoutes.length}</strong> of {allRoutes.length} routes visible
+              {t("Routes visible", { visible: visibleRoutes.length, total: allRoutes.length })}
             </div>
             <div className="route-list">
               {visibleRoutes.map((route) => (
@@ -307,7 +309,7 @@ export default function OutdoorClimbingPage() {
                     <span>
                       {route.grade} - {route.style}
                       {route.length_m ? ` - ${route.length_m} m` : ""}
-                      {route.danger_flag ? " - caution" : ""}
+                      {route.danger_flag ? ` - ${t("caution")}` : ""}
                     </span>
                   </div>
                 </div>

@@ -1,10 +1,5 @@
 # Backlog
 
-## High priority
-
-- Expand automated backend coverage around sessions, equipment foreign keys, and import workflows.
-- Finish translating remaining older admin/import/outdoor-climbing labels that are still hardcoded in React.
-
 ## Product
 
 - Redesign the activity creation workflow end to end: clearer entry point, less confusing fields, better defaults, explicit activity type/source handling, and a cleaner path for uploads/images/linked external files.
