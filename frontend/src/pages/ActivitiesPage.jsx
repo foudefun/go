@@ -139,6 +139,10 @@ export default function ActivitiesPage() {
               sourceCount: Number(entry.source_count || sourceFiles.length || 0),
             };
           });
+        })
+        .sort((left, right) => {
+          const dateCompare = String(right.date || "").localeCompare(String(left.date || ""));
+          return dateCompare || Number(right.index || 0) - Number(left.index || 0);
         }),
     [rows, language, t],
   );

@@ -586,6 +586,9 @@ export default function DaySessionModal({
       await saveSession(date, payload);
       applySessionPayload(payload);
       onSaved?.();
+      if (!activities.length) {
+        onClose();
+      }
     } catch (deleteError) {
       setError(deleteError.message);
     } finally {
