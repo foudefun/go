@@ -708,6 +708,18 @@ label {
   justify-content: flex-end;
 }
 
+.day-modal-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.day-modal-title-row .activity-type-badge {
+  color: #0f172a;
+  font-size: 11px;
+}
+
 .day-modal-header h2 {
   margin: 0;
   line-height: 1.1;

@@ -10,6 +10,7 @@ import {
 } from "../../api/sessionApi.js";
 import {
   ACTIVITY_TYPES,
+  getActivityTypeColor,
   getActivityTypeLabel,
   isClimbingActivity,
   isStrengthActivity,
@@ -529,6 +530,13 @@ export default function DaySessionModal({
   const planExists = hasPlanContent(session);
   const hasActivityEditor = activeIndex === null ? Boolean(draftActivity) : Boolean(savedActivities[activeIndex]);
   const isNewActivityDraft = activeIndex === null && Boolean(draftActivity);
+  const shouldShowActivitySidebar = savedActivities.length > 1 || isNewActivityDraft;
+  const headerActivityLabel = String(activeActivity.activity_type || "").trim()
+    ? t(getActivityTypeLabel(activeActivity.activity_type))
+    : "";
+  const headerActivityTitle = hasActivityEditor
+    ? getActivityTitle(activeActivity, activeIndex ?? savedActivities.length, t)
+    : "";
   const targetSummary = useMemo(() => {
     if (!session) return "";
     return session.target_load !== null && session.target_load !== undefined
@@ -686,8 +694,22 @@ export default function DaySessionModal({
         <header className="day-modal-header">
           <div>
             <p className="eyebrow">{t("Day Editor")}</p>
-            <h2>{date}</h2>
-            {session ? <span>{targetSummary}</span> : null}
+            <div className="day-modal-title-row">
+              <h2>{date}</h2>
+              {headerActivityLabel ? (
+                <span
+                  className="activity-type-badge compact"
+                  style={{ backgroundColor: getActivityTypeColor(activeActivity.activity_type) }}
+                >
+                  {headerActivityLabel}
+                </span>
+              ) : null}
+            </div>
+            {headerActivityTitle && headerActivityTitle !== headerActivityLabel ? (
+              <span>{headerActivityTitle}</span>
+            ) : session ? (
+              <span>{targetSummary}</span>
+            ) : null}
           </div>
           <div className="day-modal-actions">
             {session && status !== "loading" && !isNewActivityDraft ? (
@@ -705,8 +727,8 @@ export default function DaySessionModal({
         {error ? <div className="error-banner">{error}</div> : null}
 
         {session && status !== "loading" ? (
-          <div className={savedActivities.length ? "day-editor-grid" : "day-editor-grid no-activity-sidebar"}>
-            {savedActivities.length ? (
+          <div className={shouldShowActivitySidebar ? "day-editor-grid" : "day-editor-grid no-activity-sidebar"}>
+            {shouldShowActivitySidebar ? (
               <aside className="day-activity-list">
                 {isNewActivityDraft ? <div className="activity-select active draft">{t("New activity")}</div> : null}
                 {savedActivities.map((activity, index) => (
