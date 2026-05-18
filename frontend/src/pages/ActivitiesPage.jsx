@@ -134,7 +134,7 @@ export default function ActivitiesPage() {
               title: buildActivityTitle(entry, t),
               details: translateGeneratedActivityDetails(entry.details || (entry.title ? entry.summary : ""), language),
               activityType: entry.activity_type || "",
-              image: entry.image || entry.exercise_image || "",
+              image: entry.image || "",
               sourceFiles,
               sourceCount: Number(entry.source_count || sourceFiles.length || 0),
             };

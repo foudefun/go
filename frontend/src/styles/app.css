@@ -2124,7 +2124,27 @@ label {
   padding: 12px;
 }
 
-.performed-item-card > div:first-child {
+.performed-item-card.has-image {
+  grid-template-columns: minmax(84px, 112px) minmax(0, 1fr);
+}
+
+.performed-item-image {
+  width: 100%;
+  aspect-ratio: 1;
+  align-self: start;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  background: #f7f9fc;
+  object-fit: contain;
+}
+
+.performed-item-content {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+}
+
+.performed-item-content > div:first-child {
   display: grid;
   gap: 2px;
 }
@@ -2516,6 +2536,14 @@ label {
   .set-builder-header {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .performed-item-card {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .performed-item-card:not(.has-image) {
+    grid-template-columns: 1fr;
   }
 
   .owned-equipment-row,

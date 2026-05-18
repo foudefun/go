@@ -77,50 +77,6 @@ def test_sessions_are_isolated_by_username(client):
         db.close()
 
 
-def test_calendar_activity_entries_include_performed_exercise_image(client):
-    db = main.SessionLocal()
-    try:
-        db.add(
-            main.ExerciseModel(
-                name="image_test_squat",
-                display_name="Image Test Squat",
-                display_name_fr="Image Test Squat",
-                display_name_en="Image Test Squat",
-                category="strength",
-                movement_family="squat",
-                variant_label="",
-                tracking_mode="reps_weight",
-                weight_unit="kg",
-                description="",
-                link="",
-                image="/api/uploads/exercises/image-test-squat.jpg",
-                images_json=json.dumps(["/api/uploads/exercises/image-test-squat.jpg"]),
-                document="",
-            )
-        )
-        db.commit()
-    finally:
-        db.close()
-
-    saved = client.post(
-        "/api/session/2026-06-03",
-        json={
-            "activities": [
-                {
-                    "activity_type": "musculation",
-                    "performed_items": [{"exercise_name": "image_test_squat", "sets": [{"reps": 5, "weight": 80}]}],
-                }
-            ]
-        },
-    )
-    assert saved.status_code == 200, saved.text
-
-    calendar = client.get("/api/calendar?start_date=2026-06-03&end_date=2026-06-03")
-    assert calendar.status_code == 200, calendar.text
-    entries = calendar.json()[0]["activity_entries"]
-    assert entries[0]["exercise_image"] == "/api/uploads/exercises/image-test-squat.jpg"
-
-
 def test_calendar_does_not_show_type_only_strength_activity(client):
     saved = client.post(
         "/api/session/2026-06-04",

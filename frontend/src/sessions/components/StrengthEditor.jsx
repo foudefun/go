@@ -22,6 +22,11 @@ function getItemTitle(item, exerciseMap, language) {
   return item.custom_name || getExerciseDisplayName(exercise, language) || item.exercise_name || "Strength item";
 }
 
+function getItemExerciseImage(item, exerciseMap) {
+  const exercise = exerciseMap.get(item.exercise_name);
+  return exercise?.image || exercise?.images?.[0] || "";
+}
+
 function sortExercises(exercises, language) {
   return [...(Array.isArray(exercises) ? exercises : [])].sort((left, right) =>
     getExerciseDisplayName(left, language).localeCompare(getExerciseDisplayName(right, language)),
@@ -276,35 +281,46 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
 
       {items.length ? (
         <div className="performed-item-list">
-          {items.map((item, index) => (
-            <article className="performed-item-card" key={`${item.exercise_name}-${item.custom_name}-${index}`}>
-              <div>
-                <strong>{getItemTitle(item, exerciseMap, language)}</strong>
-                <span>
-                  {t(WORK_TYPES.find((workType) => workType.value === item.work_type)?.label || "Resistance")} -{" "}
-                  {t(WORK_MODES.find((workMode) => workMode.value === item.work_mode)?.label || "Normal")}
-                </span>
-              </div>
-              {item.sets?.length ? (
-                <div className="set-chip-row">
-                  {item.sets.map((set, setIndex) => (
-                    <span className="set-chip" key={`${index}-${setIndex}`}>
-                      {formatPerformedSet(set)}
+          {items.map((item, index) => {
+            const exerciseImage = getItemExerciseImage(item, exerciseMap);
+            return (
+              <article
+                className={`performed-item-card${exerciseImage ? " has-image" : ""}`}
+                key={`${item.exercise_name}-${item.custom_name}-${index}`}
+              >
+                {exerciseImage ? (
+                  <img className="performed-item-image" src={exerciseImage} alt="" loading="lazy" />
+                ) : null}
+                <div className="performed-item-content">
+                  <div>
+                    <strong>{getItemTitle(item, exerciseMap, language)}</strong>
+                    <span>
+                      {t(WORK_TYPES.find((workType) => workType.value === item.work_type)?.label || "Resistance")} -{" "}
+                      {t(WORK_MODES.find((workMode) => workMode.value === item.work_mode)?.label || "Normal")}
                     </span>
-                  ))}
+                  </div>
+                  {item.sets?.length ? (
+                    <div className="set-chip-row">
+                      {item.sets.map((set, setIndex) => (
+                        <span className="set-chip" key={`${index}-${setIndex}`}>
+                          {formatPerformedSet(set)}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {item.notes ? <p>{item.notes}</p> : null}
+                  <div className="compact-actions">
+                    <button type="button" onClick={() => editItem(item, index)}>
+                      {t("Edit")}
+                    </button>
+                    <button type="button" onClick={() => deleteItem(index)}>
+                      {t("Delete")}
+                    </button>
+                  </div>
                 </div>
-              ) : null}
-              {item.notes ? <p>{item.notes}</p> : null}
-              <div className="compact-actions">
-                <button type="button" onClick={() => editItem(item, index)}>
-                  {t("Edit")}
-                </button>
-                <button type="button" onClick={() => deleteItem(index)}>
-                  {t("Delete")}
-                </button>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
       ) : (
         <div className="empty-state compact">{t("No performed strength items yet.")}</div>
