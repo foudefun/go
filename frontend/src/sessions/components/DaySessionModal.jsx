@@ -685,7 +685,7 @@ export default function DaySessionModal({
             {session ? <span>{targetSummary}</span> : null}
           </div>
           <div className="day-modal-actions">
-            {session && status !== "loading" ? (
+            {session && status !== "loading" && !isNewActivityDraft ? (
               <button type="button" className="primary-action" onClick={addActivity}>
                 {t("+ Activity")}
               </button>
@@ -878,7 +878,7 @@ export default function DaySessionModal({
 
               <div className="day-modal-actions">
                 <button type="button" className="primary-action" onClick={handleSave} disabled={status === "saving"}>
-                  {status === "saving" ? t("Saving...") : t("Save Day")}
+                  {status === "saving" ? t("Saving...") : draftActivity ? t("Create activity") : t("Save Day")}
                 </button>
                 {draftActivity ? (
                   <button type="button" onClick={cancelDraftActivity}>
@@ -890,7 +890,7 @@ export default function DaySessionModal({
                     {t("Delete activity")}
                   </button>
                 ) : null}
-                {!planExists && !showPlanEditor ? (
+                {!hasActivityEditor && !planExists && !showPlanEditor ? (
                   <button type="button" onClick={() => setShowPlanEditor(true)}>
                     {t("Add plan")}
                   </button>
