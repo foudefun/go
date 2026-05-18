@@ -482,6 +482,7 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
   const savedActivities = session?.activities || [];
   const planExists = hasPlanContent(session);
   const hasActivityEditor = activeIndex === null ? Boolean(draftActivity) : Boolean(savedActivities[activeIndex]);
+  const isNewActivityDraft = activeIndex === null && Boolean(draftActivity);
   const targetSummary = useMemo(() => {
     if (!session) return "";
     return session.target_load !== null && session.target_load !== undefined
@@ -534,6 +535,11 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
   function startFromPlan() {
     if (!session) return;
     setDraftActivity(buildActivityFromPlan(session));
+    setActiveIndex(null);
+  }
+
+  function startBlankActivity(activityType = "") {
+    setDraftActivity(normalizeActivity({ ...blankActivity(), activity_type: activityType }));
     setActiveIndex(null);
   }
 
@@ -685,6 +691,32 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
                     <button type="button" onClick={() => setShowPlanEditor(true)}>
                       {t("Edit plan")}
                     </button>
+                  </div>
+                </section>
+              ) : null}
+
+              {isNewActivityDraft ? (
+                <section className="activity-start-panel">
+                  <div>
+                    <p className="eyebrow">{t("New activity")}</p>
+                    <h3>{t("Start with")}</h3>
+                  </div>
+                  <div className="activity-start-actions">
+                    {planExists ? (
+                      <button type="button" className="primary-action" onClick={startFromPlan}>
+                        {t("Planned activity")}
+                      </button>
+                    ) : null}
+                    {ACTIVITY_TYPES.filter((activityType) => activityType.value).map((activityType) => (
+                      <button
+                        type="button"
+                        className={activeActivity.activity_type === activityType.value ? "active" : ""}
+                        key={activityType.value}
+                        onClick={() => startBlankActivity(activityType.value)}
+                      >
+                        {t(activityType.label)}
+                      </button>
+                    ))}
                   </div>
                 </section>
               ) : null}

@@ -277,24 +277,8 @@ label {
   flex-wrap: wrap;
 }
 
-.activity-create-panel {
-  display: grid;
-  gap: 14px;
-  margin-bottom: 16px;
-  padding: 16px;
-}
-
-.activity-create-panel h2 {
-  margin: 0;
-  color: #111827;
-  line-height: 1.1;
-}
-
-.activity-create-grid {
-  display: grid;
-  grid-template-columns: minmax(150px, 190px) minmax(170px, 230px) minmax(180px, 1fr) minmax(180px, 1fr) auto;
-  gap: 10px;
-  align-items: end;
+.activity-toolbar {
+  justify-content: flex-start;
 }
 
 .activity-add-controls label {
@@ -670,6 +654,32 @@ label {
   border: 1px dashed #cdd7e6;
   border-radius: 8px;
   background: #fbfcfe;
+}
+
+.activity-start-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #dce4f0;
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 14px;
+}
+
+.activity-start-panel h3 {
+  margin: 0;
+  color: #172033;
+}
+
+.activity-start-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.activity-start-actions button.active {
+  border-color: #0f766e;
+  background: #ecfdf5;
+  color: #0f766e;
 }
 
 .form-grid {
@@ -2275,7 +2285,6 @@ label {
   }
 
   .exercise-toolbar,
-  .activity-create-grid,
   .equipment-toolbar,
   .settings-layout,
   .import-layout,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCalendar } from "../api/calendarApi.js";
-import { ACTIVITY_TYPES, getActivityTypeLabel } from "../domain/activityTypes.js";
+import { getActivityTypeLabel } from "../domain/activityTypes.js";
 import { useTranslation } from "../i18n/translations.js";
 import DaySessionModal from "../sessions/components/DaySessionModal.jsx";
 
@@ -20,12 +20,7 @@ export default function ActivitiesPage() {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("loading");
-  const [draft, setDraft] = useState({
-    date: getLocalTodayIso(),
-    activity_type: "velo",
-    title: "",
-    activity_details: "",
-  });
+  const [activityDate, setActivityDate] = useState(getLocalTodayIso());
   const [modalState, setModalState] = useState(null);
 
   function loadActivityRows({ mountedRef } = {}) {
@@ -69,20 +64,12 @@ export default function ActivitiesPage() {
     [rows],
   );
 
-  function updateDraft(patch) {
-    setDraft((current) => ({ ...current, ...patch }));
-  }
-
   function openNewActivity() {
-    const date = draft.date || getLocalTodayIso();
+    const date = activityDate || getLocalTodayIso();
     setModalState({
       date,
       createNewOnOpen: true,
-      initialActivity: {
-        activity_type: draft.activity_type || "",
-        title: draft.title || "",
-        activity_details: draft.activity_details || "",
-      },
+      initialActivity: null,
     });
   }
 
@@ -98,49 +85,18 @@ export default function ActivitiesPage() {
           <h1>{t("Activities")}</h1>
         </div>
       </section>
-      <section className="app-panel activity-create-panel">
-        <div>
-          <p className="eyebrow">{t("New activity")}</p>
-          <h2>{t("Create activity")}</h2>
-        </div>
-        <div className="activity-create-grid">
+      <section className="calendar-toolbar app-panel activity-toolbar">
+        <div className="activity-add-controls">
           <label>
             {t("Date")}
             <input
               type="date"
-              value={draft.date}
-              onChange={(event) => updateDraft({ date: event.target.value || getLocalTodayIso() })}
-            />
-          </label>
-          <label>
-            {t("Activity Type")}
-            <select value={draft.activity_type} onChange={(event) => updateDraft({ activity_type: event.target.value })}>
-              <option value="">{t("Choose type")}</option>
-              {ACTIVITY_TYPES.filter((activityType) => activityType.value).map((activityType) => (
-                <option key={activityType.value} value={activityType.value}>
-                  {t(activityType.label)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t("Title")}
-            <input
-              value={draft.title}
-              onChange={(event) => updateDraft({ title: event.target.value })}
-              placeholder={t("Morning ride, climbing session, match...")}
-            />
-          </label>
-          <label>
-            {t("Details")}
-            <input
-              value={draft.activity_details}
-              onChange={(event) => updateDraft({ activity_details: event.target.value })}
-              placeholder={t("Duration, zone, location, quick summary...")}
+              value={activityDate}
+              onChange={(event) => setActivityDate(event.target.value || getLocalTodayIso())}
             />
           </label>
           <button className="primary-action" type="button" onClick={openNewActivity}>
-            {t("Create activity")}
+            {t("+ Activity")}
           </button>
         </div>
       </section>
