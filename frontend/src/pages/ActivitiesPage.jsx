@@ -199,9 +199,6 @@ export default function ActivitiesPage() {
               {activity.details ? <small>{activity.details}</small> : null}
             </span>
             <span className="activity-list-meta">
-              <span className="activity-type-badge compact" style={{ backgroundColor: getActivityTypeColor(activity.activityType) }}>
-                {t(getActivityTypeLabel(activity.activityType))}
-              </span>
               {activity.sourceFiles.length ? <span>{t("Source count", { count: activity.sourceFiles.length })}</span> : null}
               {getActivityMetrics(activity).map((metric) => (
                 <span key={metric.key}>{metric.value}</span>
