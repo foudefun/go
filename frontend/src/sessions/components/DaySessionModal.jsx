@@ -449,6 +449,7 @@ export default function DaySessionModal({
   const [imageError, setImageError] = useState("");
   const [sourceStatus, setSourceStatus] = useState("idle");
   const [sourceError, setSourceError] = useState("");
+  const [isActivityTypeMenuOpen, setIsActivityTypeMenuOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -507,6 +508,17 @@ export default function DaySessionModal({
   }, []);
 
   const activeActivity = activeIndex === null ? draftActivity || blankActivity() : session?.activities?.[activeIndex] || blankActivity();
+  const activityTypeInputValue = getActivityTypeInputValue(activeActivity.activity_type, t);
+  const activityTypeSuggestions = ACTIVITY_TYPES.filter((activityType) => {
+    if (!activityType.value) return false;
+    const search = activityTypeInputValue.trim().toLowerCase();
+    if (!search || ACTIVITY_TYPES.some((knownType) => knownType.value === activeActivity.activity_type)) return true;
+    return (
+      activityType.value.toLowerCase().includes(search) ||
+      activityType.label.toLowerCase().includes(search) ||
+      t(activityType.label).toLowerCase().includes(search)
+    );
+  });
   const isActiveStrengthActivity = isStrengthActivity(activeActivity.activity_type);
   const hasAdvancedStrengthData = Boolean(activeActivity.performed_items?.length);
   const hasClimbingLogData = Boolean(activeActivity.climbing_routes?.length);
@@ -745,17 +757,35 @@ export default function DaySessionModal({
                     </label>
                     <label>
                       {t("Activity Type")}
-                      <input
-                        list="activity-type-options"
-                        value={getActivityTypeInputValue(activeActivity.activity_type, t)}
-                        onChange={(event) => updateActiveActivity({ activity_type: normalizeActivityTypeInput(event.target.value, t) })}
-                        placeholder={t("Choose type")}
-                      />
-                      <datalist id="activity-type-options">
-                        {ACTIVITY_TYPES.filter((activityType) => activityType.value).map((activityType) => (
-                          <option key={activityType.value} value={t(activityType.label)} />
-                        ))}
-                      </datalist>
+                      <span className="activity-type-combobox">
+                        <input
+                          value={activityTypeInputValue}
+                          onChange={(event) => {
+                            updateActiveActivity({ activity_type: normalizeActivityTypeInput(event.target.value, t) });
+                            setIsActivityTypeMenuOpen(true);
+                          }}
+                          onFocus={() => setIsActivityTypeMenuOpen(true)}
+                          onBlur={() => setIsActivityTypeMenuOpen(false)}
+                          placeholder={t("Choose type")}
+                        />
+                        {isActivityTypeMenuOpen ? (
+                          <span className="activity-type-menu">
+                            {activityTypeSuggestions.map((activityType) => (
+                              <button
+                                type="button"
+                                key={activityType.value}
+                                onMouseDown={(event) => {
+                                  event.preventDefault();
+                                  updateActiveActivity({ activity_type: activityType.value });
+                                  setIsActivityTypeMenuOpen(false);
+                                }}
+                              >
+                                {t(activityType.label)}
+                              </button>
+                            ))}
+                          </span>
+                        ) : null}
+                      </span>
                     </label>
                     <label>
                       {t("Time")}

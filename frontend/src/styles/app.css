@@ -799,6 +799,39 @@ label {
   gap: 12px;
 }
 
+.activity-type-combobox {
+  position: relative;
+  display: block;
+}
+
+.activity-type-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  z-index: 5;
+  display: grid;
+  max-height: 240px;
+  overflow: auto;
+  border: 1px solid #dce4f0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+  padding: 4px;
+}
+
+.activity-type-menu button {
+  justify-content: flex-start;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+}
+
+.activity-type-menu button:hover {
+  background: #f1f5f9;
+}
+
 .notice-panel {
   display: grid;
   gap: 4px;
