@@ -243,7 +243,7 @@ const FR = {
   Editing: "Modification",
   Gear: "Matériel",
   Running: "Course",
-  Cycling: "Velo",
+  Cycling: "Vélo",
   MTB: "VTT",
   Hockey: "Hockey",
   Climbing: "Escalade",

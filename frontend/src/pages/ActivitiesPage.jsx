@@ -45,8 +45,42 @@ function getActivityMetrics(activity) {
     .filter(Boolean);
 }
 
+function translateGeneratedActivityDetails(value, language) {
+  let text = String(value || "").trim();
+  if (!text) return "";
+  text = text.replaceAll("DurÃ©e", "Durée");
+  if (language === "en") {
+    return text
+      .replaceAll("Fichier:", "File:")
+      .replaceAll("Durée", "Duration")
+      .replaceAll("Puissance moy.", "Avg power")
+      .replaceAll("Puissance max", "Max power")
+      .replaceAll("FC moy.", "Avg HR")
+      .replaceAll("FC max", "Max HR")
+      .replaceAll("Cadence moy.", "Avg cadence")
+      .replaceAll("Importé depuis un fichier FIT", "Imported from a FIT file");
+  }
+  return text
+    .replaceAll("cycling (virtual activity)", "vélo virtuel")
+    .replaceAll("cycling", "vélo")
+    .replaceAll("running", "course");
+}
+
+function buildActivityTitle(entry, t) {
+  const title = String(entry.title || "").trim();
+  if (title) return title;
+  const activityType = String(entry.activity_type || "").trim();
+  const typeLabel = activityType ? t(getActivityTypeLabel(activityType)) : "";
+  const performedCount = Number(entry.performed_count || 0);
+  const climbingCount = Number(entry.climbing_count || 0);
+  if (typeLabel && performedCount) return `${typeLabel} | ${performedCount} ex.`;
+  if (typeLabel && climbingCount) return `${typeLabel} | ${climbingCount} voie(s)`;
+  if (typeLabel) return typeLabel;
+  return String(entry.summary || "").trim() || t("Activity");
+}
+
 export default function ActivitiesPage() {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("loading");
@@ -97,8 +131,8 @@ export default function ActivitiesPage() {
               id: `${row.date}-${entry.index ?? index}`,
               index: Number(entry.index ?? index),
               date: row.date,
-              title: entry.title || entry.summary || t("Activity"),
-              details: entry.details || (entry.title ? entry.summary : ""),
+              title: buildActivityTitle(entry, t),
+              details: translateGeneratedActivityDetails(entry.details || (entry.title ? entry.summary : ""), language),
               activityType: entry.activity_type || "",
               image: entry.image || "",
               sourceFiles,
@@ -106,7 +140,7 @@ export default function ActivitiesPage() {
             };
           });
         }),
-    [rows, t],
+    [rows, language, t],
   );
 
   const filteredActivities = useMemo(
