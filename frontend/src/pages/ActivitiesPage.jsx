@@ -189,7 +189,7 @@ export default function ActivitiesPage() {
                 </span>
               ) : (
                 <span className="activity-type-thumb">
-                  {t(getActivityTypeLabel(activity.activityType)).slice(0, 2).toUpperCase()}
+                  {t(getActivityTypeLabel(activity.activityType))}
                 </span>
               )}
             </span>

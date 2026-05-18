@@ -584,7 +584,12 @@ label {
   place-items: center;
   background: #eef6ff;
   color: #1f4b7a;
+  font-size: 11px;
   font-weight: 900;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+  padding: 6px;
+  text-align: center;
 }
 
 .activity-trace-thumb {
