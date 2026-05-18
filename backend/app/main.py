@@ -1978,7 +1978,23 @@ def get_calendar_activity_summary(activity: dict) -> str:
     return ""
 
 
-def get_calendar_activity_entry_summaries(payload: dict) -> list[dict]:
+def get_activity_exercise_image(db, activity: dict) -> str:
+    if db is None:
+        return ""
+    for item in activity.get("performed_items", []) or []:
+        exercise_name = str(item.get("exercise_name", "") or "").strip()
+        if not exercise_name:
+            continue
+        exercise = db.query(ExerciseModel).filter_by(name=exercise_name).first()
+        if not exercise:
+            continue
+        images = get_exercise_images(exercise)
+        if images:
+            return images[0]
+    return ""
+
+
+def get_calendar_activity_entry_summaries(payload: dict, db=None) -> list[dict]:
     entries = []
     for index, activity in enumerate(build_calendar_activity_entries(payload)):
         activity_type = str(activity.get("activity_type", "") or "").strip()
@@ -1993,6 +2009,7 @@ def get_calendar_activity_entry_summaries(payload: dict) -> list[dict]:
             "performed_count": len(activity.get("performed_items", []) or []),
             "climbing_count": len(activity.get("climbing_routes", []) or []),
             "image": str(activity.get("image", "") or "").strip(),
+            "exercise_image": get_activity_exercise_image(db, activity),
             "source_files": source_files,
             "source_count": len(source_files),
             "metrics": {
@@ -6104,7 +6121,7 @@ def get_calendar(
             row = get_session_obj(db, current_user.username, date_str)
             payload = session_payload_from_row(row)
             activities = get_session_activities(payload)
-            activity_entries = get_calendar_activity_entry_summaries(payload)
+            activity_entries = get_calendar_activity_entry_summaries(payload, db)
             activity_summaries = get_calendar_activity_summaries(payload)
             activity_types = get_calendar_activity_types(payload)
             target = get_target_for_date(date_str)
