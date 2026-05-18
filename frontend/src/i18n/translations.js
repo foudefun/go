@@ -402,6 +402,7 @@ const FR = {
   Style: "Style",
   Summary: "Resume",
   To: "Jusqu'a",
+  Trace: "Trace",
   "Topo Overlay": "Trace topo",
   "Topo viewer": "Visualiseur topo",
   "Updated role for": "Role mis a jour pour {username}.",
@@ -423,6 +424,7 @@ const FR = {
   "Performance weight recommendation": "{weightLow}-{weightHigh} {unit} pour {repsLow}-{repsHigh} reps",
   "Previous performance": "Performance precedente",
   "Suggested range": "Fourchette suggeree",
+  "Source count": "{count} fichier(s) source",
   "new user": "nouvel utilisateur",
   admin: "admin",
 };

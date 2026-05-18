@@ -1980,14 +1980,24 @@ def get_calendar_activity_summary(activity: dict) -> str:
 
 def get_calendar_activity_entry_summaries(payload: dict) -> list[dict]:
     entries = []
-    for activity in build_calendar_activity_entries(payload):
+    for index, activity in enumerate(build_calendar_activity_entries(payload)):
         activity_type = str(activity.get("activity_type", "") or "").strip()
         summary = get_calendar_activity_summary(activity)
+        source_files = normalize_activity_source_files(activity.get("source_files", []))
         entries.append({
+            "index": index,
             "activity_type": activity_type,
             "summary": summary,
             "title": str(activity.get("title", "") or "").strip(),
             "details": str(activity.get("activity_details", "") or "").strip(),
+            "image": str(activity.get("image", "") or "").strip(),
+            "source_files": source_files,
+            "source_count": len(source_files),
+            "metrics": {
+                source.get("id", ""): source.get("metrics", {})
+                for source in source_files
+                if source.get("id") and source.get("metrics")
+            },
         })
     return entries
 

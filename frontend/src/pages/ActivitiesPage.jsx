@@ -15,6 +15,30 @@ function getLocalTodayIso() {
   return formatLocalDateIso(new Date());
 }
 
+function formatMetricValue(metricKey, values) {
+  if (!values || typeof values !== "object") return "";
+  const value = Number(values.avg ?? values.max ?? values.total ?? 0);
+  if (!Number.isFinite(value) || value <= 0) return "";
+  if (metricKey === "distance") return `${(value / 1000).toFixed(1)} km`;
+  if (metricKey === "duration") return `${Math.round(value / 60)} min`;
+  if (metricKey === "heart_rate") return `${Math.round(value)} bpm`;
+  if (metricKey === "power") return `${Math.round(value)} W`;
+  return "";
+}
+
+function getActivityMetrics(activity) {
+  const metricKeys = ["distance", "duration", "heart_rate", "power"];
+  const sourceFiles = Array.isArray(activity.sourceFiles) ? activity.sourceFiles : [];
+  return metricKeys
+    .map((metricKey) => {
+      const value = sourceFiles
+        .map((source) => formatMetricValue(metricKey, source.metrics?.[metricKey]))
+        .find(Boolean);
+      return value ? { key: metricKey, value } : null;
+    })
+    .filter(Boolean);
+}
+
 export default function ActivitiesPage() {
   const { t } = useTranslation();
   const [rows, setRows] = useState([]);
@@ -50,18 +74,31 @@ export default function ActivitiesPage() {
   const activities = useMemo(
     () =>
       rows
-        .filter((row) => Number(row.activity_count || 0) > 0 || (row.activity_summaries || []).length)
+        .filter(
+          (row) =>
+            Number(row.activity_count || 0) > 0 ||
+            (row.activity_entries || []).length ||
+            (row.activity_summaries || []).length,
+        )
         .flatMap((row) => {
-          const summaries = row.activity_summaries?.length ? row.activity_summaries : [row.activity_details || row.activity_type || "Activity"];
-          return summaries.map((summary, index) => ({
-            id: `${row.date}-${index}`,
-            date: row.date,
-            title: summary,
-            types: row.activity_types?.length ? row.activity_types.join(", ") : row.activity_type,
-            activityType: row.activity_types?.[index] || row.activity_type || "",
-          }));
+          const entries = row.activity_entries?.length
+            ? row.activity_entries
+            : [{ summary: row.activity_details || row.activity_type || "Activity", activity_type: row.activity_type }];
+          return entries.map((entry, index) => {
+            const sourceFiles = Array.isArray(entry.source_files) ? entry.source_files : [];
+            return {
+              id: `${row.date}-${entry.index ?? index}`,
+              date: row.date,
+              title: entry.title || entry.summary || t("Activity"),
+              details: entry.details || (entry.title ? entry.summary : ""),
+              activityType: entry.activity_type || "",
+              image: entry.image || "",
+              sourceFiles,
+              sourceCount: Number(entry.source_count || sourceFiles.length || 0),
+            };
+          });
         }),
-    [rows],
+    [rows, t],
   );
 
   function openNewActivity() {
@@ -102,12 +139,35 @@ export default function ActivitiesPage() {
       </section>
       {error ? <div className="error-banner">{error}</div> : null}
       {status === "loading" ? <div className="empty-state">{t("Loading activities...")}</div> : null}
-      <section className="card-grid">
+      <section className="activity-list-panel">
         {activities.map((activity) => (
-          <button className="app-panel activity-card clickable-card" type="button" key={activity.id} onClick={() => openExistingActivity(activity.date)}>
-            <span>{activity.date}</span>
-            <strong>{activity.title}</strong>
-            <small>{activity.types ? activity.types.split(", ").map((type) => t(getActivityTypeLabel(type))).join(", ") : t("Activity")}</small>
+          <button className="app-panel activity-list-row clickable-card" type="button" key={activity.id} onClick={() => openExistingActivity(activity.date)}>
+            <span className="activity-thumb" aria-hidden="true">
+              {activity.image ? (
+                <img src={activity.image} alt="" />
+              ) : activity.sourceCount ? (
+                <span className="activity-trace-thumb">
+                  <span />
+                  <small>{t("Trace")}</small>
+                </span>
+              ) : (
+                <span className="activity-type-thumb">
+                  {t(getActivityTypeLabel(activity.activityType)).slice(0, 2).toUpperCase()}
+                </span>
+              )}
+            </span>
+            <span className="activity-list-main">
+              <span>{activity.date}</span>
+              <strong>{activity.title}</strong>
+              {activity.details ? <small>{activity.details}</small> : null}
+            </span>
+            <span className="activity-list-meta">
+              <span className="activity-type-badge compact">{t(getActivityTypeLabel(activity.activityType))}</span>
+              {activity.sourceFiles.length ? <span>{t("Source count", { count: activity.sourceFiles.length })}</span> : null}
+              {getActivityMetrics(activity).map((metric) => (
+                <span key={metric.key}>{metric.value}</span>
+              ))}
+            </span>
           </button>
         ))}
         {!activities.length && status !== "loading" && !error ? (

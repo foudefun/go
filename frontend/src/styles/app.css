@@ -442,6 +442,30 @@ label {
   padding: 4px 8px;
 }
 
+@media (max-width: 640px) {
+  .activity-list-row {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .activity-thumb,
+  .activity-thumb img,
+  .activity-trace-thumb,
+  .activity-type-thumb {
+    width: 56px;
+    height: 56px;
+  }
+
+  .activity-trace-thumb > span {
+    width: 34px;
+    height: 18px;
+  }
+
+  .activity-list-meta {
+    grid-column: 2;
+    justify-items: start;
+  }
+}
+
 .calendar-list-badges {
   align-items: center;
 }
@@ -509,11 +533,107 @@ label {
   gap: 12px;
 }
 
+.activity-list-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.activity-list-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) minmax(160px, auto);
+  gap: 14px;
+  align-items: center;
+  padding: 12px;
+  text-align: left;
+}
+
+.activity-list-row:hover {
+  border-color: #9fb0c8;
+  background: #f8fafc;
+}
+
+.activity-thumb,
+.activity-thumb img,
+.activity-trace-thumb,
+.activity-type-thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+}
+
+.activity-thumb {
+  display: block;
+  overflow: hidden;
+  border: 1px solid #dce4f0;
+  background: #fff;
+}
+
+.activity-thumb img {
+  display: block;
+  object-fit: cover;
+}
+
+.activity-trace-thumb,
+.activity-type-thumb {
+  display: grid;
+  place-items: center;
+  background: #eef6ff;
+  color: #1f4b7a;
+  font-weight: 900;
+}
+
+.activity-trace-thumb {
+  gap: 2px;
+  padding: 8px;
+}
+
+.activity-trace-thumb > span {
+  width: 44px;
+  height: 24px;
+  border-bottom: 3px solid #2563eb;
+  border-left: 3px solid transparent;
+  border-radius: 50%;
+  transform: rotate(-12deg);
+}
+
+.activity-trace-thumb small {
+  color: #1f4b7a;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.activity-list-main,
+.activity-list-meta {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.activity-list-main > span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .activity-card strong,
+.activity-list-main strong,
 .migration-panel strong,
 .account-panel strong {
   color: #172033;
   overflow-wrap: anywhere;
+}
+
+.activity-list-main small,
+.activity-list-meta span:not(.activity-type-badge) {
+  color: #667085;
+  font-size: 13px;
+}
+
+.activity-list-meta {
+  justify-items: end;
 }
 
 .migration-panel {
@@ -615,6 +735,12 @@ label {
 
 .activity-select.draft {
   border-style: dashed;
+}
+
+.active-draft-action {
+  border-color: #0f766e;
+  background: #ecfdf5;
+  color: #0f766e;
 }
 
 .activity-select span {

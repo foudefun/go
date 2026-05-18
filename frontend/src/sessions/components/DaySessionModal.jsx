@@ -483,6 +483,7 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
   const planExists = hasPlanContent(session);
   const hasActivityEditor = activeIndex === null ? Boolean(draftActivity) : Boolean(savedActivities[activeIndex]);
   const isNewActivityDraft = activeIndex === null && Boolean(draftActivity);
+  const shouldShowActivityStarter = isNewActivityDraft && !String(activeActivity.activity_type || "").trim();
   const targetSummary = useMemo(() => {
     if (!session) return "";
     return session.target_load !== null && session.target_load !== undefined
@@ -653,8 +654,12 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
         {session && status !== "loading" ? (
           <div className="day-editor-grid">
             <aside className="day-activity-list">
-              <button type="button" className="primary-action" onClick={addActivity}>
-                {t("Add Activity")}
+              <button
+                type="button"
+                className={isNewActivityDraft ? "primary-action active-draft-action" : "primary-action"}
+                onClick={addActivity}
+              >
+                {isNewActivityDraft ? t("New activity") : t("+ Activity")}
               </button>
               {savedActivities.map((activity, index) => (
                 <button
@@ -667,12 +672,6 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
                   <span>{t(getActivityTypeLabel(activity.activity_type))}</span>
                 </button>
               ))}
-              {draftActivity ? (
-                <button type="button" className={activeIndex === null ? "activity-select active draft" : "activity-select draft"} onClick={() => setActiveIndex(null)}>
-                  <strong>{t("New activity")}</strong>
-                  <span>{t("Draft, not saved yet")}</span>
-                </button>
-              ) : null}
               {!savedActivities.length && !draftActivity ? <div className="empty-state compact">{t("No activity yet.")}</div> : null}
             </aside>
 
@@ -695,7 +694,7 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
                 </section>
               ) : null}
 
-              {isNewActivityDraft ? (
+              {shouldShowActivityStarter ? (
                 <section className="activity-start-panel">
                   <div>
                     <p className="eyebrow">{t("New activity")}</p>
