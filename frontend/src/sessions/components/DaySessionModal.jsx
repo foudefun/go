@@ -409,7 +409,14 @@ function buildSavePayload(session, activeIndex, draftActivity = null) {
   };
 }
 
-export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpen = false, initialActivity = null }) {
+export default function DaySessionModal({
+  date,
+  onClose,
+  onSaved,
+  createNewOnOpen = false,
+  initialActivity = null,
+  initialActivityIndex = 0,
+}) {
   const { t } = useTranslation();
   const [session, setSession] = useState(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -441,7 +448,13 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
         setActiveIndex(
           createNewOnOpen
             ? null
-            : Math.max(0, Math.min(nextSession.draft_active_activity_index || 0, Math.max(nextActivities.length - 1, 0))),
+            : Math.max(
+                0,
+                Math.min(
+                  Number(initialActivityIndex ?? nextSession.draft_active_activity_index ?? 0) || 0,
+                  Math.max(nextActivities.length - 1, 0),
+                ),
+              ),
         );
         setStatus("ready");
       })
@@ -453,7 +466,7 @@ export default function DaySessionModal({ date, onClose, onSaved, createNewOnOpe
     return () => {
       isMounted = false;
     };
-  }, [date, createNewOnOpen, initialActivity]);
+  }, [date, createNewOnOpen, initialActivity, initialActivityIndex]);
 
   useEffect(() => {
     let isMounted = true;

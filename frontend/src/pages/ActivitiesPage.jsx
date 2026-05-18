@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCalendar } from "../api/calendarApi.js";
-import { getActivityTypeLabel } from "../domain/activityTypes.js";
+import { ACTIVITY_TYPES, getActivityTypeLabel } from "../domain/activityTypes.js";
 import { useTranslation } from "../i18n/translations.js";
 import DaySessionModal from "../sessions/components/DaySessionModal.jsx";
 
@@ -17,10 +17,16 @@ function getLocalTodayIso() {
 
 function formatMetricValue(metricKey, values) {
   if (!values || typeof values !== "object") return "";
-  const value = Number(values.avg ?? values.max ?? values.total ?? 0);
+  if (metricKey === "distance") {
+    const km = Number(values.km ?? 0);
+    return Number.isFinite(km) && km > 0 ? `${km.toFixed(1)} km` : "";
+  }
+  if (metricKey === "duration") {
+    const seconds = Number(values.seconds ?? 0);
+    return Number.isFinite(seconds) && seconds > 0 ? `${Math.round(seconds / 60)} min` : "";
+  }
+  const value = Number(values.avg ?? values.max ?? values.total ?? values.value ?? 0);
   if (!Number.isFinite(value) || value <= 0) return "";
-  if (metricKey === "distance") return `${(value / 1000).toFixed(1)} km`;
-  if (metricKey === "duration") return `${Math.round(value / 60)} min`;
   if (metricKey === "heart_rate") return `${Math.round(value)} bpm`;
   if (metricKey === "power") return `${Math.round(value)} W`;
   return "";
@@ -45,6 +51,7 @@ export default function ActivitiesPage() {
   const [error, setError] = useState("");
   const [status, setStatus] = useState("loading");
   const [activityDate, setActivityDate] = useState(getLocalTodayIso());
+  const [activityTypeFilter, setActivityTypeFilter] = useState("");
   const [modalState, setModalState] = useState(null);
 
   function loadActivityRows({ mountedRef } = {}) {
@@ -88,6 +95,7 @@ export default function ActivitiesPage() {
             const sourceFiles = Array.isArray(entry.source_files) ? entry.source_files : [];
             return {
               id: `${row.date}-${entry.index ?? index}`,
+              index: Number(entry.index ?? index),
               date: row.date,
               title: entry.title || entry.summary || t("Activity"),
               details: entry.details || (entry.title ? entry.summary : ""),
@@ -101,6 +109,19 @@ export default function ActivitiesPage() {
     [rows, t],
   );
 
+  const filteredActivities = useMemo(
+    () =>
+      activityTypeFilter
+        ? activities.filter((activity) => activity.activityType === activityTypeFilter)
+        : activities,
+    [activities, activityTypeFilter],
+  );
+
+  const availableActivityTypes = useMemo(() => {
+    const values = new Set(activities.map((activity) => activity.activityType).filter(Boolean));
+    return ACTIVITY_TYPES.filter((activityType) => activityType.value && values.has(activityType.value));
+  }, [activities]);
+
   function openNewActivity() {
     const date = activityDate || getLocalTodayIso();
     setModalState({
@@ -110,8 +131,13 @@ export default function ActivitiesPage() {
     });
   }
 
-  function openExistingActivity(date) {
-    setModalState({ date, createNewOnOpen: false, initialActivity: null });
+  function openExistingActivity(activity) {
+    setModalState({
+      date: activity.date,
+      createNewOnOpen: false,
+      initialActivity: null,
+      initialActivityIndex: activity.index,
+    });
   }
 
   return (
@@ -136,12 +162,23 @@ export default function ActivitiesPage() {
             {t("+ Activity")}
           </button>
         </div>
+        <label className="activity-filter-control">
+          {t("Activity Type")}
+          <select value={activityTypeFilter} onChange={(event) => setActivityTypeFilter(event.target.value)}>
+            <option value="">{t("All types")}</option>
+            {availableActivityTypes.map((activityType) => (
+              <option key={activityType.value} value={activityType.value}>
+                {t(activityType.label)}
+              </option>
+            ))}
+          </select>
+        </label>
       </section>
       {error ? <div className="error-banner">{error}</div> : null}
       {status === "loading" ? <div className="empty-state">{t("Loading activities...")}</div> : null}
       <section className="activity-list-panel">
-        {activities.map((activity) => (
-          <button className="app-panel activity-list-row clickable-card" type="button" key={activity.id} onClick={() => openExistingActivity(activity.date)}>
+        {filteredActivities.map((activity) => (
+          <button className="app-panel activity-list-row clickable-card" type="button" key={activity.id} onClick={() => openExistingActivity(activity)}>
             <span className="activity-thumb" aria-hidden="true">
               {activity.image ? (
                 <img src={activity.image} alt="" />
@@ -170,7 +207,7 @@ export default function ActivitiesPage() {
             </span>
           </button>
         ))}
-        {!activities.length && status !== "loading" && !error ? (
+        {!filteredActivities.length && status !== "loading" && !error ? (
           <div className="app-panel empty-state">{t("No recent activities loaded.")}</div>
         ) : null}
       </section>
@@ -179,6 +216,7 @@ export default function ActivitiesPage() {
           date={modalState.date}
           createNewOnOpen={modalState.createNewOnOpen}
           initialActivity={modalState.initialActivity}
+          initialActivityIndex={modalState.initialActivityIndex}
           onClose={() => setModalState(null)}
           onSaved={() => loadActivityRows()}
         />

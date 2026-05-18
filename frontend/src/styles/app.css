@@ -278,11 +278,15 @@ label {
 }
 
 .activity-toolbar {
-  justify-content: flex-start;
+  justify-content: space-between;
 }
 
 .activity-add-controls label {
   min-width: 180px;
+}
+
+.activity-filter-control {
+  min-width: 220px;
 }
 
 .month-controls label {
