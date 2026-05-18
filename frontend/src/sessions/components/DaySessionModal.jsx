@@ -572,19 +572,25 @@ export default function DaySessionModal({
     setActiveIndex(savedActivities.length ? 0 : 0);
   }
 
-  function deleteSelectedActivity() {
+  async function deleteSelectedActivity() {
     if (activeIndex === null || !session?.activities?.[activeIndex]) return;
     const activity = session.activities[activeIndex];
     if (!window.confirm(t('Delete "{name}"?', { name: getActivityTitle(activity, activeIndex, t) }))) return;
-    setSession((current) => {
-      if (!current) return current;
-      const activities = current.activities.filter((_, index) => index !== activeIndex);
-      return { ...current, activities, draft_active_activity_index: Math.max(0, Math.min(activeIndex, activities.length - 1)) };
-    });
-    setActiveIndex((current) => {
-      const nextLength = Math.max((session.activities || []).length - 1, 0);
-      return nextLength ? Math.max(0, Math.min(current, nextLength - 1)) : 0;
-    });
+    const activities = session.activities.filter((_, index) => index !== activeIndex);
+    const nextActiveIndex = activities.length ? Math.max(0, Math.min(activeIndex, activities.length - 1)) : 0;
+    const nextSession = { ...session, activities, draft_active_activity_index: nextActiveIndex };
+    const payload = buildSavePayload(nextSession, activities.length ? nextActiveIndex : 0, null);
+    setStatus("saving");
+    setError("");
+    try {
+      await saveSession(date, payload);
+      applySessionPayload(payload);
+      onSaved?.();
+    } catch (deleteError) {
+      setError(deleteError.message);
+    } finally {
+      setStatus("ready");
+    }
   }
 
   function startFromPlan() {
@@ -913,7 +919,7 @@ export default function DaySessionModal({
                   </button>
                 ) : null}
                 {activeIndex !== null && savedActivities[activeIndex] ? (
-                  <button type="button" className="danger-action" onClick={deleteSelectedActivity}>
+                  <button type="button" className="danger-action" onClick={deleteSelectedActivity} disabled={status === "saving"}>
                     {t("Delete activity")}
                   </button>
                 ) : null}
