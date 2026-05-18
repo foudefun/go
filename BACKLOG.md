@@ -2,7 +2,6 @@
 
 ## High priority
 
-- Run a project security review covering auth/session handling, permissions, uploads, secrets, headers, dependency exposure, and VPS deployment settings.
 - Expand automated backend coverage around sessions, equipment foreign keys, and import workflows.
 - Finish translating remaining older admin/import/outdoor-climbing labels that are still hardcoded in React.
 
@@ -19,8 +18,9 @@
 
 ## Technical
 
+- Automate offsite backup sync beyond the manual `scripts/download_latest_backup.ps1` helper.
+- Clean duplicate UFW SSH allow rules on the VPS during a maintenance pass.
 - Remove VPS backup `/home/ubuntu/rehab.backup.20260517-213317` after the `/opt/rehab` deployment path has stayed stable for a few days.
 - Move the backend out of the single large `main.py` into modules for auth, sessions, exercises, equipment, climbing, and admin.
 - Replace lightweight SQLite startup migrations with a real migration tool before the next large schema change.
-- Decide whether production deploy should stay manual-only or restore GitHub Actions with fixed VPS secrets.
 - Add CI steps for `python -m pytest backend/tests`, frontend tests, and frontend build.
