@@ -162,6 +162,17 @@ export default function ActivitiesPage() {
       date,
       createNewOnOpen: true,
       initialActivity: null,
+      initialShowImportPanel: false,
+    });
+  }
+
+  function openImportActivity() {
+    const date = activityDate || getLocalTodayIso();
+    setModalState({
+      date,
+      createNewOnOpen: true,
+      initialActivity: null,
+      initialShowImportPanel: true,
     });
   }
 
@@ -194,6 +205,9 @@ export default function ActivitiesPage() {
           </label>
           <button className="primary-action" type="button" onClick={openNewActivity}>
             {t("+ Activity")}
+          </button>
+          <button type="button" onClick={openImportActivity}>
+            {t("Import Activity")}
           </button>
         </div>
         <label className="activity-filter-control">
@@ -250,6 +264,7 @@ export default function ActivitiesPage() {
           createNewOnOpen={modalState.createNewOnOpen}
           initialActivity={modalState.initialActivity}
           initialActivityIndex={modalState.initialActivityIndex}
+          initialShowImportPanel={modalState.initialShowImportPanel}
           onClose={() => setModalState(null)}
           onSaved={() => loadActivityRows()}
         />

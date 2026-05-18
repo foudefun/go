@@ -434,6 +434,7 @@ export default function DaySessionModal({
   createNewOnOpen = false,
   initialActivity = null,
   initialActivityIndex = 0,
+  initialShowImportPanel = false,
 }) {
   const { t } = useTranslation();
   const [session, setSession] = useState(null);
@@ -465,7 +466,7 @@ export default function DaySessionModal({
         setSession(nextSession);
         setDraftActivity(createNewOnOpen ? normalizeActivity({ ...blankActivity(), ...(initialActivity || {}) }) : null);
         setShowPlanEditor(false);
-        setShowImportPanel(false);
+        setShowImportPanel(Boolean(initialShowImportPanel));
         setActiveIndex(
           createNewOnOpen
             ? null
@@ -487,7 +488,7 @@ export default function DaySessionModal({
     return () => {
       isMounted = false;
     };
-  }, [date, createNewOnOpen, initialActivity, initialActivityIndex]);
+  }, [date, createNewOnOpen, initialActivity, initialActivityIndex, initialShowImportPanel]);
 
   useEffect(() => {
     let isMounted = true;
@@ -556,14 +557,6 @@ export default function DaySessionModal({
     setDraftActivity(blankActivity());
     setActiveIndex(null);
     setShowImportPanel(false);
-  }
-
-  function importActivity() {
-    if (!hasActivityEditor) {
-      setDraftActivity(blankActivity());
-      setActiveIndex(null);
-    }
-    setShowImportPanel(true);
   }
 
   function cancelDraftActivity() {
@@ -693,14 +686,9 @@ export default function DaySessionModal({
           </div>
           <div className="day-modal-actions">
             {session && status !== "loading" ? (
-              <>
-                <button type="button" className="primary-action" onClick={addActivity}>
-                  {t("+ Activity")}
-                </button>
-                <button type="button" onClick={importActivity}>
-                  {t("Import Activity")}
-                </button>
-              </>
+              <button type="button" className="primary-action" onClick={addActivity}>
+                {t("+ Activity")}
+              </button>
             ) : null}
             <button type="button" onClick={onClose}>
               {t("Close")}
