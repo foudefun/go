@@ -836,53 +836,57 @@ export default function DaySessionModal({
                     />
                   ) : null}
 
-                  {!showImportPanel && activeIndex !== null ? (
+                  {!showImportPanel ? (
                     <>
-                      <div className="form-grid">
-                        <label>
-                          {t("Title")}
-                          <input
-                            value={activeActivity.title || ""}
-                            onChange={(event) => updateActiveActivity({ title: event.target.value })}
-                            placeholder={t("Morning ride, climbing session, match...")}
-                          />
-                        </label>
-                        <label>
-                          {t("Time")}
-                          <input
-                            type="time"
-                            value={activeActivity.physio_time || ""}
-                            onChange={(event) => updateActiveActivity({ physio_time: event.target.value })}
-                          />
-                        </label>
-                      </div>
+                      {activeIndex !== null ? (
+                        <>
+                          <div className="form-grid">
+                            <label>
+                              {t("Title")}
+                              <input
+                                value={activeActivity.title || ""}
+                                onChange={(event) => updateActiveActivity({ title: event.target.value })}
+                                placeholder={t("Morning ride, climbing session, match...")}
+                              />
+                            </label>
+                            <label>
+                              {t("Time")}
+                              <input
+                                type="time"
+                                value={activeActivity.physio_time || ""}
+                                onChange={(event) => updateActiveActivity({ physio_time: event.target.value })}
+                              />
+                            </label>
+                          </div>
 
-                      <label>
-                        {t("Details")}
-                        <input
-                          value={activeActivity.activity_details || ""}
-                          onChange={(event) => updateActiveActivity({ activity_details: event.target.value })}
-                          placeholder={t("Duration, zone, location, quick summary...")}
-                        />
-                      </label>
-                      <label>
-                        {t("Notes")}
-                        <textarea
-                          value={activeActivity.note || ""}
-                          onChange={(event) => updateActiveActivity({ note: event.target.value })}
-                          placeholder={t("How it felt, context, anything useful for later.")}
-                        />
-                      </label>
+                          <label>
+                            {t("Details")}
+                            <input
+                              value={activeActivity.activity_details || ""}
+                              onChange={(event) => updateActiveActivity({ activity_details: event.target.value })}
+                              placeholder={t("Duration, zone, location, quick summary...")}
+                            />
+                          </label>
+                          <label>
+                            {t("Notes")}
+                            <textarea
+                              value={activeActivity.note || ""}
+                              onChange={(event) => updateActiveActivity({ note: event.target.value })}
+                              placeholder={t("How it felt, context, anything useful for later.")}
+                            />
+                          </label>
 
-                      <ActivityImagePanel
-                        activity={activeActivity}
-                        canManage={activityHasContent(activeActivity)}
-                        uploading={imageStatus === "uploading"}
-                        error={imageError}
-                        onUpload={handleActivityImageUpload}
-                        onDelete={handleActivityImageDelete}
-                        t={t}
-                      />
+                          <ActivityImagePanel
+                            activity={activeActivity}
+                            canManage={activityHasContent(activeActivity)}
+                            uploading={imageStatus === "uploading"}
+                            error={imageError}
+                            onUpload={handleActivityImageUpload}
+                            onDelete={handleActivityImageDelete}
+                            t={t}
+                          />
+                        </>
+                      ) : null}
 
                       {isActiveStrengthActivity ? (
                         <StrengthEditor
