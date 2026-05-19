@@ -72,6 +72,6 @@ test("returns display labels and category filters", () => {
   assert.equal(getExerciseLabel({ display_name: "Squat", display_name_en: "Back Squat", display_name_fr: "Squat arrière" }, "fr"), "Squat arrière");
   assert.deepEqual(
     getExerciseCategories([{ category: "legs, glutes" }, { category: "" }, { category: "pull" }, { category: "legs" }]),
-    ["glutes", "legs", "pull"],
+    ["glutes", "legs", "plyométrie", "pull"],
   );
 });

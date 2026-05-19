@@ -8,6 +8,8 @@ export const WEIGHT_UNITS = [
   { value: "lb", label: "lb" },
 ];
 
+export const DEFAULT_EXERCISE_CATEGORIES = ["plyométrie"];
+
 export function blankExercise() {
   return {
     name: "",
@@ -106,11 +108,10 @@ export function getExerciseCategoryList(exercise = {}) {
 }
 
 export function getExerciseCategories(exercises = []) {
+  const discoveredCategories = (Array.isArray(exercises) ? exercises : [])
+    .flatMap((exercise) => getExerciseCategoryList(exercise));
   return Array.from(
-    new Set(
-      (Array.isArray(exercises) ? exercises : [])
-        .flatMap((exercise) => getExerciseCategoryList(exercise)),
-    ),
+    new Set(DEFAULT_EXERCISE_CATEGORIES.concat(discoveredCategories)),
   ).sort((left, right) => left.localeCompare(right));
 }
 
