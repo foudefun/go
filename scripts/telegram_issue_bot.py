@@ -138,11 +138,11 @@ def github_list_open_telegram_issues(config: Config, limit: int = 10) -> list[di
     return []
 
 
-def send_message(config: Config, text: str) -> None:
+def send_message(config: Config, text: str, chat_id: str | None = None) -> None:
     telegram_request(
         config,
         "sendMessage",
-        {"chat_id": config.telegram_allowed_chat_id, "text": text, "disable_web_page_preview": True},
+        {"chat_id": chat_id or config.telegram_allowed_chat_id, "text": text, "disable_web_page_preview": True},
     )
 
 
@@ -298,6 +298,7 @@ def process_message(config: Config, message: dict[str, Any]) -> None:
             config,
             "This chat is not authorized for the GO backlog bot.\n"
             f"Ask the admin to set TELEGRAM_ALLOWED_CHAT_ID={chat_id}",
+            chat_id=chat_id,
         )
         return
 
