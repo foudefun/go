@@ -2175,7 +2175,7 @@ label {
   display: none;
 }
 
-.inline-help div {
+.inline-help > div {
   position: absolute;
   z-index: 20;
   top: 28px;
@@ -2190,6 +2190,34 @@ label {
   font-size: 13px;
   font-weight: 700;
   line-height: 1.35;
+}
+
+.work-type-help-panel p {
+  margin: 0 0 8px;
+}
+
+.work-type-help-panel dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.work-type-help-panel dl div {
+  display: grid;
+  gap: 1px;
+}
+
+.work-type-help-panel dt {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.work-type-help-panel dd {
+  margin: 0;
+  color: #172033;
+  font-weight: 800;
 }
 
 .notice-panel small {

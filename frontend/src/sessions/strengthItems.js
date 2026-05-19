@@ -6,11 +6,118 @@ export const WORK_MODES = [
 
 export const WORK_TYPES = [
   { value: "resistance", label: "Resistance" },
-  { value: "plyometric", label: "Plyometric" },
   { value: "explosive", label: "Explosive" },
+  { value: "plyometric", label: "Plyometric" },
   { value: "force", label: "Force" },
+  { value: "hypertrophy", label: "Hypertrophy" },
+  { value: "mobility", label: "Mobility" },
+  { value: "stability", label: "Stability / core" },
+  { value: "conditioning", label: "Conditioning" },
+  { value: "technique", label: "Technique" },
+  { value: "unilateral", label: "Unilateral" },
   { value: "endurance", label: "Endurance" },
 ];
+
+export const WORK_TYPE_DETAILS = {
+  resistance: {
+    description_fr: "Exercice avec charge légère à modérée ou effort prolongé, visant l’endurance musculaire et la capacité à répéter un mouvement.",
+    description_en: "Exercise with light to moderate load or sustained effort, aimed at muscular endurance and repeated movement capacity.",
+    reps_fr: "12–25+ reps ou effort long",
+    reps_en: "12–25+ reps or sustained effort",
+    load_fr: "30–60% 1RM",
+    load_en: "30–60% 1RM",
+  },
+  explosive: {
+    description_fr: "Exercice réalisé avec une intention de vitesse maximale, pour produire beaucoup de force très rapidement.",
+    description_en: "Exercise performed with maximal speed intent, to produce high force very quickly.",
+    reps_fr: "1–6 reps, qualité maximale",
+    reps_en: "1–6 reps, maximal quality",
+    load_fr: "30–70% 1RM selon l’exercice",
+    load_en: "30–70% 1RM depending on the exercise",
+  },
+  plyometric: {
+    description_fr: "Exercice basé sur un cycle rapide étirement-contraction, comme un saut ou un rebond, pour améliorer la réactivité et la puissance élastique.",
+    description_en: "Exercise based on a rapid stretch-shortening cycle, such as a jump or rebound, to improve reactivity and elastic power.",
+    reps_fr: "3–8 reps, repos complet",
+    reps_en: "3–8 reps, full rest",
+    load_fr: "Poids du corps, parfois 0–30% 1RM",
+    load_en: "Bodyweight, sometimes 0–30% 1RM",
+  },
+  force: {
+    description_fr: "Exercice avec charge lourde et peu de répétitions, visant à augmenter la force maximale.",
+    description_en: "Exercise with heavy load and low repetitions, aimed at increasing maximal strength.",
+    reps_fr: "1–6 reps, charge lourde",
+    reps_en: "1–6 reps, heavy load",
+    load_fr: "80–100% 1RM",
+    load_en: "80–100% 1RM",
+  },
+  hypertrophy: {
+    description_fr: "Exercice visant à augmenter le volume musculaire, généralement avec charge modérée à lourde.",
+    description_en: "Exercise aimed at increasing muscle size, usually with moderate to heavy load.",
+    reps_fr: "6–15 reps",
+    reps_en: "6–15 reps",
+    load_fr: "60–85% 1RM",
+    load_en: "60–85% 1RM",
+  },
+  mobility: {
+    description_fr: "Exercice visant à améliorer l’amplitude articulaire, le contrôle du mouvement et la qualité des positions.",
+    description_en: "Exercise aimed at improving joint range of motion, movement control and positional quality.",
+    reps_fr: "5–15 reps lentes ou 30–60 sec",
+    reps_en: "5–15 slow reps or 30–60 sec",
+    load_fr: "0–30% 1RM, souvent poids du corps",
+    load_en: "0–30% 1RM, often bodyweight",
+  },
+  stability: {
+    description_fr: "Exercice visant à renforcer le contrôle du tronc ou d’une articulation, afin de mieux transmettre la force.",
+    description_en: "Exercise aimed at improving trunk or joint control, helping transfer force more efficiently.",
+    reps_fr: "20–60 sec ou 6–12 reps contrôlées",
+    reps_en: "20–60 sec or 6–12 controlled reps",
+    load_fr: "0–50% 1RM, selon contrôle",
+    load_en: "0–50% 1RM, depending on control",
+  },
+  conditioning: {
+    description_fr: "Bloc d’effort visant à améliorer la capacité cardiovasculaire, la tolérance à l’effort et la récupération.",
+    description_en: "Effort block aimed at improving cardiovascular capacity, work tolerance and recovery.",
+    reps_fr: "Intervalles, par ex. 20 sec à 3 min",
+    reps_en: "Intervals, e.g. 20 sec to 3 min",
+    load_fr: "Variable, souvent poids du corps à 50% 1RM",
+    load_en: "Variable, often bodyweight to 50% 1RM",
+  },
+  technique: {
+    description_fr: "Exercice réalisé avec priorité sur la qualité du mouvement, le contrôle et la précision, plutôt que sur la charge.",
+    description_en: "Exercise performed with priority on movement quality, control and precision, rather than load.",
+    reps_fr: "3–8 reps propres, charge légère",
+    reps_en: "3–8 clean reps, light load",
+    load_fr: "30–60% 1RM",
+    load_en: "30–60% 1RM",
+  },
+  unilateral: {
+    description_fr: "Exercice réalisé principalement sur un côté du corps à la fois, utile pour corriger les déséquilibres.",
+    description_en: "Exercise performed mainly on one side of the body at a time, useful to correct imbalances.",
+    reps_fr: "6–15 reps / côté",
+    reps_en: "6–15 reps / side",
+    load_fr: "40–80% 1RM, selon stabilité",
+    load_en: "40–80% 1RM, depending on stability",
+  },
+  endurance: {
+    description_fr: "Travail long et léger pour construire la tolérance à l’effort.",
+    description_en: "Long and light work to build effort tolerance.",
+    reps_fr: "15–30+ reps ou effort long",
+    reps_en: "15–30+ reps or sustained effort",
+    load_fr: "30–60% 1RM",
+    load_en: "30–60% 1RM",
+  },
+};
+
+export function getWorkTypeDetail(value, language = "fr") {
+  const normalizedValue = normalizeWorkType(value);
+  const detail = WORK_TYPE_DETAILS[normalizedValue] || WORK_TYPE_DETAILS.resistance;
+  return {
+    description: detail[language === "en" ? "description_en" : "description_fr"],
+    reps: detail[language === "en" ? "reps_en" : "reps_fr"],
+    load: detail[language === "en" ? "load_en" : "load_fr"],
+  };
+}
 
 export function normalizeTrackingMode(value) {
   return value === "time_watts" ? "time_watts" : "reps_weight";

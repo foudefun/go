@@ -1471,7 +1471,20 @@ def normalize_work_mode(value) -> str:
 
 def normalize_work_type(value) -> str:
     work_type = str(value or "").strip().lower()
-    return work_type if work_type in {"plyometric", "explosive", "force", "resistance", "endurance"} else "resistance"
+    valid_work_types = {
+        "resistance",
+        "explosive",
+        "plyometric",
+        "force",
+        "hypertrophy",
+        "mobility",
+        "stability",
+        "conditioning",
+        "technique",
+        "unilateral",
+        "endurance",
+    }
+    return work_type if work_type in valid_work_types else "resistance"
 
 def convert_weight_unit(weight, source_unit: str, target_unit: str):
     weight_value = normalize_optional_float(weight)
@@ -3799,21 +3812,33 @@ def build_exercise_performance_summary(db, username: str, exercise_name: str, ex
 
     recommendations: dict[str, dict] = {}
     rep_profiles = {
-        "plyometric": {"pct_low": 0.2, "pct_high": 0.4, "reps_low": 3, "reps_high": 6, "note_key": "plyometric"},
-        "explosive": {"pct_low": 0.5, "pct_high": 0.65, "reps_low": 3, "reps_high": 5, "note_key": "explosive"},
-        "force": {"pct_low": 0.8, "pct_high": 0.9, "reps_low": 3, "reps_high": 6, "note_key": "force"},
-        "resistance": {"pct_low": 0.65, "pct_high": 0.75, "reps_low": 8, "reps_high": 12, "note_key": "resistance"},
+        "resistance": {"pct_low": 0.3, "pct_high": 0.6, "reps_low": 12, "reps_high": 25, "note_key": "resistance"},
+        "explosive": {"pct_low": 0.3, "pct_high": 0.7, "reps_low": 1, "reps_high": 6, "note_key": "explosive"},
+        "plyometric": {"pct_low": 0.0, "pct_high": 0.3, "reps_low": 3, "reps_high": 8, "note_key": "plyometric"},
+        "force": {"pct_low": 0.8, "pct_high": 1.0, "reps_low": 1, "reps_high": 6, "note_key": "force"},
+        "hypertrophy": {"pct_low": 0.6, "pct_high": 0.85, "reps_low": 6, "reps_high": 15, "note_key": "hypertrophy"},
+        "mobility": {"pct_low": 0.0, "pct_high": 0.3, "reps_low": 5, "reps_high": 15, "note_key": "mobility"},
+        "stability": {"pct_low": 0.0, "pct_high": 0.5, "reps_low": 6, "reps_high": 12, "note_key": "stability"},
+        "conditioning": {"pct_low": 0.0, "pct_high": 0.5, "reps_low": 8, "reps_high": 20, "note_key": "conditioning"},
+        "technique": {"pct_low": 0.3, "pct_high": 0.6, "reps_low": 3, "reps_high": 8, "note_key": "technique"},
+        "unilateral": {"pct_low": 0.4, "pct_high": 0.8, "reps_low": 6, "reps_high": 15, "note_key": "unilateral"},
         "endurance": {"pct_low": 0.4, "pct_high": 0.6, "reps_low": 15, "reps_high": 25, "note_key": "endurance"},
     }
     watts_profiles = {
+        "resistance": {"pct_low": 0.75, "pct_high": 0.9, "duration_low": 45, "duration_high": 120, "note_key": "resistance"},
+        "explosive": {"pct_low": 1.2, "pct_high": 1.6, "duration_low": 5, "duration_high": 20, "note_key": "explosive"},
         "plyometric": {"pct_low": 1.2, "pct_high": 1.5, "duration_low": 5, "duration_high": 15, "note_key": "plyometric"},
-        "explosive": {"pct_low": 1.3, "pct_high": 1.6, "duration_low": 10, "duration_high": 20, "note_key": "explosive"},
         "force": {"pct_low": 1.1, "pct_high": 1.3, "duration_low": 20, "duration_high": 40, "note_key": "force"},
-        "resistance": {"pct_low": 0.85, "pct_high": 1.0, "duration_low": 45, "duration_high": 90, "note_key": "resistance"},
+        "hypertrophy": {"pct_low": 0.85, "pct_high": 1.05, "duration_low": 30, "duration_high": 90, "note_key": "hypertrophy"},
+        "mobility": {"pct_low": 0.25, "pct_high": 0.5, "duration_low": 30, "duration_high": 60, "note_key": "mobility"},
+        "stability": {"pct_low": 0.35, "pct_high": 0.65, "duration_low": 20, "duration_high": 60, "note_key": "stability"},
+        "conditioning": {"pct_low": 0.65, "pct_high": 1.0, "duration_low": 20, "duration_high": 180, "note_key": "conditioning"},
+        "technique": {"pct_low": 0.45, "pct_high": 0.75, "duration_low": 15, "duration_high": 60, "note_key": "technique"},
+        "unilateral": {"pct_low": 0.65, "pct_high": 0.95, "duration_low": 20, "duration_high": 75, "note_key": "unilateral"},
         "endurance": {"pct_low": 0.65, "pct_high": 0.8, "duration_low": 120, "duration_high": 300, "note_key": "endurance"},
     }
 
-    for work_type in ("plyometric", "explosive", "force", "resistance", "endurance"):
+    for work_type in rep_profiles:
         reference_set, from_same_work_type = choose_reference_set(work_type)
         if tracking_mode == "reps_weight":
             profile = rep_profiles[work_type]

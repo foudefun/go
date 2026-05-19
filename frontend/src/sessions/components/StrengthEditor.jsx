@@ -10,6 +10,7 @@ import {
   formatPerformedSet,
   getExerciseDisplayName,
   getUniqueExerciseNames,
+  getWorkTypeDetail,
   normalizePerformedItem,
   normalizePerformedItems,
   normalizePerformedSet,
@@ -108,25 +109,24 @@ function getRecommendationBasis(recommendation, t) {
   return `${t("Based on")} ${metricLabel}: ${value}${reps}.${fallback}`;
 }
 
-function getWorkTypeDescription(workType, t) {
-  const normalizedWorkType = workType || "resistance";
-  const translationKey = `Work type help ${normalizedWorkType}`;
-  const translated = t(translationKey);
-  if (translated !== translationKey) return translated;
-  return {
-    endurance: "Long and light work to build tolerance.",
-    explosive: "Fast and controlled work with moderate load: accelerate hard without losing technique.",
-    force: "Heavy work, low reps, long rest.",
-    plyometric: "Jumps, rebounds, or throws: low reps, clean impact, full rest, stop when quality drops.",
-    resistance: "Main volume work with moderate load.",
-  }[normalizedWorkType] || "Main volume work with moderate load.";
-}
-
-function WorkTypeHelp({ workType, t }) {
+function WorkTypeHelp({ workType, language, t }) {
+  const detail = getWorkTypeDetail(workType, language);
   return (
     <details className="inline-help">
       <summary aria-label={t("Work type help")}>?</summary>
-      <div>{getWorkTypeDescription(workType, t)}</div>
+      <div className="work-type-help-panel">
+        <p>{detail.description}</p>
+        <dl>
+          <div>
+            <dt>{t("Typical reps")}</dt>
+            <dd>{detail.reps}</dd>
+          </div>
+          <div>
+            <dt>{t("Indicative load")}</dt>
+            <dd>{detail.load}</dd>
+          </div>
+        </dl>
+      </div>
     </details>
   );
 }
@@ -424,7 +424,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
           <label>
             <span className="field-label-row">
               {t("Work type")}
-              <WorkTypeHelp workType={selectedWorkType} t={t} />
+              <WorkTypeHelp workType={selectedWorkType} language={language} t={t} />
             </span>
             <select
               value={selectedWorkType}
