@@ -2128,6 +2128,17 @@ label {
   grid-template-columns: minmax(84px, 112px) minmax(0, 1fr);
 }
 
+.exercise-picker-field {
+  display: grid;
+  gap: 8px;
+}
+
+.field-hint {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .performed-item-image {
   width: 100%;
   aspect-ratio: 1;

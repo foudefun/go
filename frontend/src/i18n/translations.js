@@ -98,6 +98,7 @@ const FR = {
   "Exercise count": "{count} exercice(s)",
   "Exercise image": "Image de l'exercice",
   "Exercise management": "Gestion de l'exercice",
+  "Exercise search placeholder": "Nom FR, anglais, technique, categorie...",
   "Activity image": "Image de l'activite",
   "Activity sources": "Sources de l'activite",
   "Activity Type": "Type d'activite",

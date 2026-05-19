@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getExercisePerformance } from "../../api/exerciseApi.js";
+import { filterExercises } from "../../domain/exerciseLibrary.js";
 import {
   WORK_MODES,
   WORK_TYPES,
@@ -171,9 +172,14 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
   const [performance, setPerformance] = useState(null);
   const [performanceStatus, setPerformanceStatus] = useState("idle");
   const [performanceError, setPerformanceError] = useState("");
+  const [exerciseQuery, setExerciseQuery] = useState("");
   const trackingMode = getDraftTrackingMode(draft, exerciseMap);
   const weightUnit = getDraftWeightUnit(draft, exerciseMap);
   const [currentSet, setCurrentSet] = useState(() => createBlankSetDraft("reps_weight", "kg"));
+  const filteredExercises = useMemo(
+    () => filterExercises(sortedExercises, { query: exerciseQuery, language }),
+    [sortedExercises, exerciseQuery, language],
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -216,6 +222,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
     setDraft(createBlankStrengthItem());
     setCurrentSet(createBlankSetDraft("reps_weight", "kg"));
     setEditIndex(null);
+    setExerciseQuery("");
   }
 
   function handleExerciseChange(exerciseName) {
@@ -259,6 +266,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
     setDraft({ ...createBlankStrengthItem(), ...item, sets: item.sets || [] });
     setEditIndex(index);
     setCurrentSet(createBlankSetDraft(getDraftTrackingMode(item, exerciseMap), getDraftWeightUnit(item, exerciseMap)));
+    setExerciseQuery("");
   }
 
   function deleteItem(indexToDelete) {
@@ -337,20 +345,33 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
         </div>
 
         <div className="form-grid">
-          <label>
-            {t("Exercise")}
-            <select value={draft.exercise_name || ""} onChange={(event) => handleExerciseChange(event.target.value)}>
-              <option value="">{t("Choose exercise")}</option>
-              {draft.exercise_name && !exerciseMap.has(draft.exercise_name) ? (
-                <option value={draft.exercise_name}>{draft.exercise_name}</option>
-              ) : null}
-              {sortedExercises.map((exercise) => (
-                <option value={exercise.name} key={exercise.name}>
-                  {getExerciseDisplayName(exercise, language)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="exercise-picker-field">
+            <label>
+              {t("Search")}
+              <input
+                value={exerciseQuery}
+                onChange={(event) => setExerciseQuery(event.target.value)}
+                placeholder={t("Exercise search placeholder")}
+              />
+            </label>
+            <label>
+              {t("Exercise")}
+              <select value={draft.exercise_name || ""} onChange={(event) => handleExerciseChange(event.target.value)}>
+                <option value="">{t("Choose exercise")}</option>
+                {draft.exercise_name && !exerciseMap.has(draft.exercise_name) ? (
+                  <option value={draft.exercise_name}>{draft.exercise_name}</option>
+                ) : null}
+                {filteredExercises.map((exercise) => (
+                  <option value={exercise.name} key={exercise.name}>
+                    {getExerciseDisplayName(exercise, language)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {exerciseQuery && !filteredExercises.length ? (
+              <span className="field-hint">{t("No exercise matches this filter.")}</span>
+            ) : null}
+          </div>
           <label>
             {t("Custom label")}
             <input
