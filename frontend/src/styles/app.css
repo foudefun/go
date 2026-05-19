@@ -2138,6 +2138,32 @@ label {
   gap: 8px;
 }
 
+.selected-exercise-preview {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #e4eaf3;
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+}
+
+.selected-exercise-preview img {
+  width: 56px;
+  aspect-ratio: 1;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  background: #f7f9fc;
+  object-fit: contain;
+}
+
+.selected-exercise-preview span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .field-hint {
   color: #667085;
   font-size: 12px;

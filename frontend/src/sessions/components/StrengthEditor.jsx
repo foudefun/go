@@ -216,6 +216,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
   const trackingMode = getDraftTrackingMode(draft, exerciseMap);
   const weightUnit = getDraftWeightUnit(draft, exerciseMap);
   const selectedWorkType = draft.work_type || "resistance";
+  const selectedExerciseImage = getItemExerciseImage(draft, exerciseMap);
   const [currentSet, setCurrentSet] = useState(() => createBlankSetDraft("reps_weight", "kg"));
   const filteredExercises = useMemo(
     () => filterExercises(sortedExercises, { query: exerciseQuery, language }),
@@ -409,6 +410,12 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
                 ))}
               </select>
             </label>
+            {selectedExerciseImage ? (
+              <div className="selected-exercise-preview">
+                <img src={selectedExerciseImage} alt="" loading="lazy" />
+                <span>{t("Exercise image")}</span>
+              </div>
+            ) : null}
             {exerciseQuery && !filteredExercises.length ? (
               <span className="field-hint">{t("No exercise matches this filter.")}</span>
             ) : null}
