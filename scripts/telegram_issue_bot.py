@@ -158,6 +158,8 @@ def classify_issue(text: str) -> tuple[str, list[str], str]:
     clean_text = text
 
     for prefix, detected_kind, detected_labels in (
+        ("/todo", "task", ["todo"]),
+        ("todo:", "task", ["todo"]),
         ("bug:", "bug", ["bug"]),
         ("feature:", "feature", ["enhancement"]),
         ("idea:", "idea", ["idea"]),
@@ -291,6 +293,12 @@ def handle_command(config: Config, text: str) -> bool:
 def process_message(config: Config, message: dict[str, Any]) -> None:
     chat_id = str(message.get("chat", {}).get("id", ""))
     if chat_id != config.telegram_allowed_chat_id:
+        print(f"Ignored unauthorized Telegram chat_id={chat_id}", file=sys.stderr, flush=True)
+        send_message(
+            config,
+            "This chat is not authorized for the GO backlog bot.\n"
+            f"Ask the admin to set TELEGRAM_ALLOWED_CHAT_ID={chat_id}",
+        )
         return
 
     text = normalize_text(message)
