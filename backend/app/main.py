@@ -1471,7 +1471,7 @@ def normalize_work_mode(value) -> str:
 
 def normalize_work_type(value) -> str:
     work_type = str(value or "").strip().lower()
-    return work_type if work_type in {"explosive", "force", "resistance", "endurance"} else "resistance"
+    return work_type if work_type in {"plyometric", "explosive", "force", "resistance", "endurance"} else "resistance"
 
 def convert_weight_unit(weight, source_unit: str, target_unit: str):
     weight_value = normalize_optional_float(weight)
@@ -3799,19 +3799,21 @@ def build_exercise_performance_summary(db, username: str, exercise_name: str, ex
 
     recommendations: dict[str, dict] = {}
     rep_profiles = {
+        "plyometric": {"pct_low": 0.2, "pct_high": 0.4, "reps_low": 3, "reps_high": 6, "note_key": "plyometric"},
         "explosive": {"pct_low": 0.5, "pct_high": 0.65, "reps_low": 3, "reps_high": 5, "note_key": "explosive"},
         "force": {"pct_low": 0.8, "pct_high": 0.9, "reps_low": 3, "reps_high": 6, "note_key": "force"},
         "resistance": {"pct_low": 0.65, "pct_high": 0.75, "reps_low": 8, "reps_high": 12, "note_key": "resistance"},
         "endurance": {"pct_low": 0.4, "pct_high": 0.6, "reps_low": 15, "reps_high": 25, "note_key": "endurance"},
     }
     watts_profiles = {
+        "plyometric": {"pct_low": 1.2, "pct_high": 1.5, "duration_low": 5, "duration_high": 15, "note_key": "plyometric"},
         "explosive": {"pct_low": 1.3, "pct_high": 1.6, "duration_low": 10, "duration_high": 20, "note_key": "explosive"},
         "force": {"pct_low": 1.1, "pct_high": 1.3, "duration_low": 20, "duration_high": 40, "note_key": "force"},
         "resistance": {"pct_low": 0.85, "pct_high": 1.0, "duration_low": 45, "duration_high": 90, "note_key": "resistance"},
         "endurance": {"pct_low": 0.65, "pct_high": 0.8, "duration_low": 120, "duration_high": 300, "note_key": "endurance"},
     }
 
-    for work_type in ("explosive", "force", "resistance", "endurance"):
+    for work_type in ("plyometric", "explosive", "force", "resistance", "endurance"):
         reference_set, from_same_work_type = choose_reference_set(work_type)
         if tracking_mode == "reps_weight":
             profile = rep_profiles[work_type]

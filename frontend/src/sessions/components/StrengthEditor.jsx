@@ -109,7 +109,26 @@ function getRecommendationBasis(recommendation, t) {
 }
 
 function getWorkTypeDescription(workType, t) {
-  return t(`Work type help ${workType || "resistance"}`);
+  const normalizedWorkType = workType || "resistance";
+  const translationKey = `Work type help ${normalizedWorkType}`;
+  const translated = t(translationKey);
+  if (translated !== translationKey) return translated;
+  return {
+    endurance: "Long and light work to build tolerance.",
+    explosive: "Fast and controlled work with moderate load: accelerate hard without losing technique.",
+    force: "Heavy work, low reps, long rest.",
+    plyometric: "Jumps, rebounds, or throws: low reps, clean impact, full rest, stop when quality drops.",
+    resistance: "Main volume work with moderate load.",
+  }[normalizedWorkType] || "Main volume work with moderate load.";
+}
+
+function WorkTypeHelp({ workType, t }) {
+  return (
+    <details className="inline-help">
+      <summary aria-label={t("Work type help")}>?</summary>
+      <div>{getWorkTypeDescription(workType, t)}</div>
+    </details>
+  );
 }
 
 function ExercisePerformancePanel({ summary, status, error, selectedWorkType, t }) {
@@ -403,7 +422,10 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
             />
           </label>
           <label>
-            {t("Work type")}
+            <span className="field-label-row">
+              {t("Work type")}
+              <WorkTypeHelp workType={selectedWorkType} t={t} />
+            </span>
             <select
               value={selectedWorkType}
               onChange={(event) => setDraft((current) => ({ ...current, work_type: event.target.value }))}
@@ -414,7 +436,6 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
                 </option>
               ))}
             </select>
-            <span className="field-hint">{getWorkTypeDescription(selectedWorkType, t)}</span>
           </label>
           <label>
             {t("Mode")}

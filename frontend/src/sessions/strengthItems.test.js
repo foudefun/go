@@ -6,6 +6,7 @@ import {
   getUniqueExerciseNames,
   normalizePerformedItems,
   normalizePerformedSet,
+  normalizeWorkType,
 } from "./strengthItems.js";
 
 test("normalizes reps and weight sets", () => {
@@ -40,6 +41,10 @@ test("normalizes performed items against exercise metadata", () => {
   assert.equal(items[0].work_mode, "superset");
   assert.equal(items[0].work_type, "endurance");
   assert.deepEqual(items[0].sets, [{ duration_sec: 300, watts: 250 }]);
+});
+
+test("keeps plyometric work type", () => {
+  assert.equal(normalizeWorkType("plyometric"), "plyometric");
 });
 
 test("builds unique exercise mirrors for backend calendar summaries", () => {

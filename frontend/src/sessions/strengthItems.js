@@ -6,6 +6,7 @@ export const WORK_MODES = [
 
 export const WORK_TYPES = [
   { value: "resistance", label: "Resistance" },
+  { value: "plyometric", label: "Plyometric" },
   { value: "explosive", label: "Explosive" },
   { value: "force", label: "Force" },
   { value: "endurance", label: "Endurance" },

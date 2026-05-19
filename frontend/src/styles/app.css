@@ -2144,6 +2144,54 @@ label {
   font-weight: 700;
 }
 
+.field-label-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-help {
+  position: relative;
+  display: inline-flex;
+}
+
+.inline-help summary {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cdd7e6;
+  border-radius: 999px;
+  background: #fff;
+  color: #1f4b7a;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 900;
+  list-style: none;
+}
+
+.inline-help summary::-webkit-details-marker {
+  display: none;
+}
+
+.inline-help div {
+  position: absolute;
+  z-index: 20;
+  top: 28px;
+  left: 0;
+  width: min(280px, calc(100vw - 48px));
+  border: 1px solid #cdd7e6;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(17, 24, 39, 0.14);
+  color: #344054;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .notice-panel small {
   color: #667085;
   font-size: 12px;
