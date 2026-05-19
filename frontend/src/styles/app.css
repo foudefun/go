@@ -65,6 +65,11 @@ textarea {
   padding: 10px 12px;
 }
 
+input,
+select {
+  min-height: 44px;
+}
+
 textarea {
   min-height: 104px;
   resize: vertical;
@@ -2137,6 +2142,12 @@ label {
   color: #667085;
   font-size: 12px;
   font-weight: 700;
+}
+
+.notice-panel small {
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .performed-item-image {

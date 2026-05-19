@@ -92,7 +92,27 @@ function formatRecommendation(recommendation, t) {
   });
 }
 
-function ExercisePerformancePanel({ summary, status, error, t }) {
+function getRecommendationBasis(recommendation, t) {
+  if (!recommendation?.reference_metric || recommendation.reference_value === null || recommendation.reference_value === undefined) {
+    return "";
+  }
+  const metricLabel = t(`Recommendation reference ${recommendation.reference_metric}`);
+  const value =
+    recommendation.tracking_mode === "time_watts"
+      ? `${Math.round(recommendation.reference_value)} W`
+      : `${recommendation.reference_value} ${recommendation.weight_unit || "kg"}`;
+  const reps = recommendation.reference_reps
+    ? `, ${t("Recommendation reference reps", { reps: recommendation.reference_reps })}`
+    : "";
+  const fallback = recommendation.based_on_same_work_type ? "" : ` ${t("Recommendation fallback work type")}`;
+  return `${t("Based on")} ${metricLabel}: ${value}${reps}.${fallback}`;
+}
+
+function getWorkTypeDescription(workType, t) {
+  return t(`Work type help ${workType || "resistance"}`);
+}
+
+function ExercisePerformancePanel({ summary, status, error, selectedWorkType, t }) {
   if (status === "idle") {
     return <div className="performance-panel empty">{t("Choose an exercise to see history and PRs.")}</div>;
   }
@@ -149,10 +169,11 @@ function ExercisePerformancePanel({ summary, status, error, t }) {
           ))}
         </div>
       ) : null}
-      {summary.recommendation ? (
+      {summary.recommendations?.[selectedWorkType] ? (
         <div className="notice-panel">
           <strong>{t("Suggested range")}</strong>
-          <span>{formatRecommendation(summary.recommendation, t)}</span>
+          <span>{formatRecommendation(summary.recommendations[selectedWorkType], t)}</span>
+          <small>{getRecommendationBasis(summary.recommendations[selectedWorkType], t)}</small>
         </div>
       ) : null}
     </section>
@@ -175,6 +196,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
   const [exerciseQuery, setExerciseQuery] = useState("");
   const trackingMode = getDraftTrackingMode(draft, exerciseMap);
   const weightUnit = getDraftWeightUnit(draft, exerciseMap);
+  const selectedWorkType = draft.work_type || "resistance";
   const [currentSet, setCurrentSet] = useState(() => createBlankSetDraft("reps_weight", "kg"));
   const filteredExercises = useMemo(
     () => filterExercises(sortedExercises, { query: exerciseQuery, language }),
@@ -383,15 +405,16 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
           <label>
             {t("Work type")}
             <select
-              value={draft.work_type || "resistance"}
+              value={selectedWorkType}
               onChange={(event) => setDraft((current) => ({ ...current, work_type: event.target.value }))}
             >
               {WORK_TYPES.map((workType) => (
                 <option value={workType.value} key={workType.value}>
-                  {workType.label}
+                  {t(workType.label)}
                 </option>
               ))}
             </select>
+            <span className="field-hint">{getWorkTypeDescription(selectedWorkType, t)}</span>
           </label>
           <label>
             {t("Mode")}
@@ -401,14 +424,20 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
             >
               {WORK_MODES.map((workMode) => (
                 <option value={workMode.value} key={workMode.value}>
-                  {workMode.label}
+                  {t(workMode.label)}
                 </option>
               ))}
             </select>
           </label>
         </div>
 
-        <ExercisePerformancePanel summary={performance} status={performanceStatus} error={performanceError} t={t} />
+        <ExercisePerformancePanel
+          summary={performance}
+          status={performanceStatus}
+          error={performanceError}
+          selectedWorkType={selectedWorkType}
+          t={t}
+        />
 
         <label>
           {t("Item notes")}
