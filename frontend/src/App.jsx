@@ -11,10 +11,12 @@ import ExercisesPage from "./pages/ExercisesPage.jsx";
 import ImportPage from "./pages/ImportPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
+import StatisticsPage from "./pages/StatisticsPage.jsx";
 
 const tabs = [
   { to: "/calendar", labelKey: "Calendar" },
   { to: "/activities", labelKey: "Activities" },
+  { to: "/statistics", labelKey: "Statistics" },
   { to: "/exercises", labelKey: "Exercises" },
   { to: "/equipment", labelKey: "Equipment" },
   { to: "/outdoor-climbing", labelKey: "Outdoor Climbing" },
@@ -55,6 +57,7 @@ function AppLayout() {
         <Route path="/" element={<Navigate to="/calendar" replace />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/activities" element={<ActivitiesPage />} />
+        <Route path="/statistics" element={<StatisticsPage />} />
         <Route path="/exercises" element={<ExercisesPage />} />
         <Route path="/equipment" element={<EquipmentPage />} />
         <Route path="/outdoor-climbing" element={<OutdoorClimbingPage />} />

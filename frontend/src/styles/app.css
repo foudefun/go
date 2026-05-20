@@ -294,6 +294,110 @@ label {
   min-width: 220px;
 }
 
+.statistics-toolbar {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+  padding: 12px;
+}
+
+.stats-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stats-summary-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+}
+
+.stats-summary-card span {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.stats-summary-card strong {
+  color: #172033;
+  font-size: 28px;
+}
+
+.statistics-chart-panel {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+}
+
+.chart-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.chart-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.chart-header span {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.stats-chart-frame {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.stats-chart-frame svg {
+  display: block;
+  width: 100%;
+  min-width: 680px;
+  height: auto;
+}
+
+.chart-axis {
+  stroke: #9aa7ba;
+  stroke-width: 1.5;
+}
+
+.chart-grid-line {
+  stroke: #e4eaf3;
+  stroke-width: 1;
+}
+
+.chart-line {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chart-line.primary,
+.chart-point.primary {
+  stroke: #0f766e;
+  fill: #0f766e;
+}
+
+.chart-line.secondary,
+.chart-point.secondary {
+  stroke: #2563eb;
+  fill: #2563eb;
+}
+
+.chart-label {
+  fill: #667085;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .month-controls label {
   width: 180px;
 }
@@ -2581,6 +2685,15 @@ label {
   }
 
   .calendar-toolbar {
+    flex-direction: column;
+  }
+
+  .statistics-toolbar,
+  .stats-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-header {
     flex-direction: column;
   }
 
