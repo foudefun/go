@@ -61,6 +61,35 @@ function readMetric(metrics = {}, metricKey, valueKey) {
   return numberOrZero(metric[valueKey]);
 }
 
+function readFirstNumber(text = "", pattern) {
+  const match = String(text || "").match(pattern);
+  if (!match) return 0;
+  return numberOrZero(String(match[1] || "").replace(",", "."));
+}
+
+function parseDurationSeconds(value = "") {
+  const parts = String(value || "").split(":").map((part) => Number(part));
+  if (parts.some((part) => !Number.isFinite(part))) return 0;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return 0;
+}
+
+function parseActivityDetailsMetrics(details = "") {
+  const text = String(details || "");
+  const durationMatch = text.match(/Durée\s*([0-9]{1,3}:[0-9]{2}(?::[0-9]{2})?)/i);
+  return {
+    duration_min: durationMatch ? parseDurationSeconds(durationMatch[1]) / 60 : 0,
+    distance_km: readFirstNumber(text, /Distance\s*([0-9]+(?:[.,][0-9]+)?)\s*km/i),
+    avg_power: readFirstNumber(text, /Puissance\s*moy\.?\s*([0-9]+(?:[.,][0-9]+)?)\s*W/i),
+    max_power: readFirstNumber(text, /Puissance\s*max\s*([0-9]+(?:[.,][0-9]+)?)\s*W/i),
+    avg_hr: readFirstNumber(text, /FC\s*moy\.?\s*([0-9]+(?:[.,][0-9]+)?)\s*bpm/i),
+    max_hr: readFirstNumber(text, /FC\s*max\s*([0-9]+(?:[.,][0-9]+)?)\s*bpm/i),
+    avg_cadence: readFirstNumber(text, /Cadence\s*moy\.?\s*([0-9]+(?:[.,][0-9]+)?)\s*rpm/i),
+    calories: readFirstNumber(text, /Calories\s*([0-9]+(?:[.,][0-9]+)?)/i),
+  };
+}
+
 function normalizedText(value = "") {
   return String(value)
     .toLowerCase()
@@ -131,6 +160,17 @@ function addActivityMetrics(target, activity = {}, activityType = "") {
   const allSourceFiles = Array.isArray(activity.source_files) ? activity.source_files : [];
   const activityTypeMatches = !activityType || activity.activity_type === activityType;
   const sourceFiles = activityTypeMatches ? allSourceFiles : allSourceFiles.filter((source) => sourceMatchesType(source, activityType));
+  if (!sourceFiles.length && activityTypeMatches && activity.activity_details) {
+    const detailsMetrics = parseActivityDetailsMetrics(activity.activity_details);
+    target.duration_min += detailsMetrics.duration_min;
+    target.distance_km += detailsMetrics.distance_km;
+    target.calories += detailsMetrics.calories;
+    target.avgPowerValues.push(detailsMetrics.avg_power);
+    target.max_power = Math.max(target.max_power, detailsMetrics.max_power);
+    target.avgHrValues.push(detailsMetrics.avg_hr);
+    target.max_hr = Math.max(target.max_hr, detailsMetrics.max_hr);
+    target.avgCadenceValues.push(detailsMetrics.avg_cadence);
+  }
   for (const source of sourceFiles) {
     const metrics = source?.metrics || {};
     target.duration_min += readMetric(metrics, "duration", "seconds") / 60;

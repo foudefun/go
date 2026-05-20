@@ -111,6 +111,37 @@ test("filters imported source metrics by parsed activity type", () => {
   assert.equal(runningDaily[0].distance_km, 5);
 });
 
+test("reads legacy imported activity metrics from details text", () => {
+  const rows = [
+    {
+      date: "2026-05-01",
+      activity_entries: [
+        {
+          activity_type: "velo",
+          activity_details: "Import FIT: cycling (virtual activity)Fichier: MyWhoosh.fitDurée 01:29:27 | Distance 42.50 km | Puissance moy. 160 W | Puissance max 362 W | FC moy. 0 bpm | FC max 0 bpm | Cadence moy. 73 rpm | Calories 864",
+        },
+        {
+          activity_type: "musculation",
+          performed_items: [{ exercise_name: "bench_press", sets: [{ reps: 10, weight: 60 }] }],
+        },
+      ],
+    },
+  ];
+
+  const allDaily = buildDailyStats(rows);
+  const cyclingDaily = buildDailyStats(rows, "velo");
+  const strengthDaily = buildDailyStats(rows, "musculation");
+
+  assert.equal(Math.round(allDaily[0].duration_min), 89);
+  assert.equal(Math.round(cyclingDaily[0].duration_min), 89);
+  assert.equal(cyclingDaily[0].distance_km, 42.5);
+  assert.equal(cyclingDaily[0].avg_power, 160);
+  assert.equal(cyclingDaily[0].max_power, 362);
+  assert.equal(cyclingDaily[0].avg_cadence, 73);
+  assert.equal(cyclingDaily[0].calories, 864);
+  assert.equal(strengthDaily[0].duration_min, 0);
+});
+
 test("includes indoor cycling performed inside strength activities", () => {
   const rows = [
     {
