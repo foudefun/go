@@ -12,6 +12,7 @@
 - Clarify what happens after creating a new activity, including whether a later "Save day" action is still needed.
 - Review navigation and dense editor layouts to make the app more compact, reduce useless fields/spacing, improve button hierarchy, and clean up mobile/laptop display.
 - Improve the exercise cleanup workflow with clearer duplicate detection, family grouping, and image coverage status.
+- Synchronize external calendars from ICS URLs/files first, then Google/Outlook OAuth free-busy, to show occupied/free time blocks without exposing private event details.
 - Build out the equipment UI for model versions, variants, ownership status, maintenance events, and item history now that the normalized tables exist.
 - Discuss and design mountain/outdoor route tables before implementation: summits, places/trailheads, routes by activity type such as ski, climbing, and alpinism, start/end/pass-through points, and GPX trace storage.
 - Add language-aware labels for normalized exercise categories and movement families.
