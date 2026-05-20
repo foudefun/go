@@ -1734,6 +1734,15 @@ label {
   line-height: 1.45;
 }
 
+.muscle-tag-group {
+  display: grid;
+  gap: 6px;
+}
+
+.muscle-tag-group .field-label {
+  margin: 0;
+}
+
 .merge-control-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

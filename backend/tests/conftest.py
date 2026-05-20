@@ -56,6 +56,7 @@ def non_admin_client():
 def clean_exercise_rows():
     db = main.SessionLocal()
     try:
+        db.query(main.ExerciseMuscleLinkModel).delete()
         db.query(main.ExerciseCategoryLinkModel).delete()
         db.query(main.ExerciseMovementFamilyLinkModel).delete()
         db.query(main.ExerciseCategoryModel).delete()

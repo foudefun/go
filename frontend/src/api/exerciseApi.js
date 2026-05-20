@@ -4,6 +4,10 @@ export function getExercises() {
   return api("/exercises");
 }
 
+export function getMuscles() {
+  return api("/muscles");
+}
+
 export function getExercisePerformance(name, { excludeDate = "" } = {}) {
   const params = new URLSearchParams();
   if (excludeDate) params.set("exclude_date", excludeDate);

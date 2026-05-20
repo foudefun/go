@@ -43,6 +43,49 @@ def test_exercise_categories_and_family_are_normalized(client):
         db.close()
 
 
+def test_exercise_muscle_links_are_saved_updated_and_serialized(client):
+    exercise = create_exercise(
+        client,
+        "bench_press",
+        primary_muscles=["pectoralis_major", "triceps brachii"],
+        secondary_muscles="anterior deltoid",
+        stabilizers=["rotator_cuff"],
+        muscle_notes_fr="Pectoraux dominants, triceps en fin de poussee.",
+        muscle_notes_en="Chest dominant, triceps finish the press.",
+    )
+
+    assert exercise["primary_muscles"] == ["pectoralis_major", "triceps_brachii"]
+    assert exercise["secondary_muscles"] == ["anterior_deltoid"]
+    assert exercise["stabilizers"] == ["rotator_cuff"]
+    assert {item["role"] for item in exercise["muscles"]} == {"primary", "secondary", "stabilizer"}
+    assert exercise["muscle_notes_fr"] == "Pectoraux dominants, triceps en fin de poussee."
+    assert exercise["muscle_notes_en"] == "Chest dominant, triceps finish the press."
+
+    updated = client.put(
+        "/api/exercises/bench_press",
+        json={
+            **exercise,
+            "primary_muscles": ["pectoralis_major"],
+            "secondary_muscles": [],
+            "stabilizers": "serratus anterior",
+            "muscle_notes_en": "Updated note.",
+        },
+    )
+    assert updated.status_code == 200, updated.text
+    updated_exercise = updated.json()["exercise"]
+    assert updated_exercise["primary_muscles"] == ["pectoralis_major"]
+    assert updated_exercise["secondary_muscles"] == []
+    assert updated_exercise["stabilizers"] == ["serratus_anterior"]
+    assert updated_exercise["muscle_notes_en"] == "Updated note."
+
+    db = main.SessionLocal()
+    try:
+        assert db.query(main.MuscleModel).filter_by(name="serratus_anterior").first() is not None
+        assert db.query(main.ExerciseMuscleLinkModel).filter_by(exercise_name="bench_press").count() == 2
+    finally:
+        db.close()
+
+
 def test_upload_set_primary_and_delete_exercise_image(client):
     create_exercise(client, "bench_press")
 
@@ -74,8 +117,8 @@ def test_upload_set_primary_and_delete_exercise_image(client):
 
 
 def test_merge_exercise_moves_references_and_deletes_source(client):
-    create_exercise(client, "back_squat", category="legs", image="/external/back.png")
-    create_exercise(client, "squat", category="strength", image="/external/squat.png")
+    create_exercise(client, "back_squat", category="legs", image="/external/back.png", primary_muscles=["quadriceps"])
+    create_exercise(client, "squat", category="strength", image="/external/squat.png", primary_muscles=["gluteus_maximus"])
 
     db = main.SessionLocal()
     try:
@@ -96,6 +139,7 @@ def test_merge_exercise_moves_references_and_deletes_source(client):
     assert exercise["name"] == "squat"
     assert set(exercise["categories"]) == {"legs", "strength"}
     assert exercise["images"] == ["/external/squat.png", "/external/back.png"]
+    assert set(exercise["primary_muscles"]) == {"gluteus_maximus", "quadriceps"}
 
     exercises = client.get("/api/exercises").json()
     assert {item["name"] for item in exercises} == {"squat"}
@@ -110,7 +154,7 @@ def test_merge_exercise_moves_references_and_deletes_source(client):
 
 
 def test_delete_exercise_requires_admin_override_and_removes_taxonomy(client):
-    create_exercise(client, "deadlift", category="hinge, strength", movement_family="deadlift")
+    create_exercise(client, "deadlift", category="hinge, strength", movement_family="deadlift", primary_muscles=["hamstrings"])
 
     response = client.delete("/api/exercises/deadlift")
     assert response.status_code == 200, response.text
@@ -120,5 +164,6 @@ def test_delete_exercise_requires_admin_override_and_removes_taxonomy(client):
         assert db.query(main.ExerciseModel).filter_by(name="deadlift").first() is None
         assert db.query(main.ExerciseCategoryLinkModel).filter_by(exercise_name="deadlift").count() == 0
         assert db.query(main.ExerciseMovementFamilyLinkModel).filter_by(exercise_name="deadlift").count() == 0
+        assert db.query(main.ExerciseMuscleLinkModel).filter_by(exercise_name="deadlift").count() == 0
     finally:
         db.close()

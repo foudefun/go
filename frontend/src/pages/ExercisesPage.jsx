@@ -4,6 +4,7 @@ import {
   deleteExercise,
   deleteExerciseImage,
   getExercises,
+  getMuscles,
   mergeExerciseInto,
   setPrimaryExerciseImage,
   updateExercise,
@@ -18,6 +19,9 @@ import {
   getExerciseCategoryList,
   getExerciseCategories,
   getExerciseLabel,
+  getMuscleLabel,
+  muscleListToText,
+  normalizeMuscleNameList,
   normalizeExerciseDraft,
   slugifyExerciseName,
 } from "../domain/exerciseLibrary.js";
@@ -63,6 +67,27 @@ function getExerciseOptionLabel(exercise, language) {
   return variant ? `${label} - ${variant}` : label;
 }
 
+function getExerciseMusclesByRole(exercise = {}, role = "") {
+  const linked = Array.isArray(exercise.muscles) ? exercise.muscles.filter((item) => item.role === role) : [];
+  if (linked.length) return linked;
+  const fallbackKey = role === "stabilizer" ? "stabilizers" : `${role}_muscles`;
+  return (Array.isArray(exercise[fallbackKey]) ? exercise[fallbackKey] : []).map((name) => ({ name, role }));
+}
+
+function MuscleTagList({ title, muscles = [], language, t }) {
+  if (!muscles.length) return null;
+  return (
+    <div className="muscle-tag-group">
+      <span className="field-label">{t(title)}</span>
+      <div className="exercise-badge-row">
+        {muscles.map((muscle) => (
+          <span key={`${muscle.role}-${muscle.name}`}>{getMuscleLabel(muscle, language)}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ImageLightbox({ image, title, onClose, t }) {
   if (!image) return null;
   const fallbackTitle = t("Exercise image");
@@ -83,6 +108,10 @@ function ImageLightbox({ image, title, onClose, t }) {
 
 function ExerciseDetail({ exercise, exercises, language, t, onEdit, onNew, onDelete, onViewImage, canDelete }) {
   const relatedExercises = getRelatedExercises(exercise, exercises);
+  const primaryMuscles = getExerciseMusclesByRole(exercise, "primary");
+  const secondaryMuscles = getExerciseMusclesByRole(exercise, "secondary");
+  const stabilizers = getExerciseMusclesByRole(exercise, "stabilizer");
+  const muscleNote = language === "fr" ? exercise?.muscle_notes_fr : exercise?.muscle_notes_en;
 
   if (!exercise) {
     return (
@@ -108,6 +137,15 @@ function ExerciseDetail({ exercise, exercises, language, t, onEdit, onNew, onDel
           {exercise.variant_label ? <span>{exercise.variant_label}</span> : null}
         </div>
         {exercise.description ? <p>{exercise.description}</p> : <p className="visually-muted">{t("No description yet.")}</p>}
+        {primaryMuscles.length || secondaryMuscles.length || stabilizers.length || muscleNote ? (
+          <div className="exercise-management-panel">
+            <strong>{t("Muscle impact")}</strong>
+            <MuscleTagList title="Primary muscles" muscles={primaryMuscles} language={language} t={t} />
+            <MuscleTagList title="Secondary muscles" muscles={secondaryMuscles} language={language} t={t} />
+            <MuscleTagList title="Stabilizers" muscles={stabilizers} language={language} t={t} />
+            {muscleNote ? <p>{muscleNote}</p> : null}
+          </div>
+        ) : null}
         <div className="exercise-management-panel">
           <strong>{t("Close variants")}</strong>
           <p>{t("Linked through similar movement, without merging exercise records.")}</p>
@@ -152,6 +190,7 @@ function ExerciseEditor({
   saving,
   categories = [],
   exercises = [],
+  muscles = [],
   language,
   canUploadImage,
   uploadingImage,
@@ -219,6 +258,10 @@ function ExerciseEditor({
       ? selectedCategories.filter((value) => value !== categoryName)
       : [...selectedCategories, categoryName];
     updateField("category", nextCategories.join(", "));
+  }
+
+  function updateMuscleText(field, value) {
+    updateField(field, normalizeMuscleNameList(value));
   }
 
   return (
@@ -372,6 +415,55 @@ function ExerciseEditor({
         {t("Description")}
         <textarea value={draft.description || ""} onChange={(event) => updateField("description", event.target.value)} />
       </label>
+      <div className="category-choice-panel">
+        <p className="field-label">{t("Muscle impact")}</p>
+        <div className="form-grid">
+          <label>
+            {t("Primary muscles")}
+            <input
+              list="exercise-muscle-options"
+              value={muscleListToText(draft.primary_muscles)}
+              onChange={(event) => updateMuscleText("primary_muscles", event.target.value)}
+              placeholder="pectoralis major, triceps"
+            />
+          </label>
+          <label>
+            {t("Secondary muscles")}
+            <input
+              list="exercise-muscle-options"
+              value={muscleListToText(draft.secondary_muscles)}
+              onChange={(event) => updateMuscleText("secondary_muscles", event.target.value)}
+              placeholder="anterior deltoid"
+            />
+          </label>
+          <label>
+            {t("Stabilizers")}
+            <input
+              list="exercise-muscle-options"
+              value={muscleListToText(draft.stabilizers)}
+              onChange={(event) => updateMuscleText("stabilizers", event.target.value)}
+              placeholder="rotator cuff, core"
+            />
+          </label>
+        </div>
+        <datalist id="exercise-muscle-options">
+          {muscles.map((muscle) => (
+            <option key={muscle.name} value={muscle.name}>
+              {getMuscleLabel(muscle, language)}
+            </option>
+          ))}
+        </datalist>
+        <div className="form-grid">
+          <label>
+            {t("Muscle note FR")}
+            <textarea value={draft.muscle_notes_fr || ""} onChange={(event) => updateField("muscle_notes_fr", event.target.value)} />
+          </label>
+          <label>
+            {t("Muscle note EN")}
+            <textarea value={draft.muscle_notes_en || ""} onChange={(event) => updateField("muscle_notes_en", event.target.value)} />
+          </label>
+        </div>
+      </div>
       <label>
         {t("Reference link")}
         <input value={draft.link || ""} onChange={(event) => updateField("link", event.target.value)} placeholder="https://..." />
@@ -438,6 +530,7 @@ export default function ExercisesPage() {
   const { user } = useAuth();
   const { language, t } = useTranslation();
   const [exercises, setExercises] = useState([]);
+  const [muscles, setMuscles] = useState([]);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -455,9 +548,10 @@ export default function ExercisesPage() {
   function loadExercises(nextSelectedName = selectedName) {
     setStatus("loading");
     setError("");
-    return getExercises()
-      .then((payload) => {
+    return Promise.all([getExercises(), getMuscles()])
+      .then(([payload, musclePayload]) => {
         const rows = Array.isArray(payload) ? payload : [];
+        setMuscles(Array.isArray(musclePayload) ? musclePayload : []);
         setExercises(rows);
         setSelectedName(nextSelectedName || rows[0]?.name || "");
         setStatus("ready");
@@ -694,6 +788,7 @@ export default function ExercisesPage() {
               saving={status === "saving"}
               categories={categories}
               exercises={exercises}
+              muscles={muscles}
               language={language}
               canUploadImage={editorMode === "edit" && Boolean(editorOriginalName)}
               uploadingImage={uploadingImage}

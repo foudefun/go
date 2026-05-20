@@ -26,6 +26,11 @@ export function blankExercise() {
     image: "",
     images: [],
     document: "",
+    primary_muscles: [],
+    secondary_muscles: [],
+    stabilizers: [],
+    muscle_notes_fr: "",
+    muscle_notes_en: "",
   };
 }
 
@@ -45,7 +50,40 @@ export function normalizeExerciseDraft(exercise = {}) {
   next.image = String(next.image || "").trim();
   next.images = Array.isArray(next.images) ? next.images.filter(Boolean) : [];
   next.document = String(next.document || "").trim();
+  next.primary_muscles = normalizeMuscleNameList(next.primary_muscles);
+  next.secondary_muscles = normalizeMuscleNameList(next.secondary_muscles);
+  next.stabilizers = normalizeMuscleNameList(next.stabilizers);
+  next.muscle_notes_fr = String(next.muscle_notes_fr || "").trim();
+  next.muscle_notes_en = String(next.muscle_notes_en || "").trim();
   return next;
+}
+
+export function normalizeMuscleNameList(value = []) {
+  const rawItems = Array.isArray(value) ? value : String(value || "").replaceAll(";", ",").split(",");
+  const seen = new Set();
+  return rawItems
+    .map((item) => String(item || "").trim())
+    .filter(Boolean)
+    .map((item) => slugifyExerciseName(item))
+    .filter((item) => {
+      if (!item || seen.has(item)) return false;
+      seen.add(item);
+      return true;
+    });
+}
+
+export function formatMuscleName(value = "") {
+  return String(value || "").replaceAll("_", " ").trim();
+}
+
+export function getMuscleLabel(muscle = {}, language = "en") {
+  if (typeof muscle === "string") return formatMuscleName(muscle);
+  const localized = language === "fr" ? muscle.display_name_fr : muscle.display_name_en;
+  return String(localized || muscle.display_name_en || muscle.display_name_fr || formatMuscleName(muscle.name)).trim();
+}
+
+export function muscleListToText(value = []) {
+  return normalizeMuscleNameList(value).map(formatMuscleName).join(", ");
 }
 
 export function getExerciseLabel(exercise = {}, language = "en") {
@@ -97,6 +135,11 @@ export function getExerciseSearchText(exercise = {}) {
     exercise.movement_family,
     exercise.variant_label,
     exercise.description,
+    exercise.primary_muscles,
+    exercise.secondary_muscles,
+    exercise.stabilizers,
+    exercise.muscle_notes_fr,
+    exercise.muscle_notes_en,
   ].join(" "));
 }
 

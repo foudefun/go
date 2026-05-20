@@ -127,6 +127,8 @@ class ExerciseModel(Base):
     image = Column(Text)
     images_json = Column(Text)
     document = Column(Text)
+    muscle_notes_fr = Column(Text)
+    muscle_notes_en = Column(Text)
 
 class ExerciseCategoryModel(Base):
     __tablename__ = "exercise_categories"
@@ -149,6 +151,19 @@ class ExerciseMovementFamilyLinkModel(Base):
     __tablename__ = "exercise_movement_family_links"
     exercise_name = Column(String, ForeignKey("exercises.name", ondelete="CASCADE"), primary_key=True)
     family_name = Column(String, ForeignKey("exercise_movement_families.name", ondelete="CASCADE"), nullable=False)
+
+class MuscleModel(Base):
+    __tablename__ = "muscles"
+    name = Column(String, primary_key=True)
+    display_name_fr = Column(Text)
+    display_name_en = Column(Text)
+    region = Column(String)
+
+class ExerciseMuscleLinkModel(Base):
+    __tablename__ = "exercise_muscle_links"
+    exercise_name = Column(String, ForeignKey("exercises.name", ondelete="CASCADE"), primary_key=True)
+    muscle_name = Column(String, ForeignKey("muscles.name", ondelete="CASCADE"), primary_key=True)
+    role = Column(String, primary_key=True)
 
 class CountryModel(Base):
     __tablename__ = "countries"
@@ -487,6 +502,10 @@ def ensure_columns():
             conn.exec_driver_sql("ALTER TABLE exercises ADD COLUMN images_json TEXT")
         if "document" not in existing:
             conn.exec_driver_sql("ALTER TABLE exercises ADD COLUMN document TEXT")
+        if "muscle_notes_fr" not in existing:
+            conn.exec_driver_sql("ALTER TABLE exercises ADD COLUMN muscle_notes_fr TEXT")
+        if "muscle_notes_en" not in existing:
+            conn.exec_driver_sql("ALTER TABLE exercises ADD COLUMN muscle_notes_en TEXT")
         conn.exec_driver_sql("UPDATE exercises SET display_name = REPLACE(name, '_', ' ') WHERE COALESCE(display_name, '') = ''")
         conn.exec_driver_sql("UPDATE exercises SET display_name_fr = display_name WHERE COALESCE(display_name_fr, '') = ''")
         conn.exec_driver_sql("UPDATE exercises SET display_name_en = display_name WHERE COALESCE(display_name_en, '') = ''")
@@ -826,6 +845,8 @@ def ensure_columns():
         conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_equipment_items_username ON equipment_items(username)")
         conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_equipment_items_model_version_id ON equipment_items(model_version_id)")
         conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_equipment_item_events_item_id ON equipment_item_events(equipment_item_id)")
+        conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_exercise_muscle_links_exercise_name ON exercise_muscle_links(exercise_name)")
+        conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_exercise_muscle_links_muscle_name ON exercise_muscle_links(muscle_name)")
 
         user_columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(users)").fetchall()}
         if "is_admin" not in user_columns:
@@ -888,6 +909,23 @@ SQLITE_FOREIGN_KEY_TABLES = {
                 family_name VARCHAR NOT NULL,
                 FOREIGN KEY(exercise_name) REFERENCES exercises(name) ON DELETE CASCADE,
                 FOREIGN KEY(family_name) REFERENCES exercise_movement_families(name) ON DELETE CASCADE
+            )
+        """,
+    },
+    "exercise_muscle_links": {
+        "columns": "exercise_name, muscle_name, role",
+        "foreign_keys": {
+            ("exercise_name", "exercises", "name", "CASCADE"),
+            ("muscle_name", "muscles", "name", "CASCADE"),
+        },
+        "create_sql": """
+            CREATE TABLE {table} (
+                exercise_name VARCHAR NOT NULL,
+                muscle_name VARCHAR NOT NULL,
+                role VARCHAR NOT NULL,
+                PRIMARY KEY (exercise_name, muscle_name, role),
+                FOREIGN KEY(exercise_name) REFERENCES exercises(name) ON DELETE CASCADE,
+                FOREIGN KEY(muscle_name) REFERENCES muscles(name) ON DELETE CASCADE
             )
         """,
     },
@@ -2173,6 +2211,11 @@ def normalize_exercise_record(payload: dict) -> dict:
         "image": images[0] if images else "",
         "images_json": json.dumps(images, ensure_ascii=False),
         "document": str(payload.get("document", "") or "").strip(),
+        "muscle_notes_fr": str(payload.get("muscle_notes_fr", "") or "").strip(),
+        "muscle_notes_en": str(payload.get("muscle_notes_en", "") or "").strip(),
+        "primary_muscles": get_payload_muscle_names(payload, "primary"),
+        "secondary_muscles": get_payload_muscle_names(payload, "secondary"),
+        "stabilizers": get_payload_muscle_names(payload, "stabilizer"),
     }
 
 def normalize_equipment_record(payload: dict) -> dict:
@@ -2268,6 +2311,7 @@ def upsert_exercise_record(db, payload: dict) -> bool:
     record = normalize_exercise_record(payload)
     if not record["name"]:
         return False
+    model_record = {key: value for key, value in record.items() if key not in {"primary_muscles", "secondary_muscles", "stabilizers"}}
 
     exists = db.query(ExerciseModel).filter_by(name=record["name"]).first()
     if exists:
@@ -2284,12 +2328,16 @@ def upsert_exercise_record(db, payload: dict) -> bool:
         exists.image = record["image"]
         exists.images_json = record["images_json"]
         exists.document = record["document"]
+        exists.muscle_notes_fr = record["muscle_notes_fr"]
+        exists.muscle_notes_en = record["muscle_notes_en"]
         sync_exercise_taxonomy(db, exists)
+        sync_exercise_muscles(db, exists.name, record)
     else:
-        row = ExerciseModel(**record)
+        row = ExerciseModel(**model_record)
         db.add(row)
         db.flush()
         sync_exercise_taxonomy(db, row)
+        sync_exercise_muscles(db, row.name, record)
     return True
 
 def get_exercise_images(row: ExerciseModel) -> list[str]:
@@ -2319,6 +2367,59 @@ def split_exercise_categories(value: str) -> list[str]:
         tokens.append(token)
         seen.add(token)
     return tokens
+
+def split_muscle_names(value) -> list[str]:
+    if isinstance(value, list):
+        raw_items = value
+    else:
+        raw_items = str(value or "").replace(";", ",").split(",")
+    names: list[str] = []
+    seen: set[str] = set()
+    for raw_item in raw_items:
+        name = str(raw_item or "").strip()
+        if not name:
+            continue
+        normalized = normalize_muscle_key(name)
+        if not normalized or normalized in seen:
+            continue
+        names.append(normalized)
+        seen.add(normalized)
+    return names
+
+def normalize_muscle_key(value: str) -> str:
+    return normalize_text_key(value).replace(" ", "_")
+
+def get_payload_muscle_names(payload: dict, role: str) -> list[str]:
+    role_key = {
+        "primary": "primary_muscles",
+        "secondary": "secondary_muscles",
+        "stabilizer": "stabilizers",
+    }.get(role, "")
+    if role_key and role_key in payload:
+        return split_muscle_names(payload.get(role_key))
+    role_links = []
+    for item in payload.get("muscles", []) if isinstance(payload.get("muscles"), list) else []:
+        if str(item.get("role", "") or "").strip() == role:
+            role_links.append(item.get("name", ""))
+    return split_muscle_names(role_links)
+
+def format_muscle_display_name(name: str) -> str:
+    return str(name or "").replace("_", " ").strip()
+
+def ensure_muscle(db, muscle_name: str) -> None:
+    cleaned = normalize_muscle_key(muscle_name)
+    if not cleaned:
+        return
+    if not db.query(MuscleModel).filter_by(name=cleaned).first():
+        display_name = format_muscle_display_name(cleaned)
+        db.add(
+            MuscleModel(
+                name=cleaned,
+                display_name_fr=display_name,
+                display_name_en=display_name,
+                region="",
+            )
+        )
 
 
 def ensure_exercise_category(db, category_name: str) -> None:
@@ -2380,6 +2481,11 @@ def clear_exercise_taxonomy(db, exercise_name: str) -> None:
     db.query(ExerciseCategoryLinkModel).filter_by(exercise_name=cleaned).delete()
     db.query(ExerciseMovementFamilyLinkModel).filter_by(exercise_name=cleaned).delete()
 
+def clear_exercise_muscles(db, exercise_name: str) -> None:
+    cleaned = str(exercise_name or "").strip()
+    if cleaned:
+        db.query(ExerciseMuscleLinkModel).filter_by(exercise_name=cleaned).delete()
+
 
 def sync_exercise_taxonomy(db, row: ExerciseModel) -> None:
     if not row or not row.name:
@@ -2394,6 +2500,22 @@ def sync_exercise_taxonomy(db, row: ExerciseModel) -> None:
         ensure_exercise_movement_family(db, family_name)
         db.flush()
         db.add(ExerciseMovementFamilyLinkModel(exercise_name=row.name, family_name=family_name))
+
+def sync_exercise_muscles(db, exercise_name: str, record: dict) -> None:
+    cleaned = str(exercise_name or "").strip()
+    if not cleaned:
+        return
+    clear_exercise_muscles(db, cleaned)
+    role_fields = [
+        ("primary", record.get("primary_muscles", [])),
+        ("secondary", record.get("secondary_muscles", [])),
+        ("stabilizer", record.get("stabilizers", [])),
+    ]
+    for role, muscle_names in role_fields:
+        for muscle_name in split_muscle_names(muscle_names):
+            ensure_muscle(db, muscle_name)
+            db.flush()
+            db.add(ExerciseMuscleLinkModel(exercise_name=cleaned, muscle_name=muscle_name, role=role))
 
 
 def get_normalized_exercise_categories(db, exercise_name: str) -> list[str]:
@@ -2410,11 +2532,37 @@ def get_normalized_exercise_family(db, exercise_name: str) -> str:
     row = db.query(ExerciseMovementFamilyLinkModel).filter_by(exercise_name=exercise_name).first()
     return row.family_name if row else ""
 
+def serialize_muscle_link(row: ExerciseMuscleLinkModel) -> dict:
+    muscle = row and db_query_muscle_for_link(row)
+    return {
+        "name": row.muscle_name,
+        "role": row.role,
+        "display_name_fr": muscle.display_name_fr if muscle else format_muscle_display_name(row.muscle_name),
+        "display_name_en": muscle.display_name_en if muscle else format_muscle_display_name(row.muscle_name),
+        "region": muscle.region if muscle else "",
+    }
+
+def db_query_muscle_for_link(row: ExerciseMuscleLinkModel) -> MuscleModel | None:
+    db = object_session(row)
+    return db.query(MuscleModel).filter_by(name=row.muscle_name).first() if db else None
+
+def get_exercise_muscle_links(db, exercise_name: str) -> list[dict]:
+    if not db:
+        return []
+    rows = (
+        db.query(ExerciseMuscleLinkModel)
+        .filter_by(exercise_name=exercise_name)
+        .order_by(ExerciseMuscleLinkModel.role, ExerciseMuscleLinkModel.muscle_name)
+        .all()
+    )
+    return [serialize_muscle_link(row) for row in rows]
+
 
 def serialize_exercise(row: ExerciseModel) -> dict:
     db = object_session(row)
     normalized_categories = get_normalized_exercise_categories(db, row.name) if db else []
     normalized_family = get_normalized_exercise_family(db, row.name) if db else ""
+    muscle_links = get_exercise_muscle_links(db, row.name)
     return {
         "name": row.name,
         "display_name": row.display_name or row.name.replace("_", " "),
@@ -2431,6 +2579,12 @@ def serialize_exercise(row: ExerciseModel) -> dict:
         "image": row.image or "",
         "images": get_exercise_images(row),
         "document": row.document or "",
+        "muscle_notes_fr": row.muscle_notes_fr or "",
+        "muscle_notes_en": row.muscle_notes_en or "",
+        "muscles": muscle_links,
+        "primary_muscles": [item["name"] for item in muscle_links if item["role"] == "primary"],
+        "secondary_muscles": [item["name"] for item in muscle_links if item["role"] == "secondary"],
+        "stabilizers": [item["name"] for item in muscle_links if item["role"] == "stabilizer"],
     }
 
 
@@ -2701,7 +2855,7 @@ def merge_exercise_rows(target_row: ExerciseModel, source_row: ExerciseModel) ->
     merged_images = unique_names(get_exercise_images(target_row) + get_exercise_images(source_row))
     set_exercise_images(target_row, merged_images)
 
-    for field_name in ("display_name", "display_name_fr", "display_name_en", "description", "link", "document"):
+    for field_name in ("display_name", "display_name_fr", "display_name_en", "description", "link", "document", "muscle_notes_fr", "muscle_notes_en"):
         target_value = str(getattr(target_row, field_name) or "").strip()
         source_value = str(getattr(source_row, field_name) or "").strip()
         if not target_value and source_value:
@@ -2715,6 +2869,18 @@ def merge_exercise_rows(target_row: ExerciseModel, source_row: ExerciseModel) ->
         target_row.tracking_mode = normalize_tracking_mode(source_row.tracking_mode)
     if not str(target_row.weight_unit or "").strip():
         target_row.weight_unit = normalize_weight_unit(source_row.weight_unit)
+
+def merge_exercise_muscle_links(db, target_name: str, source_name: str) -> None:
+    existing = {
+        (row.muscle_name, row.role)
+        for row in db.query(ExerciseMuscleLinkModel).filter_by(exercise_name=target_name).all()
+    }
+    for row in db.query(ExerciseMuscleLinkModel).filter_by(exercise_name=source_name).all():
+        key = (row.muscle_name, row.role)
+        if key in existing:
+            continue
+        db.add(ExerciseMuscleLinkModel(exercise_name=target_name, muscle_name=row.muscle_name, role=row.role))
+        existing.add(key)
 
 
 def rename_exercise_references(db, old_name: str, new_name: str) -> None:
@@ -4045,6 +4211,53 @@ def seed_exercises():
         db.commit()
     db.close()
 
+DEFAULT_MUSCLES = [
+    ("pectoralis_major", "Grand pectoral", "Pectoralis major", "chest"),
+    ("anterior_deltoid", "Deltoide anterieur", "Anterior deltoid", "shoulder"),
+    ("lateral_deltoid", "Deltoide lateral", "Lateral deltoid", "shoulder"),
+    ("posterior_deltoid", "Deltoide posterieur", "Posterior deltoid", "shoulder"),
+    ("triceps_brachii", "Triceps brachial", "Triceps brachii", "arm"),
+    ("biceps_brachii", "Biceps brachial", "Biceps brachii", "arm"),
+    ("brachialis", "Brachial", "Brachialis", "arm"),
+    ("latissimus_dorsi", "Grand dorsal", "Latissimus dorsi", "back"),
+    ("trapezius", "Trapeze", "Trapezius", "back"),
+    ("rhomboids", "Rhomboides", "Rhomboids", "back"),
+    ("erector_spinae", "Erecteurs du rachis", "Erector spinae", "back"),
+    ("rectus_abdominis", "Grand droit de l'abdomen", "Rectus abdominis", "core"),
+    ("obliques", "Obliques", "Obliques", "core"),
+    ("transverse_abdominis", "Transverse de l'abdomen", "Transverse abdominis", "core"),
+    ("gluteus_maximus", "Grand fessier", "Gluteus maximus", "hip"),
+    ("gluteus_medius", "Moyen fessier", "Gluteus medius", "hip"),
+    ("quadriceps", "Quadriceps", "Quadriceps", "thigh"),
+    ("hamstrings", "Ischio-jambiers", "Hamstrings", "thigh"),
+    ("adductors", "Adducteurs", "Adductors", "thigh"),
+    ("gastrocnemius", "Gastrocnemien", "Gastrocnemius", "calf"),
+    ("soleus", "Soleaire", "Soleus", "calf"),
+    ("rotator_cuff", "Coiffe des rotateurs", "Rotator cuff", "shoulder"),
+    ("serratus_anterior", "Dentelé anterieur", "Serratus anterior", "chest"),
+    ("forearm_flexors", "Flechisseurs de l'avant-bras", "Forearm flexors", "forearm"),
+    ("forearm_extensors", "Extenseurs de l'avant-bras", "Forearm extensors", "forearm"),
+]
+
+def seed_default_muscles():
+    db = SessionLocal()
+    try:
+        for name, display_name_fr, display_name_en, region in DEFAULT_MUSCLES:
+            row = db.query(MuscleModel).filter_by(name=name).first()
+            if row:
+                if not row.display_name_fr:
+                    row.display_name_fr = display_name_fr
+                if not row.display_name_en:
+                    row.display_name_en = display_name_en
+                if not row.region:
+                    row.region = region
+                continue
+            db.add(MuscleModel(name=name, display_name_fr=display_name_fr, display_name_en=display_name_en, region=region))
+        db.commit()
+    finally:
+        db.close()
+
+seed_default_muscles()
 seed_exercises()
 sync_existing_exercise_taxonomy()
 
@@ -5001,6 +5214,23 @@ def get_exercises(_: UserModel = Depends(get_current_user)):
     finally:
         db.close()
 
+@app.get("/api/muscles")
+def get_muscles(_: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        rows = db.query(MuscleModel).order_by(MuscleModel.region, MuscleModel.name).all()
+        return [
+            {
+                "name": row.name,
+                "display_name_fr": row.display_name_fr or format_muscle_display_name(row.name),
+                "display_name_en": row.display_name_en or format_muscle_display_name(row.name),
+                "region": row.region or "",
+            }
+            for row in rows
+        ]
+    finally:
+        db.close()
+
 @app.post("/api/exercises")
 def add_exercise(e: dict, current_user: UserModel = Depends(get_current_user)):
     db = get_db()
@@ -5053,6 +5283,7 @@ def update_exercise(name: str, e: dict, current_user: UserModel = Depends(get_cu
             if existing_target:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="An exercise already uses this technical name")
             clear_exercise_taxonomy(db, name)
+            clear_exercise_muscles(db, name)
             rename_exercise_references(db, name, target_name)
 
         row.name = target_name
@@ -5069,8 +5300,11 @@ def update_exercise(name: str, e: dict, current_user: UserModel = Depends(get_cu
         row.image = record["image"]
         row.images_json = record["images_json"]
         row.document = record["document"]
+        row.muscle_notes_fr = record["muscle_notes_fr"]
+        row.muscle_notes_en = record["muscle_notes_en"]
         db.flush()
         sync_exercise_taxonomy(db, row)
+        sync_exercise_muscles(db, row.name, record)
         write_audit_log(
             db,
             current_user.username,
@@ -5106,6 +5340,7 @@ def merge_exercise(name: str, payload: dict, current_user: UserModel = Depends(g
 
         rename_exercise_references(db, source_name, target_name)
         merge_exercise_rows(target_row, source_row)
+        merge_exercise_muscle_links(db, target_name, source_name)
         sync_exercise_taxonomy(db, target_row)
         write_audit_log(
             db,
@@ -5116,6 +5351,7 @@ def merge_exercise(name: str, payload: dict, current_user: UserModel = Depends(g
             f"Merged exercise {source_name} into {target_name}",
         )
         clear_exercise_taxonomy(db, source_name)
+        clear_exercise_muscles(db, source_name)
         db.delete(source_row)
         db.commit()
         db.refresh(target_row)
@@ -5530,6 +5766,7 @@ def delete_exercise(name: str, current_user: UserModel = Depends(require_admin))
                 f"Deleted exercise {name}",
             )
         clear_exercise_taxonomy(db, name)
+        clear_exercise_muscles(db, name)
         db.query(ExerciseModel).filter_by(name=name).delete()
         db.commit()
         return {"ok": True}
