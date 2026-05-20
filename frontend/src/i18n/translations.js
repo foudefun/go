@@ -392,6 +392,7 @@ const FR = {
   "No areas loaded": "Aucune zone chargee",
   "No audit rows for these filters.": "Aucune ligne d'audit pour ces filtres.",
   "No climbing data available yet.": "Aucune donnee d'escalade disponible pour le moment.",
+  "No data for the selected variables.": "Aucune donnee pour les variables selectionnees.",
   "No recent imports.": "Aucun import recent.",
   "No recent security events.": "Aucun evenement securite recent.",
   "No recent sessions.": "Aucune seance recente.",

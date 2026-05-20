@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { aggregateMetric, buildDailyStats, buildMonthlyStats, formatStatValue } from "./statistics.js";
+import { aggregateMetric, buildDailyStats, buildMonthlyStats, formatStatValue, getAvailableStatisticActivityTypes } from "./statistics.js";
 
 test("builds daily and monthly stats from calendar activity entries", () => {
   const daily = buildDailyStats([
@@ -83,23 +83,26 @@ test("filters stats by activity type", () => {
 });
 
 test("includes indoor cycling performed inside strength activities", () => {
+  const rows = [
+    {
+      date: "2026-05-01",
+      activity_entries: [
+        {
+          activity_type: "musculation",
+          performed_items: [
+            { exercise_name: "bike_intervals", sets: [{ duration_sec: 600, watts: 160 }] },
+            { exercise_name: "bench_press", sets: [{ reps: 10, weight: 60 }] },
+          ],
+        },
+      ],
+    },
+  ];
+  const availableTypes = getAvailableStatisticActivityTypes(rows);
   const daily = buildDailyStats(
-    [
-      {
-        date: "2026-05-01",
-        activity_entries: [
-          {
-            activity_type: "musculation",
-            performed_items: [
-              { exercise_name: "bike_intervals", sets: [{ duration_sec: 600, watts: 160 }] },
-              { exercise_name: "bench_press", sets: [{ reps: 10, weight: 60 }] },
-            ],
-          },
-        ],
-      },
-    ],
+    rows,
     "velo",
   );
+  assert.equal(availableTypes.has("velo"), true);
   assert.equal(daily[0].activity_count, 1);
   assert.equal(daily[0].duration_min, 10);
   assert.equal(daily[0].sets, 1);

@@ -8,6 +8,7 @@ import {
   buildDailyStats,
   buildMonthlyStats,
   formatStatValue,
+  getAvailableStatisticActivityTypes,
   getStatMetric,
 } from "../domain/statistics.js";
 
@@ -44,12 +45,20 @@ function buildAreaPath(points, height, padding) {
   return `${points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ")} L ${points.at(-1).x} ${baseY} L ${points[0].x} ${baseY} Z`;
 }
 
+function rowHasSelectedMetric(row, metricA, metricB) {
+  return normalizeChartValue(row, metricA) > 0 || (metricB && normalizeChartValue(row, metricB) > 0);
+}
+
 function StatsChart({ rows, metricA, metricB, t }) {
   const width = 900;
   const height = 360;
   const padding = { top: 30, right: 42, bottom: 58, left: 64 };
-  const visibleRows = rows.filter((row) => normalizeChartValue(row, metricA) > 0 || (metricB && normalizeChartValue(row, metricB) > 0));
-  const chartRows = visibleRows.length ? visibleRows : rows;
+  const chartRows = rows;
+
+  if (!chartRows.length) {
+    return <div className="empty-state compact">{t("No data for the selected variables.")}</div>;
+  }
+
   const maxValueA = Math.max(...chartRows.map((row) => normalizeChartValue(row, metricA)), 1);
   const maxValueB = metricB ? Math.max(...chartRows.map((row) => normalizeChartValue(row, metricB)), 1) : 0;
   const minValue = 0;
@@ -62,10 +71,6 @@ function StatsChart({ rows, metricA, metricB, t }) {
   const shouldShowPoint = (index) => chartRows.length <= 36 || index === 0 || index === chartRows.length - 1 || index % Math.ceil(chartRows.length / 20) === 0;
   const metricALabel = t(getStatMetric(metricA).label);
   const metricBLabel = metricB ? t(getStatMetric(metricB).label) : "";
-
-  if (!chartRows.length) {
-    return <div className="empty-state compact">{t("No statistics for this period.")}</div>;
-  }
 
   return (
     <div className="stats-chart-frame">
@@ -154,16 +159,14 @@ export default function StatisticsPage() {
   }, [startDate, endDate]);
 
   const availableActivityTypes = useMemo(() => {
-    const values = new Set(
-      (Array.isArray(rows) ? rows : [])
-        .flatMap((row) => row.activity_types || (row.activity_type ? [row.activity_type] : []))
-        .filter(Boolean),
-    );
+    const values = getAvailableStatisticActivityTypes(rows);
     return ACTIVITY_TYPES.filter((type) => values.has(type.value));
   }, [rows]);
   const dailyRows = useMemo(() => buildDailyStats(rows, activityType), [rows, activityType]);
   const monthlyRows = useMemo(() => buildMonthlyStats(dailyRows), [dailyRows]);
   const chartRows = period === "monthly" ? monthlyRows : dailyRows;
+  const plottedRows = useMemo(() => chartRows.filter((row) => rowHasSelectedMetric(row, metricA, metricB)), [chartRows, metricA, metricB]);
+  const selectedActivityLabel = activityType ? t(getActivityTypeLabel(activityType)) : t("All types");
   const summaryRows = [
     { metric: metricA, value: aggregateMetric(chartRows, metricA) },
     metricB ? { metric: metricB, value: aggregateMetric(chartRows, metricB) } : null,
@@ -241,10 +244,11 @@ export default function StatisticsPage() {
           <div>
             <p className="eyebrow">{period === "monthly" ? t("Monthly evolution") : t("Daily evolution")}</p>
             <h2>{t(getStatMetric(metricA).label)}{metricB ? ` / ${t(getStatMetric(metricB).label)}` : ""}</h2>
+            <span className="muted-text">{selectedActivityLabel}</span>
           </div>
-          <span>{t("Rows visible", { count: chartRows.length })}</span>
+          <span>{t("Rows visible", { count: plottedRows.length })}</span>
         </div>
-        <StatsChart rows={chartRows} metricA={metricA} metricB={metricB} t={t} />
+        <StatsChart rows={plottedRows} metricA={metricA} metricB={metricB} t={t} />
       </section>
     </main>
   );

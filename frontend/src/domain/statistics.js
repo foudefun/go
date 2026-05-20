@@ -145,6 +145,23 @@ function getActivityEntries(row = {}) {
   return [];
 }
 
+export function getAvailableStatisticActivityTypes(rows = []) {
+  const values = new Set();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const directTypes = row.activity_types || (row.activity_type ? [row.activity_type] : []);
+    for (const type of directTypes) {
+      if (type) values.add(type);
+    }
+    for (const activity of getActivityEntries(row)) {
+      if (activity.activity_type) values.add(activity.activity_type);
+      if (activity.activity_type === "musculation" && (Array.isArray(activity.performed_items) ? activity.performed_items : []).some(isCyclingStrengthItem)) {
+        values.add("velo");
+      }
+    }
+  }
+  return values;
+}
+
 export function buildDailyStats(rows = [], activityType = "") {
   return (Array.isArray(rows) ? rows : [])
     .map((row) => {
