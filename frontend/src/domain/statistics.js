@@ -160,8 +160,9 @@ function addActivityMetrics(target, activity = {}, activityType = "") {
   const allSourceFiles = Array.isArray(activity.source_files) ? activity.source_files : [];
   const activityTypeMatches = !activityType || activity.activity_type === activityType;
   const sourceFiles = activityTypeMatches ? allSourceFiles : allSourceFiles.filter((source) => sourceMatchesType(source, activityType));
-  if (!sourceFiles.length && activityTypeMatches && activity.activity_details) {
-    const detailsMetrics = parseActivityDetailsMetrics(activity.activity_details);
+  const activityDetails = activity.activity_details || activity.details || "";
+  if (!sourceFiles.length && activityTypeMatches && activityDetails) {
+    const detailsMetrics = parseActivityDetailsMetrics(activityDetails);
     target.duration_min += detailsMetrics.duration_min;
     target.distance_km += detailsMetrics.distance_km;
     target.calories += detailsMetrics.calories;
