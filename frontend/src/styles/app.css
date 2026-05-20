@@ -356,6 +356,36 @@ label {
   overflow-x: auto;
 }
 
+.chart-legend-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  color: #445066;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.chart-legend-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.legend-dot.primary {
+  background: #0f766e;
+}
+
+.legend-dot.secondary {
+  background: #2563eb;
+}
+
 .stats-chart-frame svg {
   display: block;
   width: 100%;
@@ -380,6 +410,10 @@ label {
   stroke-linejoin: round;
 }
 
+.chart-area.primary {
+  fill: url("#primaryChartFill");
+}
+
 .chart-line.primary,
 .chart-point.primary {
   stroke: #0f766e;
@@ -396,6 +430,14 @@ label {
   fill: #667085;
   font-size: 12px;
   font-weight: 700;
+}
+
+.chart-label.primary {
+  fill: #0f766e;
+}
+
+.chart-label.secondary {
+  fill: #2563eb;
 }
 
 .month-controls label {

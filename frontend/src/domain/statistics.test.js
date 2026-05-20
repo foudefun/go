@@ -14,7 +14,8 @@ test("builds daily and monthly stats from calendar activity entries", () => {
                 duration: { seconds: 3600 },
                 distance: { km: 10.5 },
                 power: { avg: 180, max: 420 },
-                heart_rate: { avg: 145 },
+                heart_rate: { avg: 145, max: 172 },
+                cadence: { avg: 82 },
                 calories: { total: 650 },
               },
             },
@@ -40,6 +41,10 @@ test("builds daily and monthly stats from calendar activity entries", () => {
   assert.equal(daily[0].avg_power, 180);
   assert.equal(daily[0].max_power, 420);
   assert.equal(daily[0].avg_hr, 145);
+  assert.equal(daily[0].max_hr, 172);
+  assert.equal(daily[0].avg_cadence, 82);
+  assert.equal(daily[0].speed_kmh, 10.5);
+  assert.equal(Number(daily[0].pace_min_km.toFixed(2)), 5.71);
   assert.equal(daily[0].calories, 650);
   assert.equal(daily[0].strength_items, 1);
   assert.equal(daily[0].sets, 2);

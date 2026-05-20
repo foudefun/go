@@ -6,6 +6,10 @@ export const STAT_METRICS = [
   { key: "avg_power", label: "Average power", unit: "W" },
   { key: "max_power", label: "Max power", unit: "W" },
   { key: "avg_hr", label: "Average heart rate", unit: "bpm" },
+  { key: "max_hr", label: "Max heart rate", unit: "bpm" },
+  { key: "avg_cadence", label: "Average cadence", unit: "rpm" },
+  { key: "speed_kmh", label: "Speed", unit: "km/h" },
+  { key: "pace_min_km", label: "Pace", unit: "min/km" },
   { key: "calories", label: "Calories", unit: "kcal" },
   { key: "strength_items", label: "Strength exercises", unit: "" },
   { key: "sets", label: "Sets", unit: "" },
@@ -83,6 +87,8 @@ function addActivityMetrics(target, activity = {}, activityType = "") {
     target.avgPowerValues.push(readMetric(metrics, "power", "avg"));
     target.max_power = Math.max(target.max_power, readMetric(metrics, "power", "max"));
     target.avgHrValues.push(readMetric(metrics, "heart_rate", "avg"));
+    target.max_hr = Math.max(target.max_hr, readMetric(metrics, "heart_rate", "max"));
+    target.avgCadenceValues.push(readMetric(metrics, "cadence", "avg"));
   }
 }
 
@@ -96,6 +102,10 @@ function createBucket(label) {
     power: 0,
     max_power: 0,
     avg_hr: 0,
+    max_hr: 0,
+    avg_cadence: 0,
+    speed_kmh: 0,
+    pace_min_km: 0,
     calories: 0,
     strength_items: 0,
     sets: 0,
@@ -103,19 +113,27 @@ function createBucket(label) {
     volume_kg: 0,
     avgPowerValues: [],
     avgHrValues: [],
+    avgCadenceValues: [],
   };
 }
 
 function finalizeBucket(bucket) {
   const avgPowerValues = bucket.avgPowerValues.filter((value) => value > 0);
   const avgHrValues = bucket.avgHrValues.filter((value) => value > 0);
+  const avgCadenceValues = bucket.avgCadenceValues.filter((value) => value > 0);
+  const speedKmh = bucket.distance_km && bucket.duration_min ? bucket.distance_km / (bucket.duration_min / 60) : 0;
+  const paceMinKm = bucket.distance_km && bucket.duration_min ? bucket.duration_min / bucket.distance_km : 0;
   return {
     ...bucket,
     avg_power: avgPowerValues.length ? avgPowerValues.reduce((sum, value) => sum + value, 0) / avgPowerValues.length : 0,
     power: avgPowerValues.length ? avgPowerValues.reduce((sum, value) => sum + value, 0) / avgPowerValues.length : 0,
     avg_hr: avgHrValues.length ? avgHrValues.reduce((sum, value) => sum + value, 0) / avgHrValues.length : 0,
+    avg_cadence: avgCadenceValues.length ? avgCadenceValues.reduce((sum, value) => sum + value, 0) / avgCadenceValues.length : 0,
+    speed_kmh: speedKmh,
+    pace_min_km: paceMinKm,
     avgPowerValues: undefined,
     avgHrValues: undefined,
+    avgCadenceValues: undefined,
   };
 }
 
@@ -148,11 +166,12 @@ export function buildMonthlyStats(dailyRows = []) {
     if (!month) continue;
     const bucket = buckets.get(month) || createBucket(month);
     for (const metric of STAT_METRICS) {
-      if (metric.key === "power" || metric.key === "avg_power" || metric.key === "avg_hr") continue;
+      if (["power", "avg_power", "avg_hr", "avg_cadence", "speed_kmh", "pace_min_km"].includes(metric.key)) continue;
       bucket[metric.key] += numberOrZero(row[metric.key]);
     }
     if (row.avg_power) bucket.avgPowerValues.push(row.avg_power);
     if (row.avg_hr) bucket.avgHrValues.push(row.avg_hr);
+    if (row.avg_cadence) bucket.avgCadenceValues.push(row.avg_cadence);
     buckets.set(month, bucket);
   }
   return Array.from(buckets.values()).map(finalizeBucket).sort((left, right) => left.label.localeCompare(right.label));
@@ -162,9 +181,11 @@ export function formatStatValue(value, metricKey) {
   const metric = getStatMetric(metricKey);
   const numberValue = numberOrZero(value);
   if (metricKey === "distance_km") return `${numberValue.toFixed(1)} ${metric.unit}`;
+  if (metricKey === "pace_min_km") return numberValue ? `${numberValue.toFixed(1)} ${metric.unit}` : `0 ${metric.unit}`;
+  if (metricKey === "speed_kmh") return `${numberValue.toFixed(1)} ${metric.unit}`;
   if (metricKey === "duration_min") return `${Math.round(numberValue)} ${metric.unit}`;
   if (metricKey === "volume_kg") return `${Math.round(numberValue)} ${metric.unit}`;
-  if (["power", "avg_power", "max_power", "avg_hr", "calories"].includes(metricKey)) return `${Math.round(numberValue)} ${metric.unit}`;
+  if (["power", "avg_power", "max_power", "avg_hr", "max_hr", "avg_cadence", "calories"].includes(metricKey)) return `${Math.round(numberValue)} ${metric.unit}`;
   return String(Math.round(numberValue));
 }
 
