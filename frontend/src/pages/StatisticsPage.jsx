@@ -28,25 +28,30 @@ function normalizeChartValue(row, metricKey) {
   return Number.isFinite(value) ? value : 0;
 }
 
-function buildLinePoints(rows, metricKey, minValue, maxValue, width, height, padding) {
-  const chartWidth = width - padding.left - padding.right;
-  const chartHeight = height - padding.top - padding.bottom;
-  const range = maxValue - minValue || 1;
-  return rows.map((row, index) => {
-    const x = padding.left + (rows.length <= 1 ? chartWidth / 2 : (index / (rows.length - 1)) * chartWidth);
-    const y = padding.top + chartHeight - ((normalizeChartValue(row, metricKey) - minValue) / range) * chartHeight;
-    return { x, y, value: normalizeChartValue(row, metricKey), label: row.label };
-  });
-}
-
-function buildAreaPath(points, height, padding) {
-  if (!points.length) return "";
-  const baseY = height - padding.bottom;
-  return `${points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ")} L ${points.at(-1).x} ${baseY} L ${points[0].x} ${baseY} Z`;
-}
-
 function rowHasSelectedMetric(row, metricA, metricB) {
   return normalizeChartValue(row, metricA) > 0 || (metricB && normalizeChartValue(row, metricB) > 0);
+}
+
+function buildBarItems(rows, metricKey, maxValue, width, height, padding, offsetRatio, widthRatio) {
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const slotWidth = chartWidth / Math.max(rows.length, 1);
+  const barWidth = Math.max(4, slotWidth * widthRatio);
+  const baseY = height - padding.bottom;
+  return rows.map((row, index) => {
+    const value = normalizeChartValue(row, metricKey);
+    const barHeight = (value / (maxValue || 1)) * chartHeight;
+    const slotX = padding.left + index * slotWidth;
+    return {
+      x: slotX + slotWidth * offsetRatio - barWidth / 2,
+      y: baseY - barHeight,
+      width: barWidth,
+      height: barHeight,
+      value,
+      label: row.label,
+      labelX: slotX + slotWidth / 2,
+    };
+  });
 }
 
 function StatsChart({ rows, metricA, metricB, t }) {
@@ -61,14 +66,9 @@ function StatsChart({ rows, metricA, metricB, t }) {
 
   const maxValueA = Math.max(...chartRows.map((row) => normalizeChartValue(row, metricA)), 1);
   const maxValueB = metricB ? Math.max(...chartRows.map((row) => normalizeChartValue(row, metricB)), 1) : 0;
-  const minValue = 0;
-  const pointsA = buildLinePoints(chartRows, metricA, minValue, maxValueA, width, height, padding);
-  const pointsB = metricB ? buildLinePoints(chartRows, metricB, minValue, maxValueB, width, height, padding) : [];
-  const pathA = pointsA.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
-  const pathB = pointsB.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
-  const areaA = buildAreaPath(pointsA, height, padding);
+  const barsA = buildBarItems(chartRows, metricA, maxValueA, width, height, padding, metricB ? 0.38 : 0.5, metricB ? 0.32 : 0.52);
+  const barsB = metricB ? buildBarItems(chartRows, metricB, maxValueB, width, height, padding, 0.62, 0.32) : [];
   const xLabels = chartRows.filter((_, index) => index === 0 || index === chartRows.length - 1 || index % Math.ceil(chartRows.length / 6) === 0);
-  const shouldShowPoint = (index) => chartRows.length <= 36 || index === 0 || index === chartRows.length - 1 || index % Math.ceil(chartRows.length / 20) === 0;
   const metricALabel = t(getStatMetric(metricA).label);
   const metricBLabel = metricB ? t(getStatMetric(metricB).label) : "";
 
@@ -79,12 +79,6 @@ function StatsChart({ rows, metricA, metricB, t }) {
         {metricB ? <span><i className="legend-dot secondary" />{metricBLabel} · max {formatStatValue(maxValueB, metricB)}</span> : null}
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("Statistics chart")}>
-        <defs>
-          <linearGradient id="primaryChartFill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#0f766e" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="#0f766e" stopOpacity="0.02" />
-          </linearGradient>
-        </defs>
         <line x1={padding.left} y1={height - padding.bottom} x2={width - padding.right} y2={height - padding.bottom} className="chart-axis" />
         <line x1={padding.left} y1={padding.top} x2={padding.left} y2={height - padding.bottom} className="chart-axis" />
         {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
@@ -99,23 +93,20 @@ function StatsChart({ rows, metricA, metricB, t }) {
             </g>
           );
         })}
-        {areaA ? <path d={areaA} className="chart-area primary" /> : null}
-        {pathA ? <path d={pathA} className="chart-line primary" /> : null}
-        {pathB ? <path d={pathB} className="chart-line secondary" /> : null}
-        {pointsA.map((point, index) => shouldShowPoint(index) && (
-          <circle key={`${point.label}-a`} cx={point.x} cy={point.y} r="4" className="chart-point primary">
-            <title>{`${point.label} · ${metricALabel}: ${formatStatValue(point.value, metricA)}`}</title>
-          </circle>
+        {barsA.map((bar) => (
+          <rect key={`${bar.label}-a`} x={bar.x} y={bar.y} width={bar.width} height={bar.height} rx="4" className="chart-bar primary">
+            <title>{`${bar.label} - ${metricALabel}: ${formatStatValue(bar.value, metricA)}`}</title>
+          </rect>
         ))}
-        {pointsB.map((point, index) => shouldShowPoint(index) && (
-          <circle key={`${point.label}-b`} cx={point.x} cy={point.y} r="4" className="chart-point secondary">
-            <title>{`${point.label} · ${metricBLabel}: ${formatStatValue(point.value, metricB)}`}</title>
-          </circle>
+        {barsB.map((bar) => (
+          <rect key={`${bar.label}-b`} x={bar.x} y={bar.y} width={bar.width} height={bar.height} rx="4" className="chart-bar secondary">
+            <title>{`${bar.label} - ${metricBLabel}: ${formatStatValue(bar.value, metricB)}`}</title>
+          </rect>
         ))}
         {xLabels.map((row) => {
-          const point = pointsA.find((item) => item.label === row.label) || pointsB.find((item) => item.label === row.label);
-          return point ? (
-            <text key={row.label} x={point.x} y={height - 18} textAnchor="middle" className="chart-label">
+          const bar = barsA.find((item) => item.label === row.label) || barsB.find((item) => item.label === row.label);
+          return bar ? (
+            <text key={row.label} x={bar.labelX} y={height - 18} textAnchor="middle" className="chart-label">
               {row.label}
             </text>
           ) : null;

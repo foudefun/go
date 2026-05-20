@@ -82,6 +82,35 @@ test("filters stats by activity type", () => {
   assert.equal(daily[0].distance_km, 20);
 });
 
+test("filters imported source metrics by parsed activity type", () => {
+  const rows = [
+    {
+      date: "2026-05-01",
+      activity_entries: [
+        {
+          source_files: [
+            { parsed: { activity_type: "cycling" }, metrics: { duration: { seconds: 3600 }, distance: { km: 20 } } },
+            { parsed: { activity_type: "running" }, metrics: { duration: { seconds: 1200 }, distance: { km: 5 } } },
+          ],
+        },
+      ],
+    },
+  ];
+  const availableTypes = getAvailableStatisticActivityTypes(rows);
+  const allDaily = buildDailyStats(rows);
+  const cyclingDaily = buildDailyStats(rows, "velo");
+  const runningDaily = buildDailyStats(rows, "course_a_pied");
+
+  assert.equal(availableTypes.has("velo"), true);
+  assert.equal(availableTypes.has("course_a_pied"), true);
+  assert.equal(allDaily[0].duration_min, 80);
+  assert.equal(cyclingDaily[0].activity_count, 1);
+  assert.equal(cyclingDaily[0].duration_min, 60);
+  assert.equal(cyclingDaily[0].distance_km, 20);
+  assert.equal(runningDaily[0].duration_min, 20);
+  assert.equal(runningDaily[0].distance_km, 5);
+});
+
 test("includes indoor cycling performed inside strength activities", () => {
   const rows = [
     {

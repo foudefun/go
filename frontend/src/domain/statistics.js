@@ -19,6 +19,32 @@ export const STAT_METRICS = [
 
 const SUM_METRICS = new Set(["activity_count", "duration_min", "distance_km", "calories", "strength_items", "sets", "total_reps", "volume_kg"]);
 const CYCLING_TOKENS = ["bike", "biking", "cycle", "cycling", "velo", "vélo", "zwift", "mywhoosh", "trainer", "erg"];
+const ACTIVITY_TYPE_ALIASES = new Map([
+  ["run", "course_a_pied"],
+  ["running", "course_a_pied"],
+  ["course", "course_a_pied"],
+  ["course a pied", "course_a_pied"],
+  ["course_a_pied", "course_a_pied"],
+  ["bike", "velo"],
+  ["biking", "velo"],
+  ["cycle", "velo"],
+  ["cycling", "velo"],
+  ["velo", "velo"],
+  ["vtt", "vtt"],
+  ["mtb", "vtt"],
+  ["mountain bike", "vtt"],
+  ["hockey", "hockey"],
+  ["climb", "escalade"],
+  ["climbing", "escalade"],
+  ["escalade", "escalade"],
+  ["outdoor climbing", "outdoor_climbing"],
+  ["outdoor_climbing", "outdoor_climbing"],
+  ["strength", "musculation"],
+  ["musculation", "musculation"],
+  ["workout", "musculation"],
+  ["yoga", "yoga"],
+  ["pilates", "pilates"],
+]);
 
 export function getStatMetric(key) {
   return STAT_METRICS.find((metric) => metric.key === key) || STAT_METRICS[0];
@@ -42,9 +68,32 @@ function normalizedText(value = "") {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+function normalizeActivityTypeValue(value = "") {
+  const normalized = normalizedText(value).replace(/[^a-z0-9_]+/g, " ").trim();
+  return ACTIVITY_TYPE_ALIASES.get(normalized) || ACTIVITY_TYPE_ALIASES.get(normalized.replaceAll(" ", "_")) || "";
+}
+
 function isCyclingStrengthItem(item = {}) {
   const text = normalizedText([item.exercise_name, item.custom_name, item.notes].filter(Boolean).join(" "));
   return CYCLING_TOKENS.some((token) => text.includes(normalizedText(token)));
+}
+
+function getSourceActivityType(source = {}) {
+  const parsed = source?.parsed && typeof source.parsed === "object" ? source.parsed : {};
+  return (
+    normalizeActivityTypeValue(source.activity_type) ||
+    normalizeActivityTypeValue(source.sport) ||
+    normalizeActivityTypeValue(parsed.activity_type) ||
+    normalizeActivityTypeValue(parsed.sport) ||
+    normalizeActivityTypeValue(parsed.sub_sport) ||
+    normalizeActivityTypeValue(source.provider) ||
+    normalizeActivityTypeValue(source.label) ||
+    normalizeActivityTypeValue(source.filename)
+  );
+}
+
+function sourceMatchesType(source = {}, activityType = "") {
+  return !activityType || getSourceActivityType(source) === activityType;
 }
 
 function activityMatchesType(activity = {}, activityType = "") {
@@ -53,6 +102,7 @@ function activityMatchesType(activity = {}, activityType = "") {
   if (activityType === "velo" && activity.activity_type === "musculation") {
     return (Array.isArray(activity.performed_items) ? activity.performed_items : []).some(isCyclingStrengthItem);
   }
+  if ((Array.isArray(activity.source_files) ? activity.source_files : []).some((source) => sourceMatchesType(source, activityType))) return true;
   return false;
 }
 
@@ -78,7 +128,9 @@ function addActivityMetrics(target, activity = {}, activityType = "") {
     }
   }
 
-  const sourceFiles = Array.isArray(activity.source_files) ? activity.source_files : [];
+  const allSourceFiles = Array.isArray(activity.source_files) ? activity.source_files : [];
+  const activityTypeMatches = !activityType || activity.activity_type === activityType;
+  const sourceFiles = activityTypeMatches ? allSourceFiles : allSourceFiles.filter((source) => sourceMatchesType(source, activityType));
   for (const source of sourceFiles) {
     const metrics = source?.metrics || {};
     target.duration_min += readMetric(metrics, "duration", "seconds") / 60;
@@ -154,6 +206,10 @@ export function getAvailableStatisticActivityTypes(rows = []) {
     }
     for (const activity of getActivityEntries(row)) {
       if (activity.activity_type) values.add(activity.activity_type);
+      for (const source of Array.isArray(activity.source_files) ? activity.source_files : []) {
+        const sourceType = getSourceActivityType(source);
+        if (sourceType) values.add(sourceType);
+      }
       if (activity.activity_type === "musculation" && (Array.isArray(activity.performed_items) ? activity.performed_items : []).some(isCyclingStrengthItem)) {
         values.add("velo");
       }

@@ -414,6 +414,15 @@ label {
   fill: url("#primaryChartFill");
 }
 
+.chart-bar.primary {
+  fill: #0f766e;
+}
+
+.chart-bar.secondary {
+  fill: #2563eb;
+  opacity: 0.82;
+}
+
 .chart-line.primary,
 .chart-point.primary {
   stroke: #0f766e;
