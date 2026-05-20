@@ -86,6 +86,34 @@ def test_exercise_muscle_links_are_saved_updated_and_serialized(client):
         db.close()
 
 
+def test_exercise_muscle_profile_seed_fills_common_existing_exercises(client):
+    create_exercise(client, "seated_row", category="back", display_name_en="Seated Rows")
+
+    main.seed_exercise_muscle_profiles()
+
+    response = client.get("/api/exercises")
+    assert response.status_code == 200, response.text
+    exercise = next(item for item in response.json() if item["name"] == "seated_row")
+    assert set(exercise["primary_muscles"]) == {"latissimus_dorsi", "rhomboids"}
+    assert "posterior_deltoid" in exercise["secondary_muscles"]
+    assert exercise["muscle_notes_en"].startswith("Horizontal pull")
+
+    updated = client.put(
+        "/api/exercises/seated_row",
+        json={
+            **exercise,
+            "primary_muscles": ["biceps_brachii"],
+            "muscle_notes_en": "Manual override.",
+        },
+    )
+    assert updated.status_code == 200, updated.text
+
+    main.seed_exercise_muscle_profiles()
+    exercise = next(item for item in client.get("/api/exercises").json() if item["name"] == "seated_row")
+    assert exercise["primary_muscles"] == ["biceps_brachii"]
+    assert exercise["muscle_notes_en"] == "Manual override."
+
+
 def test_upload_set_primary_and_delete_exercise_image(client):
     create_exercise(client, "bench_press")
 

@@ -5,7 +5,7 @@
 - Add deletion/replacement controls for attached activity source files and show raw time-series overlays, not only summary metric comparisons.
 - Add imported activity file stats: per file/source provider, parsed metrics, ignored/missing fields, duplicate detection, and import history visible from the activity.
 - Seed split stance box jump, lateral plate hops, depth drop jumps, and broad jumps, and create muscle-impact images for those exercises.
-- Add richer muscle-impact details per exercise, beyond the current high-level category/description.
+- Continue expanding muscle-impact coverage for exercises not caught by the current automatic rules.
 - Improve time entry/display for exercise sets so time-based work is not entered or shown as raw seconds only.
 - Collapse or compact previous/performed exercise cards in the activity editor so past activities are easier to scan.
 - Rename save actions in the activity flow so it is clear whether the user is saving an exercise item, an activity, or the whole day.

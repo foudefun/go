@@ -4228,6 +4228,7 @@ DEFAULT_MUSCLES = [
     ("transverse_abdominis", "Transverse de l'abdomen", "Transverse abdominis", "core"),
     ("gluteus_maximus", "Grand fessier", "Gluteus maximus", "hip"),
     ("gluteus_medius", "Moyen fessier", "Gluteus medius", "hip"),
+    ("hip_flexors", "Flechisseurs de hanche", "Hip flexors", "hip"),
     ("quadriceps", "Quadriceps", "Quadriceps", "thigh"),
     ("hamstrings", "Ischio-jambiers", "Hamstrings", "thigh"),
     ("adductors", "Adducteurs", "Adductors", "thigh"),
@@ -4237,6 +4238,137 @@ DEFAULT_MUSCLES = [
     ("serratus_anterior", "Dentelé anterieur", "Serratus anterior", "chest"),
     ("forearm_flexors", "Flechisseurs de l'avant-bras", "Forearm flexors", "forearm"),
     ("forearm_extensors", "Extenseurs de l'avant-bras", "Forearm extensors", "forearm"),
+]
+
+EXERCISE_MUSCLE_PROFILE_RULES = [
+    {
+        "tokens": ("pec deck", "fly", "crossover"),
+        "primary_muscles": ["pectoralis_major"],
+        "secondary_muscles": ["anterior_deltoid"],
+        "stabilizers": ["serratus_anterior"],
+        "muscle_notes_fr": "Travail dominant des pectoraux avec participation du deltoide anterieur; limiter l'amplitude si l'epaule pince.",
+        "muscle_notes_en": "Chest-dominant work with anterior deltoid support; limit range if the shoulder pinches.",
+    },
+    {
+        "tokens": ("bench press", "chest press", "close grip bench", "incline press", "decline press", "dumbbell press chest"),
+        "primary_muscles": ["pectoralis_major", "triceps_brachii"],
+        "secondary_muscles": ["anterior_deltoid"],
+        "stabilizers": ["serratus_anterior", "rotator_cuff"],
+        "muscle_notes_fr": "Poussee poitrine/triceps; garder les omoplates controlees et une trajectoire stable.",
+        "muscle_notes_en": "Chest/triceps press; keep scapulae controlled and the bar path stable.",
+    },
+    {
+        "tokens": ("shoulder press", "front press", "back press", "dumbbell press shoulders"),
+        "primary_muscles": ["anterior_deltoid", "triceps_brachii"],
+        "secondary_muscles": ["lateral_deltoid"],
+        "stabilizers": ["rotator_cuff", "serratus_anterior"],
+        "muscle_notes_fr": "Poussee verticale centree sur les deltoides et triceps; controler les cotes et l'epaule.",
+        "muscle_notes_en": "Vertical press focused on deltoids and triceps; control ribs and shoulder position.",
+    },
+    {
+        "tokens": ("lateral raise", "lateral raises", "front raise", "front raises", "rear delt", "bent over lateral"),
+        "primary_muscles": ["lateral_deltoid"],
+        "secondary_muscles": ["anterior_deltoid", "posterior_deltoid"],
+        "stabilizers": ["rotator_cuff", "trapezius"],
+        "muscle_notes_fr": "Isolation deltoide; charge moderee et controle pour eviter de compenser avec les trapezes.",
+        "muscle_notes_en": "Deltoid isolation; use moderate load and control to avoid compensating with traps.",
+    },
+    {
+        "tokens": ("row", "rows", "rowing", "t bar"),
+        "primary_muscles": ["latissimus_dorsi", "rhomboids"],
+        "secondary_muscles": ["posterior_deltoid", "biceps_brachii"],
+        "stabilizers": ["trapezius", "erector_spinae"],
+        "muscle_notes_fr": "Tirage horizontal pour dorsaux/rhomboides; tirer les coudes sans hausser les epaules.",
+        "muscle_notes_en": "Horizontal pull for lats/rhomboids; drive elbows without shrugging.",
+    },
+    {
+        "tokens": ("pulldown", "pull down", "pullup", "pull up", "chin"),
+        "primary_muscles": ["latissimus_dorsi"],
+        "secondary_muscles": ["biceps_brachii", "rhomboids"],
+        "stabilizers": ["trapezius", "forearm_flexors"],
+        "muscle_notes_fr": "Tirage vertical centre sur le grand dorsal; garder le buste stable et les epaules basses.",
+        "muscle_notes_en": "Vertical pull focused on the lats; keep torso stable and shoulders down.",
+    },
+    {
+        "tokens": ("curl", "curls", "bicep"),
+        "primary_muscles": ["biceps_brachii", "brachialis"],
+        "secondary_muscles": ["forearm_flexors"],
+        "stabilizers": ["anterior_deltoid"],
+        "muscle_notes_fr": "Flexion du coude; garder les epaules fixes pour limiter l'elan.",
+        "muscle_notes_en": "Elbow flexion; keep shoulders fixed to limit swinging.",
+    },
+    {
+        "tokens": ("triceps", "pushdown"),
+        "primary_muscles": ["triceps_brachii"],
+        "secondary_muscles": ["forearm_extensors"],
+        "stabilizers": ["anterior_deltoid"],
+        "muscle_notes_fr": "Extension du coude; garder les coudes stables et controler la fin d'amplitude.",
+        "muscle_notes_en": "Elbow extension; keep elbows stable and control end range.",
+    },
+    {
+        "tokens": ("squat", "leg press", "hack squat"),
+        "primary_muscles": ["quadriceps", "gluteus_maximus"],
+        "secondary_muscles": ["hamstrings", "adductors"],
+        "stabilizers": ["erector_spinae", "obliques"],
+        "muscle_notes_fr": "Poussee jambes dominante quadriceps/fessiers; controler genoux, bassin et profondeur.",
+        "muscle_notes_en": "Leg press/squat pattern dominated by quads and glutes; control knees, pelvis and depth.",
+    },
+    {
+        "tokens": ("leg extension",),
+        "primary_muscles": ["quadriceps"],
+        "secondary_muscles": [],
+        "stabilizers": ["hip_flexors"],
+        "muscle_notes_fr": "Isolation quadriceps; monter controle et eviter de verrouiller agressivement le genou.",
+        "muscle_notes_en": "Quadriceps isolation; lift with control and avoid aggressive knee lockout.",
+    },
+    {
+        "tokens": ("leg curl", "leg curls"),
+        "primary_muscles": ["hamstrings"],
+        "secondary_muscles": ["gastrocnemius"],
+        "stabilizers": ["gluteus_maximus"],
+        "muscle_notes_fr": "Isolation ischio-jambiers; garder le bassin stable et controler l'excentrique.",
+        "muscle_notes_en": "Hamstring isolation; keep pelvis stable and control the eccentric.",
+    },
+    {
+        "tokens": ("back extension", "hyperextension"),
+        "primary_muscles": ["erector_spinae", "gluteus_maximus"],
+        "secondary_muscles": ["hamstrings"],
+        "stabilizers": ["obliques"],
+        "muscle_notes_fr": "Extension lombaire/hanche; monter par les fessiers et le dos sans hyperextension agressive.",
+        "muscle_notes_en": "Low-back/hip extension; lift through glutes and back without aggressive hyperextension.",
+    },
+    {
+        "tokens": ("deadlift", "stiff leg", "romanian"),
+        "primary_muscles": ["hamstrings", "gluteus_maximus", "erector_spinae"],
+        "secondary_muscles": ["latissimus_dorsi", "forearm_flexors"],
+        "stabilizers": ["obliques", "trapezius"],
+        "muscle_notes_fr": "Charniere de hanche; garder la colonne neutre, les dorsaux engages et la charge proche.",
+        "muscle_notes_en": "Hip hinge; keep spine neutral, lats engaged and load close.",
+    },
+    {
+        "tokens": ("calf", "toe raise"),
+        "primary_muscles": ["gastrocnemius", "soleus"],
+        "secondary_muscles": [],
+        "stabilizers": ["forearm_flexors"],
+        "muscle_notes_fr": "Mollets; controler l'amplitude complete sans rebondir.",
+        "muscle_notes_en": "Calves; control the full range without bouncing.",
+    },
+    {
+        "tokens": ("hip extension", "kick back", "kickback"),
+        "primary_muscles": ["gluteus_maximus"],
+        "secondary_muscles": ["hamstrings"],
+        "stabilizers": ["gluteus_medius", "obliques"],
+        "muscle_notes_fr": "Extension de hanche centree sur le grand fessier; eviter de cambrer le bas du dos.",
+        "muscle_notes_en": "Hip extension focused on glute max; avoid arching the low back.",
+    },
+    {
+        "tokens": ("crunch", "sit up", "sit-up", "leg raise", "leg raises"),
+        "primary_muscles": ["rectus_abdominis", "hip_flexors"],
+        "secondary_muscles": ["obliques"],
+        "stabilizers": ["transverse_abdominis"],
+        "muscle_notes_fr": "Travail tronc/flechisseurs de hanche; controler la respiration et eviter de tirer sur la nuque.",
+        "muscle_notes_en": "Core/hip-flexor work; control breathing and avoid pulling on the neck.",
+    },
 ]
 
 def seed_default_muscles():
@@ -4257,9 +4389,53 @@ def seed_default_muscles():
     finally:
         db.close()
 
+def infer_exercise_muscle_profile(row: ExerciseModel) -> dict | None:
+    search_text = normalize_text_key(
+        " ".join(
+            [
+                row.name or "",
+                row.display_name or "",
+                row.display_name_fr or "",
+                row.display_name_en or "",
+                row.category or "",
+                row.description or "",
+            ]
+        )
+    )
+    if not search_text:
+        return None
+    for rule in EXERCISE_MUSCLE_PROFILE_RULES:
+        if any(token in search_text for token in rule["tokens"]):
+            return rule
+    return None
+
+def seed_exercise_muscle_profiles():
+    db = SessionLocal()
+    try:
+        changed = False
+        for row in db.query(ExerciseModel).all():
+            has_muscles = db.query(ExerciseMuscleLinkModel).filter_by(exercise_name=row.name).first() is not None
+            profile = infer_exercise_muscle_profile(row)
+            if not profile:
+                continue
+            if not has_muscles:
+                sync_exercise_muscles(db, row.name, profile)
+                changed = True
+            if not row.muscle_notes_fr and profile.get("muscle_notes_fr"):
+                row.muscle_notes_fr = profile["muscle_notes_fr"]
+                changed = True
+            if not row.muscle_notes_en and profile.get("muscle_notes_en"):
+                row.muscle_notes_en = profile["muscle_notes_en"]
+                changed = True
+        if changed:
+            db.commit()
+    finally:
+        db.close()
+
 seed_default_muscles()
 seed_exercises()
 sync_existing_exercise_taxonomy()
+seed_exercise_muscle_profiles()
 
 def seed_default_user():
     db = SessionLocal()

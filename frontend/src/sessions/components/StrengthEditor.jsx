@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getExercisePerformance } from "../../api/exerciseApi.js";
-import { filterExercises } from "../../domain/exerciseLibrary.js";
+import { filterExercises, getMuscleLabel } from "../../domain/exerciseLibrary.js";
 import {
   WORK_MODES,
   WORK_TYPES,
@@ -27,6 +27,44 @@ function getItemTitle(item, exerciseMap, language) {
 function getItemExerciseImage(item, exerciseMap) {
   const exercise = exerciseMap.get(item.exercise_name);
   return exercise?.image || exercise?.images?.[0] || "";
+}
+
+function getExerciseMusclesByRole(exercise = {}, role = "") {
+  const linked = Array.isArray(exercise?.muscles) ? exercise.muscles.filter((item) => item.role === role) : [];
+  if (linked.length) return linked;
+  const fallbackKey = role === "stabilizer" ? "stabilizers" : `${role}_muscles`;
+  return (Array.isArray(exercise?.[fallbackKey]) ? exercise[fallbackKey] : []).map((name) => ({ name, role }));
+}
+
+function ExerciseMuscleSummary({ exercise, language, t, compact = false }) {
+  const primary = getExerciseMusclesByRole(exercise, "primary");
+  const secondary = getExerciseMusclesByRole(exercise, "secondary");
+  const stabilizers = getExerciseMusclesByRole(exercise, "stabilizer");
+  const note = language === "en" ? exercise?.muscle_notes_en : exercise?.muscle_notes_fr;
+  if (!primary.length && !secondary.length && !stabilizers.length && !note) return null;
+  return (
+    <div className={compact ? "strength-muscle-summary compact" : "strength-muscle-summary"}>
+      {primary.length ? (
+        <div>
+          <span>{t("Primary muscles")}</span>
+          <strong>{primary.map((muscle) => getMuscleLabel(muscle, language)).join(", ")}</strong>
+        </div>
+      ) : null}
+      {!compact && secondary.length ? (
+        <div>
+          <span>{t("Secondary muscles")}</span>
+          <strong>{secondary.map((muscle) => getMuscleLabel(muscle, language)).join(", ")}</strong>
+        </div>
+      ) : null}
+      {!compact && stabilizers.length ? (
+        <div>
+          <span>{t("Stabilizers")}</span>
+          <strong>{stabilizers.map((muscle) => getMuscleLabel(muscle, language)).join(", ")}</strong>
+        </div>
+      ) : null}
+      {!compact && note ? <p>{note}</p> : null}
+    </div>
+  );
 }
 
 function sortExercises(exercises, language) {
@@ -332,6 +370,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
       {items.length ? (
         <div className="performed-item-list">
           {items.map((item, index) => {
+            const exercise = exerciseMap.get(item.exercise_name);
             const exerciseImage = getItemExerciseImage(item, exerciseMap);
             return (
               <article
@@ -358,6 +397,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
                       ))}
                     </div>
                   ) : null}
+                  <ExerciseMuscleSummary exercise={exercise} language={language} t={t} compact />
                   {item.notes ? <p>{item.notes}</p> : null}
                   <div className="compact-actions">
                     <button type="button" onClick={() => editItem(item, index)}>
@@ -416,6 +456,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
                 <span>{t("Exercise image")}</span>
               </div>
             ) : null}
+            <ExerciseMuscleSummary exercise={exerciseMap.get(draft.exercise_name)} language={language} t={t} />
             {exerciseQuery && !filteredExercises.length ? (
               <span className="field-hint">{t("No exercise matches this filter.")}</span>
             ) : null}
