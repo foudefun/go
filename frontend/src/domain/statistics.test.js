@@ -65,13 +65,39 @@ test("filters stats by activity type", () => {
       {
         date: "2026-05-01",
         activity_entries: [
-          { activity_type: "cycling", source_files: [{ metrics: { distance: { km: 20 } } }] },
-          { activity_type: "running", source_files: [{ metrics: { distance: { km: 5 } } }] },
+          { activity_type: "velo", source_files: [{ metrics: { duration: { seconds: 3600 }, distance: { km: 20 } } }] },
+          { activity_type: "course_a_pied", source_files: [{ metrics: { duration: { seconds: 1200 }, distance: { km: 5 } } }] },
         ],
       },
     ],
-    "cycling",
+    "velo",
   );
   assert.equal(daily[0].activity_count, 1);
+  assert.equal(daily[0].duration_min, 60);
   assert.equal(daily[0].distance_km, 20);
+});
+
+test("includes indoor cycling performed inside strength activities", () => {
+  const daily = buildDailyStats(
+    [
+      {
+        date: "2026-05-01",
+        activity_entries: [
+          {
+            activity_type: "musculation",
+            performed_items: [
+              { exercise_name: "bike_intervals", sets: [{ duration_sec: 600, watts: 160 }] },
+              { exercise_name: "bench_press", sets: [{ reps: 10, weight: 60 }] },
+            ],
+          },
+        ],
+      },
+    ],
+    "velo",
+  );
+  assert.equal(daily[0].activity_count, 1);
+  assert.equal(daily[0].duration_min, 10);
+  assert.equal(daily[0].sets, 1);
+  assert.equal(daily[0].total_reps, 0);
+  assert.equal(daily[0].volume_kg, 0);
 });

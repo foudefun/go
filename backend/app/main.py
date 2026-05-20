@@ -2019,6 +2019,7 @@ def get_calendar_activity_entry_summaries(payload: dict) -> list[dict]:
             "title": str(activity.get("title", "") or "").strip(),
             "details": str(activity.get("activity_details", "") or "").strip(),
             "performed_count": len(activity.get("performed_items", []) or []),
+            "performed_items": activity.get("performed_items", []) or [],
             "climbing_count": len(activity.get("climbing_routes", []) or []),
             "image": str(activity.get("image", "") or "").strip(),
             "source_files": source_files,

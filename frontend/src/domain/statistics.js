@@ -14,6 +14,7 @@ export const STAT_METRICS = [
 ];
 
 const SUM_METRICS = new Set(["activity_count", "duration_min", "distance_km", "calories", "strength_items", "sets", "total_reps", "volume_kg"]);
+const CYCLING_TOKENS = ["bike", "biking", "cycle", "cycling", "velo", "vélo", "zwift", "mywhoosh", "trainer", "erg"];
 
 export function getStatMetric(key) {
   return STAT_METRICS.find((metric) => metric.key === key) || STAT_METRICS[0];
@@ -30,11 +31,41 @@ function readMetric(metrics = {}, metricKey, valueKey) {
   return numberOrZero(metric[valueKey]);
 }
 
-function addActivityMetrics(target, activity = {}) {
-  target.activity_count += 1;
-  target.strength_items += Array.isArray(activity.performed_items) ? activity.performed_items.length : Number(activity.performed_count || 0) || 0;
+function normalizedText(value = "") {
+  return String(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
 
-  for (const item of Array.isArray(activity.performed_items) ? activity.performed_items : []) {
+function isCyclingStrengthItem(item = {}) {
+  const text = normalizedText([item.exercise_name, item.custom_name, item.notes].filter(Boolean).join(" "));
+  return CYCLING_TOKENS.some((token) => text.includes(normalizedText(token)));
+}
+
+function activityMatchesType(activity = {}, activityType = "") {
+  if (!activityType) return true;
+  if (activity.activity_type === activityType) return true;
+  if (activityType === "velo" && activity.activity_type === "musculation") {
+    return (Array.isArray(activity.performed_items) ? activity.performed_items : []).some(isCyclingStrengthItem);
+  }
+  return false;
+}
+
+function getPerformedItemsForStats(activity = {}, activityType = "") {
+  const items = Array.isArray(activity.performed_items) ? activity.performed_items : [];
+  if (activityType === "velo" && activity.activity_type === "musculation") {
+    return items.filter(isCyclingStrengthItem);
+  }
+  return items;
+}
+
+function addActivityMetrics(target, activity = {}, activityType = "") {
+  target.activity_count += 1;
+  const performedItems = getPerformedItemsForStats(activity, activityType);
+  target.strength_items += performedItems.length || Number(activity.performed_count || 0) || 0;
+
+  for (const item of performedItems) {
     for (const set of Array.isArray(item?.sets) ? item.sets : []) {
       target.sets += 1;
       target.total_reps += numberOrZero(set.reps);
@@ -101,8 +132,8 @@ export function buildDailyStats(rows = [], activityType = "") {
     .map((row) => {
       const bucket = createBucket(row.date || "");
       for (const activity of getActivityEntries(row)) {
-        if (activityType && activity.activity_type !== activityType) continue;
-        addActivityMetrics(bucket, activity);
+        if (!activityMatchesType(activity, activityType)) continue;
+        addActivityMetrics(bucket, activity, activityType);
       }
       return finalizeBucket(bucket);
     })
