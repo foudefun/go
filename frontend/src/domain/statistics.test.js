@@ -36,6 +36,7 @@ test("builds daily and monthly stats from calendar activity entries", () => {
   assert.equal(daily[0].activity_count, 2);
   assert.equal(daily[0].duration_min, 60);
   assert.equal(daily[0].distance_km, 10.5);
+  assert.equal(daily[0].power, 180);
   assert.equal(daily[0].avg_power, 180);
   assert.equal(daily[0].max_power, 420);
   assert.equal(daily[0].avg_hr, 145);
@@ -56,4 +57,21 @@ test("formats and aggregates metric values", () => {
   assert.equal(formatStatValue(92.3, "duration_min"), "92 min");
   assert.equal(aggregateMetric([{ activity_count: 2 }, { activity_count: 3 }], "activity_count"), 5);
   assert.equal(aggregateMetric([{ avg_power: 100 }, { avg_power: 200 }], "avg_power"), 150);
+});
+
+test("filters stats by activity type", () => {
+  const daily = buildDailyStats(
+    [
+      {
+        date: "2026-05-01",
+        activity_entries: [
+          { activity_type: "cycling", source_files: [{ metrics: { distance: { km: 20 } } }] },
+          { activity_type: "running", source_files: [{ metrics: { distance: { km: 5 } } }] },
+        ],
+      },
+    ],
+    "cycling",
+  );
+  assert.equal(daily[0].activity_count, 1);
+  assert.equal(daily[0].distance_km, 20);
 });

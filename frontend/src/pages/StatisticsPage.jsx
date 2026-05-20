@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCalendar } from "../api/calendarApi.js";
+import { ACTIVITY_TYPES, getActivityTypeLabel } from "../domain/activityTypes.js";
 import { useTranslation } from "../i18n/translations.js";
 import {
   STAT_METRICS,
@@ -100,6 +101,7 @@ export default function StatisticsPage() {
   const [period, setPeriod] = useState("daily");
   const [metricA, setMetricA] = useState("duration_min");
   const [metricB, setMetricB] = useState("distance_km");
+  const [activityType, setActivityType] = useState("");
   const today = getLocalTodayIso();
   const [startDate, setStartDate] = useState(shiftDateIso(today, -180));
   const [endDate, setEndDate] = useState(today);
@@ -124,7 +126,15 @@ export default function StatisticsPage() {
     };
   }, [startDate, endDate]);
 
-  const dailyRows = useMemo(() => buildDailyStats(rows), [rows]);
+  const availableActivityTypes = useMemo(() => {
+    const values = new Set(
+      (Array.isArray(rows) ? rows : [])
+        .flatMap((row) => row.activity_types || (row.activity_type ? [row.activity_type] : []))
+        .filter(Boolean),
+    );
+    return ACTIVITY_TYPES.filter((type) => values.has(type.value));
+  }, [rows]);
+  const dailyRows = useMemo(() => buildDailyStats(rows, activityType), [rows, activityType]);
   const monthlyRows = useMemo(() => buildMonthlyStats(dailyRows), [dailyRows]);
   const chartRows = period === "monthly" ? monthlyRows : dailyRows;
   const summaryRows = [
@@ -155,6 +165,17 @@ export default function StatisticsPage() {
           <select value={period} onChange={(event) => setPeriod(event.target.value)}>
             <option value="daily">{t("Daily")}</option>
             <option value="monthly">{t("Monthly")}</option>
+          </select>
+        </label>
+        <label>
+          {t("Activity Type")}
+          <select value={activityType} onChange={(event) => setActivityType(event.target.value)}>
+            <option value="">{t("All types")}</option>
+            {availableActivityTypes.map((type) => (
+              <option value={type.value} key={type.value}>
+                {t(getActivityTypeLabel(type.value))}
+              </option>
+            ))}
           </select>
         </label>
         <label>

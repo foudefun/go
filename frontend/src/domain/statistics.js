@@ -2,6 +2,7 @@ export const STAT_METRICS = [
   { key: "activity_count", label: "Activities", unit: "" },
   { key: "duration_min", label: "Duration", unit: "min" },
   { key: "distance_km", label: "Distance", unit: "km" },
+  { key: "power", label: "Power", unit: "W" },
   { key: "avg_power", label: "Average power", unit: "W" },
   { key: "max_power", label: "Max power", unit: "W" },
   { key: "avg_hr", label: "Average heart rate", unit: "bpm" },
@@ -47,7 +48,7 @@ function addActivityMetrics(target, activity = {}) {
     const metrics = source?.metrics || {};
     target.duration_min += readMetric(metrics, "duration", "seconds") / 60;
     target.distance_km += readMetric(metrics, "distance", "km");
-    target.calories += readMetric(metrics, "calories", "total");
+    target.calories += readMetric(metrics, "calories", "total") || readMetric(metrics, "calories", "value");
     target.avgPowerValues.push(readMetric(metrics, "power", "avg"));
     target.max_power = Math.max(target.max_power, readMetric(metrics, "power", "max"));
     target.avgHrValues.push(readMetric(metrics, "heart_rate", "avg"));
@@ -61,6 +62,7 @@ function createBucket(label) {
     duration_min: 0,
     distance_km: 0,
     avg_power: 0,
+    power: 0,
     max_power: 0,
     avg_hr: 0,
     calories: 0,
@@ -79,6 +81,7 @@ function finalizeBucket(bucket) {
   return {
     ...bucket,
     avg_power: avgPowerValues.length ? avgPowerValues.reduce((sum, value) => sum + value, 0) / avgPowerValues.length : 0,
+    power: avgPowerValues.length ? avgPowerValues.reduce((sum, value) => sum + value, 0) / avgPowerValues.length : 0,
     avg_hr: avgHrValues.length ? avgHrValues.reduce((sum, value) => sum + value, 0) / avgHrValues.length : 0,
     avgPowerValues: undefined,
     avgHrValues: undefined,
@@ -93,11 +96,12 @@ function getActivityEntries(row = {}) {
   return [];
 }
 
-export function buildDailyStats(rows = []) {
+export function buildDailyStats(rows = [], activityType = "") {
   return (Array.isArray(rows) ? rows : [])
     .map((row) => {
       const bucket = createBucket(row.date || "");
       for (const activity of getActivityEntries(row)) {
+        if (activityType && activity.activity_type !== activityType) continue;
         addActivityMetrics(bucket, activity);
       }
       return finalizeBucket(bucket);
@@ -113,7 +117,7 @@ export function buildMonthlyStats(dailyRows = []) {
     if (!month) continue;
     const bucket = buckets.get(month) || createBucket(month);
     for (const metric of STAT_METRICS) {
-      if (metric.key === "avg_power" || metric.key === "avg_hr") continue;
+      if (metric.key === "power" || metric.key === "avg_power" || metric.key === "avg_hr") continue;
       bucket[metric.key] += numberOrZero(row[metric.key]);
     }
     if (row.avg_power) bucket.avgPowerValues.push(row.avg_power);
@@ -129,7 +133,7 @@ export function formatStatValue(value, metricKey) {
   if (metricKey === "distance_km") return `${numberValue.toFixed(1)} ${metric.unit}`;
   if (metricKey === "duration_min") return `${Math.round(numberValue)} ${metric.unit}`;
   if (metricKey === "volume_kg") return `${Math.round(numberValue)} ${metric.unit}`;
-  if (["avg_power", "max_power", "avg_hr", "calories"].includes(metricKey)) return `${Math.round(numberValue)} ${metric.unit}`;
+  if (["power", "avg_power", "max_power", "avg_hr", "calories"].includes(metricKey)) return `${Math.round(numberValue)} ${metric.unit}`;
   return String(Math.round(numberValue));
 }
 
