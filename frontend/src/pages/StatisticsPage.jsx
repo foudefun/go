@@ -32,6 +32,18 @@ function rowHasSelectedMetric(row, metricA, metricB) {
   return normalizeChartValue(row, metricA) > 0 || (metricB && normalizeChartValue(row, metricB) > 0);
 }
 
+function isWholeNumberMetric(metricKey) {
+  return ["activity_count", "strength_items", "sets", "total_reps", "calories"].includes(metricKey);
+}
+
+function buildAxisTicks(maxValue, metricKey) {
+  const safeMax = Math.max(Number(maxValue) || 0, 1);
+  if (isWholeNumberMetric(metricKey) && safeMax <= 6) {
+    return Array.from({ length: Math.ceil(safeMax) + 1 }, (_, index) => index);
+  }
+  return [0, 0.25, 0.5, 0.75, 1].map((ratio) => safeMax * ratio);
+}
+
 function buildBarItems(rows, metricKey, maxValue, width, height, padding, offsetRatio, widthRatio) {
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
@@ -57,7 +69,7 @@ function buildBarItems(rows, metricKey, maxValue, width, height, padding, offset
 function StatsChart({ rows, metricA, metricB, t }) {
   const width = 900;
   const height = 360;
-  const padding = { top: 30, right: 42, bottom: 58, left: 64 };
+  const padding = { top: 30, right: metricB ? 82 : 42, bottom: 58, left: 64 };
   const chartRows = rows;
 
   if (!chartRows.length) {
@@ -66,6 +78,7 @@ function StatsChart({ rows, metricA, metricB, t }) {
 
   const maxValueA = Math.max(...chartRows.map((row) => normalizeChartValue(row, metricA)), 1);
   const maxValueB = metricB ? Math.max(...chartRows.map((row) => normalizeChartValue(row, metricB)), 1) : 0;
+  const axisTicksA = buildAxisTicks(maxValueA, metricA);
   const barsA = buildBarItems(chartRows, metricA, maxValueA, width, height, padding, metricB ? 0.38 : 0.5, metricB ? 0.32 : 0.52);
   const barsB = metricB ? buildBarItems(chartRows, metricB, maxValueB, width, height, padding, 0.62, 0.32) : [];
   const xLabels = chartRows.filter((_, index) => index === 0 || index === chartRows.length - 1 || index % Math.ceil(chartRows.length / 6) === 0);
@@ -81,12 +94,12 @@ function StatsChart({ rows, metricA, metricB, t }) {
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("Statistics chart")}>
         <line x1={padding.left} y1={height - padding.bottom} x2={width - padding.right} y2={height - padding.bottom} className="chart-axis" />
         <line x1={padding.left} y1={padding.top} x2={padding.left} y2={height - padding.bottom} className="chart-axis" />
-        {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-          const y = padding.top + (height - padding.top - padding.bottom) * ratio;
-          const valueA = maxValueA * (1 - ratio);
-          const valueB = maxValueB * (1 - ratio);
+        {axisTicksA.map((valueA) => {
+          const ratio = maxValueA ? valueA / maxValueA : 0;
+          const y = height - padding.bottom - (height - padding.top - padding.bottom) * ratio;
+          const valueB = maxValueB * ratio;
           return (
-            <g key={ratio}>
+            <g key={valueA}>
               <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} className="chart-grid-line" />
               <text x={padding.left - 8} y={y + 4} textAnchor="end" className="chart-label primary">{formatStatValue(valueA, metricA)}</text>
               {metricB ? <text x={width - padding.right + 8} y={y + 4} textAnchor="start" className="chart-label secondary">{formatStatValue(valueB, metricB)}</text> : null}
