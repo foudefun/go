@@ -1165,6 +1165,13 @@ label {
   line-height: 1.35;
 }
 
+.save-flow-note strong {
+  display: block;
+  color: #172033;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
 .exercise-toolbar {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(160px, 240px) minmax(160px, 220px);
