@@ -17,7 +17,20 @@ export const STAT_METRICS = [
   { key: "volume_kg", label: "Volume", unit: "kg" },
 ];
 
+export const EXERCISE_STAT_METRICS = [
+  { key: "exercise_sessions", label: "Exercise sessions", unit: "" },
+  { key: "sets", label: "Sets", unit: "" },
+  { key: "total_reps", label: "Reps", unit: "" },
+  { key: "volume_kg", label: "Volume", unit: "kg" },
+  { key: "heaviest_weight", label: "Heaviest", unit: "kg" },
+  { key: "estimated_1rm", label: "Estimated 1RM", unit: "kg" },
+  { key: "duration_min", label: "Duration", unit: "min" },
+  { key: "avg_power", label: "Average power", unit: "W" },
+  { key: "max_power", label: "Max power", unit: "W" },
+];
+
 const SUM_METRICS = new Set(["activity_count", "duration_min", "distance_km", "calories", "strength_items", "sets", "total_reps", "volume_kg"]);
+const EXERCISE_SUM_METRICS = new Set(["exercise_sessions", "duration_min", "sets", "total_reps", "volume_kg"]);
 const CYCLING_TOKENS = ["bike", "biking", "cycle", "cycling", "velo", "vélo", "zwift", "mywhoosh", "trainer", "erg"];
 const ACTIVITY_TYPE_ALIASES = new Map([
   ["run", "course_a_pied"],
@@ -47,7 +60,7 @@ const ACTIVITY_TYPE_ALIASES = new Map([
 ]);
 
 export function getStatMetric(key) {
-  return STAT_METRICS.find((metric) => metric.key === key) || STAT_METRICS[0];
+  return STAT_METRICS.find((metric) => metric.key === key) || EXERCISE_STAT_METRICS.find((metric) => metric.key === key) || STAT_METRICS[0];
 }
 
 function numberOrZero(value) {
@@ -210,6 +223,22 @@ function createBucket(label) {
   };
 }
 
+function createExerciseBucket(label) {
+  return {
+    label,
+    exercise_sessions: 0,
+    sets: 0,
+    total_reps: 0,
+    volume_kg: 0,
+    heaviest_weight: 0,
+    estimated_1rm: 0,
+    duration_min: 0,
+    avg_power: 0,
+    max_power: 0,
+    powerValues: [],
+  };
+}
+
 function finalizeBucket(bucket) {
   const avgPowerValues = bucket.avgPowerValues.filter((value) => value > 0);
   const avgHrValues = bucket.avgHrValues.filter((value) => value > 0);
@@ -236,6 +265,69 @@ function getActivityEntries(row = {}) {
     return [{ activity_type: row.activity_type, details: row.activity_details, source_files: row.source_files || [] }];
   }
   return [];
+}
+
+function getPerformedItems(activity = {}) {
+  return Array.isArray(activity.performed_items) ? activity.performed_items : [];
+}
+
+function getAllPerformedItemsForRow(row = {}) {
+  return getActivityEntries(row).flatMap(getPerformedItems);
+}
+
+function getExerciseItemName(item = {}) {
+  return String(item.exercise_name || item.custom_name || "").trim();
+}
+
+function itemMatchesExercise(item = {}, exerciseName = "") {
+  return getExerciseItemName(item) === exerciseName;
+}
+
+function estimateOneRepMax(weight, reps) {
+  const safeWeight = numberOrZero(weight);
+  const safeReps = numberOrZero(reps);
+  if (!safeWeight || !safeReps) return 0;
+  return safeWeight * (1 + safeReps / 30);
+}
+
+function addExerciseItemMetrics(bucket, item = {}) {
+  bucket.exercise_sessions += 1;
+  for (const set of Array.isArray(item.sets) ? item.sets : []) {
+    bucket.sets += 1;
+    const reps = numberOrZero(set.reps);
+    const weight = numberOrZero(set.weight);
+    const durationSec = numberOrZero(set.duration_sec);
+    const watts = numberOrZero(set.watts);
+    bucket.total_reps += reps;
+    bucket.volume_kg += reps * weight;
+    bucket.heaviest_weight = Math.max(bucket.heaviest_weight, weight);
+    bucket.estimated_1rm = Math.max(bucket.estimated_1rm, estimateOneRepMax(weight, reps));
+    bucket.duration_min += durationSec / 60;
+    if (watts) {
+      bucket.powerValues.push(watts);
+      bucket.max_power = Math.max(bucket.max_power, watts);
+    }
+  }
+}
+
+function finalizeExerciseBucket(bucket) {
+  const powerValues = bucket.powerValues.filter((value) => value > 0);
+  return {
+    ...bucket,
+    avg_power: powerValues.length ? powerValues.reduce((sum, value) => sum + value, 0) / powerValues.length : 0,
+    powerValues: undefined,
+  };
+}
+
+export function getAvailableStatisticExercises(rows = []) {
+  const names = new Set();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    for (const item of getAllPerformedItemsForRow(row)) {
+      const name = getExerciseItemName(item);
+      if (name) names.add(name);
+    }
+  }
+  return names;
 }
 
 export function getAvailableStatisticActivityTypes(rows = []) {
@@ -291,6 +383,39 @@ export function buildMonthlyStats(dailyRows = []) {
   return Array.from(buckets.values()).map(finalizeBucket).sort((left, right) => left.label.localeCompare(right.label));
 }
 
+export function buildExerciseDailyStats(rows = [], exerciseName = "") {
+  if (!exerciseName) return [];
+  return (Array.isArray(rows) ? rows : [])
+    .map((row) => {
+      const bucket = createExerciseBucket(row.date || "");
+      for (const item of getAllPerformedItemsForRow(row).filter((performedItem) => itemMatchesExercise(performedItem, exerciseName))) {
+        addExerciseItemMetrics(bucket, item);
+      }
+      return finalizeExerciseBucket(bucket);
+    })
+    .filter((bucket) => bucket.label)
+    .sort((left, right) => left.label.localeCompare(right.label));
+}
+
+export function buildExerciseMonthlyStats(dailyRows = []) {
+  const buckets = new Map();
+  for (const row of Array.isArray(dailyRows) ? dailyRows : []) {
+    const month = String(row.label || "").slice(0, 7);
+    if (!month) continue;
+    const bucket = buckets.get(month) || createExerciseBucket(month);
+    for (const metric of EXERCISE_STAT_METRICS) {
+      if (["heaviest_weight", "estimated_1rm", "avg_power", "max_power"].includes(metric.key)) continue;
+      bucket[metric.key] += numberOrZero(row[metric.key]);
+    }
+    bucket.heaviest_weight = Math.max(bucket.heaviest_weight, numberOrZero(row.heaviest_weight));
+    bucket.estimated_1rm = Math.max(bucket.estimated_1rm, numberOrZero(row.estimated_1rm));
+    bucket.max_power = Math.max(bucket.max_power, numberOrZero(row.max_power));
+    if (row.avg_power) bucket.powerValues.push(row.avg_power);
+    buckets.set(month, bucket);
+  }
+  return Array.from(buckets.values()).map(finalizeExerciseBucket).sort((left, right) => left.label.localeCompare(right.label));
+}
+
 export function formatStatValue(value, metricKey) {
   const metric = getStatMetric(metricKey);
   const numberValue = numberOrZero(value);
@@ -299,6 +424,7 @@ export function formatStatValue(value, metricKey) {
   if (metricKey === "speed_kmh") return `${numberValue.toFixed(1)} ${metric.unit}`;
   if (metricKey === "duration_min") return `${Math.round(numberValue)} ${metric.unit}`;
   if (metricKey === "volume_kg") return `${Math.round(numberValue)} ${metric.unit}`;
+  if (["heaviest_weight", "estimated_1rm"].includes(metricKey)) return `${numberValue.toFixed(1).replace(/\.0$/, "")} ${metric.unit}`;
   if (["power", "avg_power", "max_power", "avg_hr", "max_hr", "avg_cadence", "calories"].includes(metricKey)) return `${Math.round(numberValue)} ${metric.unit}`;
   return String(Math.round(numberValue));
 }
@@ -306,6 +432,7 @@ export function formatStatValue(value, metricKey) {
 export function aggregateMetric(rows = [], metricKey) {
   const values = (Array.isArray(rows) ? rows : []).map((row) => numberOrZero(row[metricKey])).filter((value) => value > 0);
   if (!values.length) return 0;
-  if (SUM_METRICS.has(metricKey)) return values.reduce((sum, value) => sum + value, 0);
+  if (SUM_METRICS.has(metricKey) || EXERCISE_SUM_METRICS.has(metricKey)) return values.reduce((sum, value) => sum + value, 0);
+  if (["heaviest_weight", "estimated_1rm", "max_power"].includes(metricKey)) return Math.max(...values);
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }

@@ -1,6 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { aggregateMetric, buildDailyStats, buildMonthlyStats, formatStatValue, getAvailableStatisticActivityTypes } from "./statistics.js";
+import {
+  aggregateMetric,
+  buildDailyStats,
+  buildExerciseDailyStats,
+  buildExerciseMonthlyStats,
+  buildMonthlyStats,
+  formatStatValue,
+  getAvailableStatisticActivityTypes,
+  getAvailableStatisticExercises,
+} from "./statistics.js";
 
 test("builds daily and monthly stats from calendar activity entries", () => {
   const daily = buildDailyStats([
@@ -168,4 +177,53 @@ test("includes indoor cycling performed inside strength activities", () => {
   assert.equal(daily[0].sets, 1);
   assert.equal(daily[0].total_reps, 0);
   assert.equal(daily[0].volume_kg, 0);
+});
+
+test("builds exercise-level statistics from performed strength items", () => {
+  const rows = [
+    {
+      date: "2026-05-01",
+      activity_entries: [
+        {
+          activity_type: "musculation",
+          performed_items: [
+            {
+              exercise_name: "bench_press",
+              sets: [
+                { reps: 10, weight: 60 },
+                { reps: 8, weight: 65 },
+              ],
+            },
+            { exercise_name: "bike_intervals", sets: [{ duration_sec: 600, watts: 160 }, { duration_sec: 300, watts: 220 }] },
+          ],
+        },
+      ],
+    },
+    {
+      date: "2026-05-08",
+      activity_entries: [
+        {
+          performed_items: [{ exercise_name: "bench_press", sets: [{ reps: 5, weight: 80 }] }],
+        },
+      ],
+    },
+  ];
+
+  const availableExercises = getAvailableStatisticExercises(rows);
+  const daily = buildExerciseDailyStats(rows, "bench_press");
+  const monthly = buildExerciseMonthlyStats(daily);
+  const cyclingDaily = buildExerciseDailyStats(rows, "bike_intervals");
+
+  assert.equal(availableExercises.has("bench_press"), true);
+  assert.equal(daily[0].exercise_sessions, 1);
+  assert.equal(daily[0].sets, 2);
+  assert.equal(daily[0].total_reps, 18);
+  assert.equal(daily[0].volume_kg, 1120);
+  assert.equal(daily[0].heaviest_weight, 65);
+  assert.equal(Number(daily[1].estimated_1rm.toFixed(1)), 93.3);
+  assert.equal(monthly[0].exercise_sessions, 2);
+  assert.equal(monthly[0].heaviest_weight, 80);
+  assert.equal(cyclingDaily[0].duration_min, 15);
+  assert.equal(cyclingDaily[0].avg_power, 190);
+  assert.equal(cyclingDaily[0].max_power, 220);
 });

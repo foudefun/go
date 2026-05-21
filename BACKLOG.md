@@ -4,7 +4,6 @@
 
 - Add deletion/replacement controls for attached activity source files and show raw time-series overlays, not only summary metric comparisons.
 - Add imported activity file stats: per file/source provider, parsed metrics, ignored/missing fields, duplicate detection, and import history visible from the activity.
-- Add exercise-level statistics, so progress can be analyzed per exercise as well as by activity/month. Telegram/GitHub: #26.
 - Improve exercise search entry in the activity editor, especially when typing quickly into the exercise selector. Telegram/GitHub: #24.
 - Seed split stance box jump, lateral plate hops, depth drop jumps, and broad jumps, and create muscle-impact images for those exercises.
 - Continue expanding muscle-impact coverage for exercises not caught by the current automatic rules.

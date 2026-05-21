@@ -1,14 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCalendar } from "../api/calendarApi.js";
+import { getExercises } from "../api/exerciseApi.js";
 import { ACTIVITY_TYPES, getActivityTypeLabel } from "../domain/activityTypes.js";
+import { getExerciseLabel } from "../domain/exerciseLibrary.js";
 import { useTranslation } from "../i18n/translations.js";
 import {
+  EXERCISE_STAT_METRICS,
   STAT_METRICS,
   aggregateMetric,
   buildDailyStats,
+  buildExerciseDailyStats,
+  buildExerciseMonthlyStats,
   buildMonthlyStats,
   formatStatValue,
   getAvailableStatisticActivityTypes,
+  getAvailableStatisticExercises,
   getStatMetric,
 } from "../domain/statistics.js";
 
@@ -33,7 +39,7 @@ function rowHasSelectedMetric(row, metricA, metricB) {
 }
 
 function isWholeNumberMetric(metricKey) {
-  return ["activity_count", "strength_items", "sets", "total_reps", "calories"].includes(metricKey);
+  return ["activity_count", "exercise_sessions", "strength_items", "sets", "total_reps", "calories"].includes(metricKey);
 }
 
 function buildAxisTicks(maxValue, metricKey) {
@@ -130,14 +136,17 @@ function StatsChart({ rows, metricA, metricB, t }) {
 }
 
 export default function StatisticsPage() {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const [rows, setRows] = useState([]);
+  const [exercises, setExercises] = useState([]);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
+  const [statsMode, setStatsMode] = useState("activities");
   const [period, setPeriod] = useState("daily");
   const [metricA, setMetricA] = useState("duration_min");
   const [metricB, setMetricB] = useState("distance_km");
   const [activityType, setActivityType] = useState("");
+  const [exerciseName, setExerciseName] = useState("");
   const today = getLocalTodayIso();
   const [startDate, setStartDate] = useState(shiftDateIso(today, -180));
   const [endDate, setEndDate] = useState(today);
@@ -162,19 +171,64 @@ export default function StatisticsPage() {
     };
   }, [startDate, endDate]);
 
+  useEffect(() => {
+    let mounted = true;
+    getExercises()
+      .then((payload) => {
+        if (!mounted) return;
+        setExercises(Array.isArray(payload) ? payload : []);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setExercises([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const availableActivityTypes = useMemo(() => {
     const values = getAvailableStatisticActivityTypes(rows);
     return ACTIVITY_TYPES.filter((type) => values.has(type.value));
   }, [rows]);
-  const dailyRows = useMemo(() => buildDailyStats(rows, activityType), [rows, activityType]);
-  const monthlyRows = useMemo(() => buildMonthlyStats(dailyRows), [dailyRows]);
+  const availableExerciseNames = useMemo(() => getAvailableStatisticExercises(rows), [rows]);
+  const exerciseOptions = useMemo(() => {
+    const knownNames = new Set(exercises.map((exercise) => exercise.name));
+    const catalogOptions = exercises
+      .filter((exercise) => availableExerciseNames.has(exercise.name))
+      .map((exercise) => ({ name: exercise.name, label: getExerciseLabel(exercise, language) }));
+    const customOptions = Array.from(availableExerciseNames)
+      .filter((name) => !knownNames.has(name))
+      .map((name) => ({ name, label: name.replaceAll("_", " ") }));
+    return [...catalogOptions, ...customOptions].sort((left, right) => left.label.localeCompare(right.label));
+  }, [availableExerciseNames, exercises, language]);
+  const selectedExerciseName = exerciseName || exerciseOptions[0]?.name || "";
+  const selectedExercise = exercises.find((exercise) => exercise.name === selectedExerciseName);
+  const selectedExerciseLabel = selectedExercise ? getExerciseLabel(selectedExercise, language) : selectedExerciseName.replaceAll("_", " ");
+  const availableMetrics = statsMode === "exercises" ? EXERCISE_STAT_METRICS : STAT_METRICS;
+  const safeMetricA = availableMetrics.some((metric) => metric.key === metricA) ? metricA : availableMetrics[0].key;
+  const safeMetricB = metricB && availableMetrics.some((metric) => metric.key === metricB) ? metricB : "";
+  const dailyRows = useMemo(
+    () => (statsMode === "exercises" ? buildExerciseDailyStats(rows, selectedExerciseName) : buildDailyStats(rows, activityType)),
+    [activityType, rows, selectedExerciseName, statsMode],
+  );
+  const monthlyRows = useMemo(
+    () => (statsMode === "exercises" ? buildExerciseMonthlyStats(dailyRows) : buildMonthlyStats(dailyRows)),
+    [dailyRows, statsMode],
+  );
   const chartRows = period === "monthly" ? monthlyRows : dailyRows;
-  const plottedRows = useMemo(() => chartRows.filter((row) => rowHasSelectedMetric(row, metricA, metricB)), [chartRows, metricA, metricB]);
+  const plottedRows = useMemo(() => chartRows.filter((row) => rowHasSelectedMetric(row, safeMetricA, safeMetricB)), [chartRows, safeMetricA, safeMetricB]);
   const selectedActivityLabel = activityType ? t(getActivityTypeLabel(activityType)) : t("All types");
   const summaryRows = [
-    { metric: metricA, value: aggregateMetric(chartRows, metricA) },
-    metricB ? { metric: metricB, value: aggregateMetric(chartRows, metricB) } : null,
+    { metric: safeMetricA, value: aggregateMetric(chartRows, safeMetricA) },
+    safeMetricB ? { metric: safeMetricB, value: aggregateMetric(chartRows, safeMetricB) } : null,
   ].filter(Boolean);
+
+  useEffect(() => {
+    if (statsMode !== "exercises") return;
+    if (exerciseName && exerciseOptions.some((exercise) => exercise.name === exerciseName)) return;
+    setExerciseName(exerciseOptions[0]?.name || "");
+  }, [exerciseName, exerciseOptions, statsMode]);
 
   return (
     <main className="page-shell">
@@ -195,6 +249,21 @@ export default function StatisticsPage() {
           <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
         </label>
         <label>
+          {t("Stats mode")}
+          <select
+            value={statsMode}
+            onChange={(event) => {
+              const nextMode = event.target.value;
+              setStatsMode(nextMode);
+              setMetricA(nextMode === "exercises" ? "volume_kg" : "duration_min");
+              setMetricB(nextMode === "exercises" ? "heaviest_weight" : "distance_km");
+            }}
+          >
+            <option value="activities">{t("Activities")}</option>
+            <option value="exercises">{t("Exercises")}</option>
+          </select>
+        </label>
+        <label>
           {t("View")}
           <select value={period} onChange={(event) => setPeriod(event.target.value)}>
             <option value="daily">{t("Daily")}</option>
@@ -203,7 +272,7 @@ export default function StatisticsPage() {
         </label>
         <label>
           {t("Activity Type")}
-          <select value={activityType} onChange={(event) => setActivityType(event.target.value)}>
+          <select value={activityType} disabled={statsMode === "exercises"} onChange={(event) => setActivityType(event.target.value)}>
             <option value="">{t("All types")}</option>
             {availableActivityTypes.map((type) => (
               <option value={type.value} key={type.value}>
@@ -212,19 +281,30 @@ export default function StatisticsPage() {
             ))}
           </select>
         </label>
+        {statsMode === "exercises" ? (
+          <label>
+            {t("Exercise")}
+            <select value={selectedExerciseName} onChange={(event) => setExerciseName(event.target.value)}>
+              {!exerciseOptions.length ? <option value="">{t("No data")}</option> : null}
+              {exerciseOptions.map((exercise) => (
+                <option value={exercise.name} key={exercise.name}>{exercise.label}</option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <label>
           {t("Variable 1")}
-          <select value={metricA} onChange={(event) => setMetricA(event.target.value)}>
-            {STAT_METRICS.map((metric) => (
+          <select value={safeMetricA} onChange={(event) => setMetricA(event.target.value)}>
+            {availableMetrics.map((metric) => (
               <option value={metric.key} key={metric.key}>{t(metric.label)}</option>
             ))}
           </select>
         </label>
         <label>
           {t("Variable 2")}
-          <select value={metricB} onChange={(event) => setMetricB(event.target.value)}>
+          <select value={safeMetricB} onChange={(event) => setMetricB(event.target.value)}>
             <option value="">{t("None")}</option>
-            {STAT_METRICS.map((metric) => (
+            {availableMetrics.map((metric) => (
               <option value={metric.key} key={metric.key}>{t(metric.label)}</option>
             ))}
           </select>
@@ -247,12 +327,12 @@ export default function StatisticsPage() {
         <div className="chart-header">
           <div>
             <p className="eyebrow">{period === "monthly" ? t("Monthly evolution") : t("Daily evolution")}</p>
-            <h2>{t(getStatMetric(metricA).label)}{metricB ? ` / ${t(getStatMetric(metricB).label)}` : ""}</h2>
-            <span className="muted-text">{selectedActivityLabel}</span>
+            <h2>{t(getStatMetric(safeMetricA).label)}{safeMetricB ? ` / ${t(getStatMetric(safeMetricB).label)}` : ""}</h2>
+            <span className="muted-text">{statsMode === "exercises" ? selectedExerciseLabel : selectedActivityLabel}</span>
           </div>
           <span>{t("Rows visible", { count: plottedRows.length })}</span>
         </div>
-        <StatsChart rows={plottedRows} metricA={metricA} metricB={metricB} t={t} />
+        <StatsChart rows={plottedRows} metricA={safeMetricA} metricB={safeMetricB} t={t} />
       </section>
     </main>
   );
