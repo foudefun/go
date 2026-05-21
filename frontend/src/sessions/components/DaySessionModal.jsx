@@ -172,6 +172,20 @@ function normalizeActivityTypeInput(input, t = (item) => item) {
   return knownType?.value || input;
 }
 
+function getSaveActionLabel({ draftActivity, showPlanEditor, hasActivityEditor, t }) {
+  if (draftActivity) return t("Create activity and continue");
+  if (showPlanEditor && !hasActivityEditor) return t("Save day plan and close");
+  if (hasActivityEditor) return t("Save activity and close");
+  return t("Save day and close");
+}
+
+function getSaveFlowNote({ draftActivity, showPlanEditor, hasActivityEditor, t }) {
+  if (draftActivity) return t("Create activity flow note");
+  if (showPlanEditor && !hasActivityEditor) return t("Save day plan flow note");
+  if (hasActivityEditor) return t("Save activity flow note");
+  return t("Save day flow note");
+}
+
 function buildActivityFromPlan(session) {
   const plannedItems = normalizePlannedItems(session?.planned_items);
   const plannedType = session?.plan_activity_type || (plannedItems.length ? "musculation" : "");
@@ -543,6 +557,8 @@ export default function DaySessionModal({
       ? t("Target kg", { value: session.target_load })
       : t("No active target");
   }, [session, t]);
+  const saveActionLabel = getSaveActionLabel({ draftActivity, showPlanEditor, hasActivityEditor, t });
+  const saveFlowNote = getSaveFlowNote({ draftActivity, showPlanEditor, hasActivityEditor, t });
 
   function updateActiveActivity(patch) {
     if (activeIndex === null) {
@@ -917,8 +933,9 @@ export default function DaySessionModal({
               )}
 
               <div className="day-modal-actions">
+                <span className="save-flow-note">{saveFlowNote}</span>
                 <button type="button" className="primary-action" onClick={handleSave} disabled={status === "saving"}>
-                  {status === "saving" ? t("Saving...") : draftActivity ? t("Create activity") : t("Save Day")}
+                  {status === "saving" ? t("Saving...") : saveActionLabel}
                 </button>
                 {draftActivity ? (
                   <button type="button" onClick={cancelDraftActivity}>
@@ -932,7 +949,7 @@ export default function DaySessionModal({
                 ) : null}
                 {!hasActivityEditor && !planExists && !showPlanEditor ? (
                   <button type="button" onClick={() => setShowPlanEditor(true)}>
-                    {t("Add plan")}
+                    {t("Add day plan")}
                   </button>
                 ) : null}
               </div>

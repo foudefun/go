@@ -584,7 +584,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
           )}
 
           <button type="button" className="secondary-action" onClick={addSetToDraft}>
-            {t("Add Set")}
+            {t("Add set to exercise")}
           </button>
 
           {draft.sets?.length ? (
@@ -599,7 +599,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
         </div>
 
         <button type="button" className="primary-action" onClick={saveDraftItem}>
-          {editIndex === null ? t("Add Strength Item") : t("Update Strength Item")}
+          {editIndex === null ? t("Add exercise to activity") : t("Update exercise in activity")}
         </button>
       </div>
     </section>

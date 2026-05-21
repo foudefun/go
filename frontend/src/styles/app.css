@@ -1157,6 +1157,14 @@ label {
   flex-wrap: wrap;
 }
 
+.save-flow-note {
+  flex-basis: 100%;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .exercise-toolbar {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(160px, 240px) minmax(160px, 220px);
