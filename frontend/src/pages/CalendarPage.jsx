@@ -88,6 +88,8 @@ function getActivityEntries(row) {
       .map((entry) => ({
         activity_type: String(entry.activity_type || "").trim(),
         summary: String(entry.summary || "").trim(),
+        title: String(entry.title || "").trim(),
+        details: String(entry.details || "").trim(),
       }))
       .filter((entry) => entry.activity_type || entry.summary);
   }
@@ -98,6 +100,26 @@ function getActivityEntries(row) {
     activity_type: activityType,
     summary: summaries[index] || "",
   }));
+}
+
+function compactCalendarSummary(entry) {
+  const title = String(entry?.title || "").trim();
+  if (title) return title;
+  let text = String(entry?.summary || entry?.details || "").trim();
+  if (!text) return "";
+  text = text
+    .replaceAll("DurÃ©e", "Durée")
+    .replace(/\s+/g, " ")
+    .replace(/\s*Fichier:\s*.*?(?=Durée|Duration|Distance|Puissance|Avg|FC|Cadence|Calories|$)/i, " ")
+    .replace(/\bImport FIT:\s*/i, "")
+    .trim();
+  const parts = text
+    .split("|")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => !/^Fichier:/i.test(part));
+  if (parts.length > 3) return parts.slice(0, 3).join(" | ");
+  return parts.join(" | ") || text;
 }
 
 function hasTarget(row) {
@@ -237,7 +259,7 @@ export default function CalendarPage() {
             ))}
             {monthDays.map(({ date, row, inMonth }) => {
               const activityEntries = getActivityEntries(row);
-              const summaries = activityEntries.map((entry) => entry.summary).filter(Boolean);
+              const summaries = activityEntries.map(compactCalendarSummary).filter(Boolean);
               return (
                 <button
                   className={`month-day${inMonth ? "" : " outside"}${date === todayIso ? " today" : ""}`}
