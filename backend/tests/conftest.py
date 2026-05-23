@@ -71,6 +71,8 @@ def clean_exercise_rows():
         db.query(main.EquipmentModelRef).delete()
         db.query(main.EquipmentCategoryModel).delete()
         db.query(main.EquipmentBrandModel).delete()
+        db.query(main.HangboardSessionModel).delete()
+        db.query(main.HangboardTemplateModel).delete()
         db.query(main.SessionModel).delete()
         db.query(main.AuditLogModel).delete()
         db.commit()

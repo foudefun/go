@@ -219,6 +219,300 @@ label {
   padding: 24px;
 }
 
+.hangboard-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.hangboard-builder,
+.hangboard-preview,
+.hangboard-timer,
+.hangboard-summary {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.section-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.section-heading-row h2,
+.hangboard-summary h2 {
+  margin: 0;
+}
+
+.stats-summary-grid.compact {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.stats-summary-grid.compact span {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+  border: 1px solid #dce4f0;
+  border-radius: 8px;
+  color: #445066;
+}
+
+.stats-summary-grid.compact strong {
+  color: #111827;
+  font-size: 20px;
+}
+
+.hangboard-hold-list,
+.compact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hangboard-hold-list span {
+  border: 1px solid #b6e7df;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #ecfdf5;
+  color: #115e59;
+  font-weight: 800;
+}
+
+.hangboard-step-list {
+  display: grid;
+  gap: 8px;
+  max-height: 320px;
+  margin: 0;
+  padding-left: 22px;
+  overflow: auto;
+}
+
+.hangboard-block-list {
+  display: grid;
+  gap: 12px;
+}
+
+.hangboard-block-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.85fr);
+  gap: 14px;
+  align-items: center;
+  border: 1px solid #dce4f0;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.hangboard-block-card > div {
+  display: grid;
+  gap: 5px;
+}
+
+.hangboard-block-card small,
+.hangboard-block-card span,
+.hangboard-diagram figcaption span {
+  color: #445066;
+  line-height: 1.35;
+}
+
+.hangboard-diagram {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.hangboard-diagram.exercise {
+  margin: 4px 0 10px;
+}
+
+.hangboard-diagram figcaption {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.hangboard-diagram.compact figcaption {
+  display: none;
+}
+
+.hangboard-card-image {
+  margin: 0;
+}
+
+.hangboard-card-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid #dce4f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.hangboard-card-image.compact img {
+  max-height: 180px;
+  object-fit: contain;
+}
+
+.hangboard-card-image.exercise img {
+  max-height: 520px;
+  object-fit: contain;
+}
+
+.bm1000-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 280px;
+}
+
+.hangboard-diagram.compact .bm1000-svg {
+  max-height: 150px;
+}
+
+.bm1000-board {
+  fill: url("#bm1000-board");
+  stroke: #8b5e34;
+  stroke-width: 5;
+}
+
+.bm1000-inner-shadow {
+  fill: rgba(120, 76, 36, 0.12);
+}
+
+.bm1000-hold-fill {
+  fill: #6f4a2b;
+  stroke: rgba(255, 255, 255, 0.42);
+  stroke-width: 4;
+}
+
+.bm1000-hold-fill.active {
+  fill: #2563eb;
+  stroke: #dbeafe;
+  stroke-width: 8;
+}
+
+.bm1000-hold-label {
+  fill: #fff;
+  font-size: 24px;
+  font-weight: 900;
+  pointer-events: none;
+}
+
+.hangboard-timer {
+  margin-top: 16px;
+}
+
+.timer-readout {
+  min-width: 120px;
+  color: #0f766e;
+  font-size: 48px;
+  line-height: 1;
+  text-align: right;
+}
+
+.hangboard-rep-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+  gap: 8px;
+}
+
+.hangboard-rep-grid span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border: 1px solid #cdd7e6;
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.hangboard-rep-grid span.active {
+  border-color: #0f766e;
+  background: #ccfbf1;
+}
+
+.hangboard-rep-grid span.failed {
+  border-color: #fecaca;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.hangboard-summary,
+.hangboard-stats {
+  margin-top: 16px;
+}
+
+.climbing-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.climbing-choice-card {
+  display: grid;
+  gap: 8px;
+  padding: 20px;
+  text-decoration: none;
+}
+
+.climbing-choice-card span {
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.climbing-choice-card strong {
+  color: #111827;
+  font-size: 24px;
+}
+
+.climbing-choice-card small {
+  color: #445066;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.import-dialog {
+  width: min(1080px, calc(100vw - 28px));
+}
+
+.import-dialog .import-layout {
+  width: 100%;
+}
+
+select[multiple] {
+  min-height: 140px;
+}
+
+@media (max-width: 840px) {
+  .hangboard-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .section-heading-row {
+    display: grid;
+  }
+
+  .timer-readout {
+    text-align: left;
+  }
+
+  .stats-summary-grid.compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .climbing-choice-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hangboard-block-card {
+    grid-template-columns: 1fr;
+  }
+}
+
 .auth-card {
   width: min(420px, 100%);
   display: grid;

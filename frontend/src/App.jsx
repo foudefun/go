@@ -1,6 +1,7 @@
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthProvider.jsx";
 import { useTranslation } from "./i18n/translations.js";
+import ClimbingPage from "./climbing/pages/ClimbingPage.jsx";
 import OutdoorClimbingPage from "./climbing/pages/OutdoorClimbingPage.jsx";
 import AccountPage from "./pages/AccountPage.jsx";
 import ActivitiesPage from "./pages/ActivitiesPage.jsx";
@@ -8,7 +9,7 @@ import AdminPage from "./pages/AdminPage.jsx";
 import CalendarPage from "./pages/CalendarPage.jsx";
 import EquipmentPage from "./pages/EquipmentPage.jsx";
 import ExercisesPage from "./pages/ExercisesPage.jsx";
-import ImportPage from "./pages/ImportPage.jsx";
+import HangboardPage from "./pages/HangboardPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import StatisticsPage from "./pages/StatisticsPage.jsx";
@@ -19,8 +20,7 @@ const tabs = [
   { to: "/statistics", labelKey: "Statistics" },
   { to: "/exercises", labelKey: "Exercises" },
   { to: "/equipment", labelKey: "Equipment" },
-  { to: "/outdoor-climbing", labelKey: "Outdoor Climbing" },
-  { to: "/import", labelKey: "Import" },
+  { to: "/climbing", labelKey: "Climbing" },
   { to: "/account", labelKey: "Account" },
 ];
 
@@ -60,9 +60,10 @@ function AppLayout() {
         <Route path="/statistics" element={<StatisticsPage />} />
         <Route path="/exercises" element={<ExercisesPage />} />
         <Route path="/equipment" element={<EquipmentPage />} />
+        <Route path="/climbing" element={<ClimbingPage />} />
         <Route path="/outdoor-climbing" element={<OutdoorClimbingPage />} />
-        <Route path="/climbing" element={<Navigate to="/outdoor-climbing" replace />} />
-        <Route path="/import" element={<ImportPage />} />
+        <Route path="/hangboard" element={<HangboardPage />} />
+        <Route path="/import" element={<Navigate to="/activities" replace />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route

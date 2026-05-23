@@ -1,0 +1,780 @@
+{
+  "sourceImage": "image(8).png",
+  "note": "Coordinates are calibrated to the uploaded Beastmaker 1000 reference image at 1800x576. Use normalized coords for responsive app overlays.",
+  "colorMap": {
+    "jug": {
+      "name": "Jug",
+      "hex": "#2563EB"
+    },
+    "very_deep_4_finger": {
+      "name": "Very deep 4-finger",
+      "hex": "#06B6D4"
+    },
+    "deep_4_finger": {
+      "name": "Deep 4-finger",
+      "hex": "#22C55E"
+    },
+    "medium_4_finger": {
+      "name": "Medium 4-finger",
+      "hex": "#EAB308"
+    },
+    "small_4_finger": {
+      "name": "Small 4-finger edge",
+      "hex": "#F97316"
+    },
+    "deep_3_finger": {
+      "name": "Deep 3-finger",
+      "hex": "#A855F7"
+    },
+    "medium_3_finger": {
+      "name": "Medium 3-finger",
+      "hex": "#7C3AED"
+    },
+    "deep_2_finger": {
+      "name": "Deep 2-finger",
+      "hex": "#EF4444"
+    },
+    "medium_2_finger": {
+      "name": "Medium 2-finger",
+      "hex": "#EC4899"
+    },
+    "sloper_20": {
+      "name": "20\u00b0 sloper",
+      "hex": "#14B8A6"
+    },
+    "sloper_35": {
+      "name": "35\u00b0 sloper",
+      "hex": "#D946EF"
+    }
+  },
+  "holds": {
+    "jug_left": {
+      "family": "jug",
+      "shape": "roundrect",
+      "bbox": [
+        120,
+        146,
+        350,
+        212
+      ],
+      "radius": 30,
+      "label": "Left jug"
+    },
+    "jug_right": {
+      "family": "jug",
+      "shape": "roundrect",
+      "bbox": [
+        1448,
+        145,
+        1688,
+        212
+      ],
+      "radius": 30,
+      "label": "Right jug"
+    },
+    "small_4_finger_10mm_left": {
+      "family": "small_4_finger",
+      "shape": "roundrect",
+      "bbox": [
+        705,
+        144,
+        870,
+        207
+      ],
+      "radius": 26,
+      "label": "Small 4-finger left"
+    },
+    "small_4_finger_10mm_right": {
+      "family": "small_4_finger",
+      "shape": "roundrect",
+      "bbox": [
+        926,
+        144,
+        1092,
+        207
+      ],
+      "radius": 26,
+      "label": "Small 4-finger right"
+    },
+    "deep_3_finger_left": {
+      "family": "deep_3_finger",
+      "shape": "roundrect",
+      "bbox": [
+        102,
+        258,
+        346,
+        319
+      ],
+      "radius": 31,
+      "label": "Deep 3-finger left"
+    },
+    "deep_3_finger_right": {
+      "family": "deep_3_finger",
+      "shape": "roundrect",
+      "bbox": [
+        1447,
+        258,
+        1690,
+        319
+      ],
+      "radius": 31,
+      "label": "Deep 3-finger right"
+    },
+    "deep_2_finger_left": {
+      "family": "deep_2_finger",
+      "shape": "roundrect",
+      "bbox": [
+        388,
+        259,
+        510,
+        319
+      ],
+      "radius": 28,
+      "label": "Deep 2-finger left"
+    },
+    "deep_2_finger_right": {
+      "family": "deep_2_finger",
+      "shape": "roundrect",
+      "bbox": [
+        1288,
+        259,
+        1408,
+        319
+      ],
+      "radius": 28,
+      "label": "Deep 2-finger right"
+    },
+    "deep_4_finger_left": {
+      "family": "deep_4_finger",
+      "shape": "roundrect",
+      "bbox": [
+        552,
+        259,
+        725,
+        319
+      ],
+      "radius": 29,
+      "label": "Deep 4-finger left"
+    },
+    "deep_4_finger_right": {
+      "family": "deep_4_finger",
+      "shape": "roundrect",
+      "bbox": [
+        1076,
+        259,
+        1243,
+        319
+      ],
+      "radius": 29,
+      "label": "Deep 4-finger right"
+    },
+    "very_deep_4_finger_center": {
+      "family": "very_deep_4_finger",
+      "shape": "roundrect",
+      "bbox": [
+        768,
+        258,
+        1048,
+        319
+      ],
+      "radius": 30,
+      "label": "Very deep 4-finger center"
+    },
+    "sloper_20_left": {
+      "family": "sloper_20",
+      "shape": "roundrect",
+      "bbox": [
+        239,
+        393,
+        495,
+        466
+      ],
+      "radius": 34,
+      "label": "20\u00b0 sloper left"
+    },
+    "sloper_20_right": {
+      "family": "sloper_20",
+      "shape": "roundrect",
+      "bbox": [
+        1306,
+        393,
+        1598,
+        466
+      ],
+      "radius": 34,
+      "label": "20\u00b0 sloper right"
+    },
+    "medium_2_finger_left": {
+      "family": "medium_2_finger",
+      "shape": "roundrect",
+      "bbox": [
+        548,
+        393,
+        650,
+        466
+      ],
+      "radius": 30,
+      "label": "Medium 2-finger left"
+    },
+    "medium_2_finger_right": {
+      "family": "medium_2_finger",
+      "shape": "roundrect",
+      "bbox": [
+        1150,
+        393,
+        1260,
+        466
+      ],
+      "radius": 30,
+      "label": "Medium 2-finger right"
+    },
+    "medium_4_finger_left": {
+      "family": "medium_4_finger",
+      "shape": "roundrect",
+      "bbox": [
+        704,
+        393,
+        878,
+        466
+      ],
+      "radius": 30,
+      "label": "Medium 4-finger left"
+    },
+    "medium_4_finger_right": {
+      "family": "medium_4_finger",
+      "shape": "roundrect",
+      "bbox": [
+        929,
+        393,
+        1102,
+        466
+      ],
+      "radius": 30,
+      "label": "Medium 4-finger right"
+    },
+    "medium_3_finger_left": {
+      "family": "medium_3_finger",
+      "shape": "roundrect",
+      "bbox": [
+        239,
+        393,
+        495,
+        466
+      ],
+      "radius": 34,
+      "label": "Medium 3-finger left"
+    },
+    "medium_3_finger_right": {
+      "family": "medium_3_finger",
+      "shape": "roundrect",
+      "bbox": [
+        1306,
+        393,
+        1598,
+        466
+      ],
+      "radius": 34,
+      "label": "Medium 3-finger right"
+    },
+    "sloper_35_left": {
+      "family": "sloper_35",
+      "shape": "polygon",
+      "points": [
+        [
+          410,
+          91
+        ],
+        [
+          681,
+          74
+        ],
+        [
+          677,
+          134
+        ],
+        [
+          414,
+          137
+        ]
+      ],
+      "label": "35\u00b0 sloper left"
+    },
+    "sloper_35_right": {
+      "family": "sloper_35",
+      "shape": "polygon",
+      "points": [
+        [
+          1118,
+          73
+        ],
+        [
+          1372,
+          90
+        ],
+        [
+          1371,
+          137
+        ],
+        [
+          1125,
+          136
+        ]
+      ],
+      "label": "35\u00b0 sloper right"
+    }
+  },
+  "exercises": [
+    {
+      "id": "jugs_hang",
+      "title": "Jugs Hang",
+      "subtitle": "Warm-up and recovery",
+      "holdSlugs": [
+        "jug_left",
+        "jug_right"
+      ],
+      "gripType": "jug_wrap",
+      "fingerTeam": "all_four",
+      "focus": [
+        "warmup",
+        "maintenance"
+      ],
+      "image": "jugs_hang.png"
+    },
+    {
+      "id": "jug_pullups",
+      "title": "Jug Pull-Ups",
+      "subtitle": "Pulling strength",
+      "holdSlugs": [
+        "jug_left",
+        "jug_right"
+      ],
+      "gripType": "jug_wrap",
+      "fingerTeam": "all_four",
+      "focus": [
+        "strength"
+      ],
+      "image": "jug_pullups.png"
+    },
+    {
+      "id": "jug_scapular_pulls",
+      "title": "Jug Scapular Pulls",
+      "subtitle": "Shoulder activation",
+      "holdSlugs": [
+        "jug_left",
+        "jug_right"
+      ],
+      "gripType": "jug_wrap",
+      "fingerTeam": "all_four",
+      "focus": [
+        "warmup",
+        "prehab"
+      ],
+      "image": "jug_scapular_pulls.png"
+    },
+    {
+      "id": "very_deep_4f_open_hand",
+      "title": "Very Deep 4-Finger Hang",
+      "subtitle": "Open hand, center slot",
+      "holdSlugs": [
+        "very_deep_4_finger_center"
+      ],
+      "gripType": "open_hand",
+      "fingerTeam": "all_four",
+      "focus": [
+        "beginner_strength",
+        "endurance"
+      ],
+      "image": "very_deep_4f_open_hand.png"
+    },
+    {
+      "id": "very_deep_4f_repeater",
+      "title": "Very Deep 4-Finger Repeater",
+      "subtitle": "7s on, 3s off",
+      "holdSlugs": [
+        "very_deep_4_finger_center"
+      ],
+      "gripType": "open_hand",
+      "fingerTeam": "all_four",
+      "focus": [
+        "endurance",
+        "strength_endurance"
+      ],
+      "image": "very_deep_4f_repeater.png"
+    },
+    {
+      "id": "deep_4f_open_hand",
+      "title": "Deep 4-Finger Hang",
+      "subtitle": "Open hand matched pair",
+      "holdSlugs": [
+        "deep_4_finger_left",
+        "deep_4_finger_right"
+      ],
+      "gripType": "open_hand",
+      "fingerTeam": "all_four",
+      "focus": [
+        "base_strength"
+      ],
+      "image": "deep_4f_open_hand.png"
+    },
+    {
+      "id": "deep_4f_half_crimp",
+      "title": "Deep 4-Finger Half Crimp",
+      "subtitle": "Controlled half crimp",
+      "holdSlugs": [
+        "deep_4_finger_left",
+        "deep_4_finger_right"
+      ],
+      "gripType": "half_crimp",
+      "fingerTeam": "all_four",
+      "focus": [
+        "strength"
+      ],
+      "image": "deep_4f_half_crimp.png"
+    },
+    {
+      "id": "deep_4f_repeater",
+      "title": "Deep 4-Finger Repeater",
+      "subtitle": "Strength-endurance",
+      "holdSlugs": [
+        "deep_4_finger_left",
+        "deep_4_finger_right"
+      ],
+      "gripType": "open_hand",
+      "fingerTeam": "all_four",
+      "focus": [
+        "strength_endurance"
+      ],
+      "image": "deep_4f_repeater.png"
+    },
+    {
+      "id": "medium_4f_open_hand",
+      "title": "Medium 4-Finger Hang",
+      "subtitle": "Open hand matched pair",
+      "holdSlugs": [
+        "medium_4_finger_left",
+        "medium_4_finger_right"
+      ],
+      "gripType": "open_hand",
+      "fingerTeam": "all_four",
+      "focus": [
+        "strength"
+      ],
+      "image": "medium_4f_open_hand.png"
+    },
+    {
+      "id": "medium_4f_half_crimp",
+      "title": "Medium 4-Finger Half Crimp",
+      "subtitle": "Max strength option",
+      "holdSlugs": [
+        "medium_4_finger_left",
+        "medium_4_finger_right"
+      ],
+      "gripType": "half_crimp",
+      "fingerTeam": "all_four",
+      "focus": [
+        "max_strength"
+      ],
+      "image": "medium_4f_half_crimp.png"
+    },
+    {
+      "id": "medium_4f_repeater",
+      "title": "Medium 4-Finger Repeater",
+      "subtitle": "Power-endurance",
+      "holdSlugs": [
+        "medium_4_finger_left",
+        "medium_4_finger_right"
+      ],
+      "gripType": "open_crimp",
+      "fingerTeam": "all_four",
+      "focus": [
+        "power_endurance"
+      ],
+      "image": "medium_4f_repeater.png"
+    },
+    {
+      "id": "small_4f_open_crimp",
+      "title": "Small 4-Finger Edge",
+      "subtitle": "Open crimp, top pair",
+      "holdSlugs": [
+        "small_4_finger_10mm_left",
+        "small_4_finger_10mm_right"
+      ],
+      "gripType": "open_crimp",
+      "fingerTeam": "all_four",
+      "focus": [
+        "advanced_strength"
+      ],
+      "image": "small_4f_open_crimp.png"
+    },
+    {
+      "id": "small_4f_half_crimp",
+      "title": "Small 4-Finger Half Crimp",
+      "subtitle": "Advanced max strength",
+      "holdSlugs": [
+        "small_4_finger_10mm_left",
+        "small_4_finger_10mm_right"
+      ],
+      "gripType": "half_crimp",
+      "fingerTeam": "all_four",
+      "focus": [
+        "max_strength"
+      ],
+      "image": "small_4f_half_crimp.png"
+    },
+    {
+      "id": "deep_3f_front_three",
+      "title": "Deep 3-Finger Drag",
+      "subtitle": "Front three fingers",
+      "holdSlugs": [
+        "deep_3_finger_left",
+        "deep_3_finger_right"
+      ],
+      "gripType": "three_finger_drag",
+      "fingerTeam": "front_three",
+      "focus": [
+        "strength_endurance"
+      ],
+      "image": "deep_3f_front_three.png"
+    },
+    {
+      "id": "deep_3f_back_three",
+      "title": "Deep 3-Finger Drag",
+      "subtitle": "Back three fingers",
+      "holdSlugs": [
+        "deep_3_finger_left",
+        "deep_3_finger_right"
+      ],
+      "gripType": "three_finger_drag",
+      "fingerTeam": "back_three",
+      "focus": [
+        "advanced_pocket_strength"
+      ],
+      "image": "deep_3f_back_three.png"
+    },
+    {
+      "id": "medium_3f_front_three",
+      "title": "Medium 3-Finger Drag",
+      "subtitle": "Front three fingers",
+      "holdSlugs": [
+        "medium_3_finger_left",
+        "medium_3_finger_right"
+      ],
+      "gripType": "three_finger_drag",
+      "fingerTeam": "front_three",
+      "focus": [
+        "pocket_strength"
+      ],
+      "image": "medium_3f_front_three.png"
+    },
+    {
+      "id": "medium_3f_back_three",
+      "title": "Medium 3-Finger Drag",
+      "subtitle": "Back three fingers",
+      "holdSlugs": [
+        "medium_3_finger_left",
+        "medium_3_finger_right"
+      ],
+      "gripType": "three_finger_drag",
+      "fingerTeam": "back_three",
+      "focus": [
+        "advanced_pocket_strength"
+      ],
+      "image": "medium_3f_back_three.png"
+    },
+    {
+      "id": "deep_2f_middle_two",
+      "title": "Deep 2-Finger Hang",
+      "subtitle": "Middle two fingers",
+      "holdSlugs": [
+        "deep_2_finger_left",
+        "deep_2_finger_right"
+      ],
+      "gripType": "two_finger_pocket",
+      "fingerTeam": "middle_two",
+      "focus": [
+        "pocket_strength"
+      ],
+      "image": "deep_2f_middle_two.png"
+    },
+    {
+      "id": "deep_2f_front_two",
+      "title": "Deep 2-Finger Hang",
+      "subtitle": "Front two fingers",
+      "holdSlugs": [
+        "deep_2_finger_left",
+        "deep_2_finger_right"
+      ],
+      "gripType": "two_finger_pocket",
+      "fingerTeam": "front_two",
+      "focus": [
+        "advanced_pocket_strength"
+      ],
+      "image": "deep_2f_front_two.png"
+    },
+    {
+      "id": "deep_2f_back_two_assisted",
+      "title": "Deep 2-Finger Assisted",
+      "subtitle": "Back two fingers, assisted",
+      "holdSlugs": [
+        "deep_2_finger_left",
+        "deep_2_finger_right"
+      ],
+      "gripType": "two_finger_pocket",
+      "fingerTeam": "back_two",
+      "focus": [
+        "advanced_assisted"
+      ],
+      "image": "deep_2f_back_two_assisted.png"
+    },
+    {
+      "id": "medium_2f_middle_two",
+      "title": "Medium 2-Finger Hang",
+      "subtitle": "Middle two fingers",
+      "holdSlugs": [
+        "medium_2_finger_left",
+        "medium_2_finger_right"
+      ],
+      "gripType": "two_finger_pocket",
+      "fingerTeam": "middle_two",
+      "focus": [
+        "advanced_pocket_strength"
+      ],
+      "image": "medium_2f_middle_two.png"
+    },
+    {
+      "id": "medium_2f_front_two",
+      "title": "Medium 2-Finger Hang",
+      "subtitle": "Front two fingers",
+      "holdSlugs": [
+        "medium_2_finger_left",
+        "medium_2_finger_right"
+      ],
+      "gripType": "two_finger_pocket",
+      "fingerTeam": "front_two",
+      "focus": [
+        "advanced_pocket_strength"
+      ],
+      "image": "medium_2f_front_two.png"
+    },
+    {
+      "id": "sloper_20_open_hand",
+      "title": "20\u00b0 Sloper Hang",
+      "subtitle": "Open hand",
+      "holdSlugs": [
+        "sloper_20_left",
+        "sloper_20_right"
+      ],
+      "gripType": "sloper_open_hand",
+      "fingerTeam": "all_four",
+      "focus": [
+        "open_hand_strength"
+      ],
+      "image": "sloper_20_open_hand.png"
+    },
+    {
+      "id": "sloper_20_repeater",
+      "title": "20\u00b0 Sloper Repeater",
+      "subtitle": "Open-hand endurance",
+      "holdSlugs": [
+        "sloper_20_left",
+        "sloper_20_right"
+      ],
+      "gripType": "sloper_open_hand",
+      "fingerTeam": "all_four",
+      "focus": [
+        "endurance"
+      ],
+      "image": "sloper_20_repeater.png"
+    },
+    {
+      "id": "sloper_35_open_hand",
+      "title": "35\u00b0 Sloper Hang",
+      "subtitle": "Upper slopers",
+      "holdSlugs": [
+        "sloper_35_left",
+        "sloper_35_right"
+      ],
+      "gripType": "sloper_open_hand",
+      "fingerTeam": "all_four",
+      "focus": [
+        "advanced_open_hand_strength"
+      ],
+      "image": "sloper_35_open_hand.png"
+    },
+    {
+      "id": "sloper_35_assisted",
+      "title": "35\u00b0 Sloper Assisted",
+      "subtitle": "Open hand with assistance",
+      "holdSlugs": [
+        "sloper_35_left",
+        "sloper_35_right"
+      ],
+      "gripType": "sloper_open_hand",
+      "fingerTeam": "all_four",
+      "focus": [
+        "assisted_strength"
+      ],
+      "image": "sloper_35_assisted.png"
+    },
+    {
+      "id": "mixed_left_jug_right_deep_2",
+      "title": "Mixed Assist Hang",
+      "subtitle": "Left jug, right deep 2-finger",
+      "holdSlugs": [
+        "jug_left",
+        "deep_2_finger_right"
+      ],
+      "gripType": "mixed",
+      "fingerTeam": "mixed",
+      "focus": [
+        "assisted_pocket_strength"
+      ],
+      "image": "mixed_left_jug_right_deep_2.png"
+    },
+    {
+      "id": "mixed_left_deep_2_right_jug",
+      "title": "Mixed Assist Hang",
+      "subtitle": "Left deep 2-finger, right jug",
+      "holdSlugs": [
+        "deep_2_finger_left",
+        "jug_right"
+      ],
+      "gripType": "mixed",
+      "fingerTeam": "mixed",
+      "focus": [
+        "assisted_pocket_strength"
+      ],
+      "image": "mixed_left_deep_2_right_jug.png"
+    },
+    {
+      "id": "mixed_left_jug_right_small_edge",
+      "title": "Mixed Assist Hang",
+      "subtitle": "Left jug, right small edge",
+      "holdSlugs": [
+        "jug_left",
+        "small_4_finger_10mm_right"
+      ],
+      "gripType": "mixed",
+      "fingerTeam": "mixed",
+      "focus": [
+        "assisted_edge_strength"
+      ],
+      "image": "mixed_left_jug_right_small_edge.png"
+    },
+    {
+      "id": "mixed_left_small_edge_right_jug",
+      "title": "Mixed Assist Hang",
+      "subtitle": "Left small edge, right jug",
+      "holdSlugs": [
+        "small_4_finger_10mm_left",
+        "jug_right"
+      ],
+      "gripType": "mixed",
+      "fingerTeam": "mixed",
+      "focus": [
+        "assisted_edge_strength"
+      ],
+      "image": "mixed_left_small_edge_right_jug.png"
+    }
+  ]
+}

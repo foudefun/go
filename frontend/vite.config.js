@@ -24,6 +24,19 @@ function getContentType(filePath) {
 }
 
 function rehabStaticAssetsPlugin() {
+  function copyStaticAssets(sourceDir, destinationDir) {
+    fs.mkdirSync(destinationDir, { recursive: true });
+    for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
+      const sourcePath = path.join(sourceDir, entry.name);
+      const destinationPath = path.join(destinationDir, entry.name);
+      if (entry.isDirectory()) {
+        copyStaticAssets(sourcePath, destinationPath);
+      } else if (entry.isFile()) {
+        fs.copyFileSync(sourcePath, destinationPath);
+      }
+    }
+  }
+
   return {
     name: "rehab-static-assets",
     configureServer(server) {
@@ -48,7 +61,7 @@ function rehabStaticAssetsPlugin() {
     },
     closeBundle() {
       if (fs.existsSync(assetsDir)) {
-        fs.cpSync(assetsDir, path.resolve(rootDir, "dist", "assets"), { recursive: true });
+        copyStaticAssets(assetsDir, path.resolve(rootDir, "dist", "assets"));
       }
     },
   };

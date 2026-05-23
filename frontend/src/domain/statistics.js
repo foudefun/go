@@ -52,6 +52,7 @@ const ACTIVITY_TYPE_ALIASES = new Map([
   ["escalade", "escalade"],
   ["outdoor climbing", "outdoor_climbing"],
   ["outdoor_climbing", "outdoor_climbing"],
+  ["hangboard", "hangboard"],
   ["strength", "musculation"],
   ["musculation", "musculation"],
   ["workout", "musculation"],

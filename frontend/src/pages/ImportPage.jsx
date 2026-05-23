@@ -11,7 +11,7 @@ import {
 } from "../domain/importTools.js";
 import { useTranslation } from "../i18n/translations.js";
 
-function ProgramImportPanel() {
+export function ProgramImportPanel() {
   const { t } = useTranslation();
   const [format, setFormat] = useState("json");
   const [content, setContent] = useState("");
@@ -163,7 +163,7 @@ function ProgramImportPanel() {
   );
 }
 
-function ActivityImportPanel() {
+export function ActivityImportPanel() {
   const { t } = useTranslation();
   const fileRef = useRef(null);
   const [file, setFile] = useState(null);

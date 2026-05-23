@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getCalendar } from "../api/calendarApi.js";
 import { ACTIVITY_TYPES, getActivityTypeColor, getActivityTypeLabel } from "../domain/activityTypes.js";
 import { useTranslation } from "../i18n/translations.js";
+import { ActivityImportPanel, ProgramImportPanel } from "./ImportPage.jsx";
 import DaySessionModal from "../sessions/components/DaySessionModal.jsx";
 
 function formatLocalDateIso(dateValue) {
@@ -87,6 +88,7 @@ export default function ActivitiesPage() {
   const [activityDate, setActivityDate] = useState(getLocalTodayIso());
   const [activityTypeFilter, setActivityTypeFilter] = useState("");
   const [modalState, setModalState] = useState(null);
+  const [importDialogMode, setImportDialogMode] = useState("");
 
   function loadActivityRows({ mountedRef } = {}) {
     setStatus("loading");
@@ -171,13 +173,7 @@ export default function ActivitiesPage() {
   }
 
   function openImportActivity() {
-    const date = activityDate || getLocalTodayIso();
-    setModalState({
-      date,
-      createNewOnOpen: true,
-      initialActivity: null,
-      initialShowImportPanel: true,
-    });
+    setImportDialogMode("activity");
   }
 
   function openExistingActivity(activity) {
@@ -212,6 +208,9 @@ export default function ActivitiesPage() {
           </button>
           <button type="button" onClick={openImportActivity}>
             {t("Import Activity")}
+          </button>
+          <button type="button" onClick={() => setImportDialogMode("program")}>
+            {t("Import Program")}
           </button>
         </div>
         <label className="activity-filter-control">
@@ -272,6 +271,32 @@ export default function ActivitiesPage() {
           onClose={() => setModalState(null)}
           onSaved={() => loadActivityRows()}
         />
+      ) : null}
+      {importDialogMode ? (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setImportDialogMode("")}>
+          <section className="day-modal import-dialog" role="dialog" aria-modal="true" aria-label={t("Import")} onMouseDown={(event) => event.stopPropagation()}>
+            <header className="day-modal-header">
+              <div>
+                <p className="eyebrow">{t("Data")}</p>
+                <h2>{t("Import")}</h2>
+              </div>
+              <div className="day-modal-actions">
+                <button type="button" onClick={() => setImportDialogMode("")}>{t("Close")}</button>
+              </div>
+            </header>
+            <section className="calendar-toolbar app-panel import-mode-toolbar">
+              <div className="view-switch">
+                <button type="button" className={importDialogMode === "activity" ? "active" : ""} onClick={() => setImportDialogMode("activity")}>
+                  {t("Activity File")}
+                </button>
+                <button type="button" className={importDialogMode === "program" ? "active" : ""} onClick={() => setImportDialogMode("program")}>
+                  {t("Program")}
+                </button>
+              </div>
+            </section>
+            {importDialogMode === "activity" ? <ActivityImportPanel /> : <ProgramImportPanel />}
+          </section>
+        </div>
       ) : null}
     </main>
   );

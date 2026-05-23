@@ -6,6 +6,7 @@ export const ACTIVITY_TYPES = [
   { value: "hockey", label: "Hockey", shortLabel: "Hockey", color: "#fde68a" },
   { value: "escalade", label: "Climbing", shortLabel: "Climb", color: "#ddd6fe" },
   { value: "outdoor_climbing", label: "Outdoor Climbing", shortLabel: "Outdoor", color: "#fed7aa" },
+  { value: "hangboard", label: "Hangboard", shortLabel: "Hangboard", color: "#99f6e4" },
   { value: "musculation", label: "Strength", shortLabel: "Strength", color: "#fdba74" },
   { value: "yoga", label: "Yoga", shortLabel: "Yoga", color: "#fbcfe8" },
   { value: "pilates", label: "Pilates", shortLabel: "Pilates", color: "#c7d2fe" },
@@ -29,5 +30,5 @@ export function isStrengthActivity(value) {
 }
 
 export function isClimbingActivity(value) {
-  return value === "escalade" || value === "outdoor_climbing";
+  return value === "escalade" || value === "outdoor_climbing" || value === "hangboard";
 }

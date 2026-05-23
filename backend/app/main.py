@@ -24,6 +24,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine, event
 from sqlalchemy.orm import object_session, sessionmaker, declarative_base
 
+from app.hangboard import BEASTMAKER_1000, generate_workout, normalize_generator_input, recommend_progression
+
 app = FastAPI(title="Rehab Tracker V19b")
 
 def parse_env_csv(value: str) -> list[str]:
@@ -418,6 +420,36 @@ class ClimbingCalibrationPointModel(Base):
     topo_y = Column(Float, nullable=False)
     camera_x = Column(Float, nullable=False)
     camera_y = Column(Float, nullable=False)
+
+class HangboardBoardModel(Base):
+    __tablename__ = "hangboard_boards"
+    slug = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    holds_json = Column(Text, nullable=False)
+
+class HangboardTemplateModel(Base):
+    __tablename__ = "hangboard_templates"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False)
+    options_json = Column(Text, nullable=False)
+    workout_json = Column(Text, nullable=False)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class HangboardSessionModel(Base):
+    __tablename__ = "hangboard_sessions"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    template_id = Column(Integer, ForeignKey("hangboard_templates.id", ondelete="SET NULL"))
+    date = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="planned")
+    options_json = Column(Text, nullable=False)
+    workout_json = Column(Text, nullable=False)
+    log_json = Column(Text)
+    recommendation_json = Column(Text)
+    created_at = Column(String, nullable=False)
+    completed_at = Column(String)
 
 Base.metadata.create_all(engine)
 
@@ -1437,6 +1469,8 @@ DEFAULT_ACTIVITY = {
     "used_equipment": [],
     "source_files": [],
     "metric_source_preferences": {},
+    "hangboard_session_id": None,
+    "hangboard_log": {},
 }
 
 def normalize_physio_time(value) -> str:
@@ -1546,6 +1580,7 @@ def normalize_activity_type(value) -> str:
         "hockey",
         "escalade",
         "outdoor_climbing",
+        "hangboard",
         "musculation",
         "yoga",
         "pilates",
@@ -1560,6 +1595,7 @@ ACTIVITY_LABELS = {
     "hockey": {"fr": "Hockey", "en": "Hockey"},
     "escalade": {"fr": "Escalade", "en": "Climbing"},
     "outdoor_climbing": {"fr": "Escalade outdoor", "en": "Outdoor Climbing"},
+    "hangboard": {"fr": "Poutre", "en": "Hangboard"},
     "musculation": {"fr": "Musculation", "en": "Strength"},
     "yoga": {"fr": "Yoga", "en": "Yoga"},
     "pilates": {"fr": "Pilates", "en": "Pilates"},
@@ -1861,6 +1897,8 @@ def activity_has_content(payload: dict) -> bool:
         or str(payload.get("activity_details", "") or "").strip()
         or str(payload.get("image", "") or "").strip()
         or payload.get("source_files")
+        or payload.get("hangboard_session_id")
+        or payload.get("hangboard_log")
         or payload.get("climbing_routes")
         or float(payload.get("load", 0) or 0) > 0
         or str(payload.get("physio_time", "") or "").strip()
@@ -1875,6 +1913,8 @@ def activity_has_history_content(payload: dict) -> bool:
         or str(payload.get("activity_details", "") or "").strip()
         or str(payload.get("image", "") or "").strip()
         or payload.get("source_files")
+        or payload.get("hangboard_session_id")
+        or payload.get("hangboard_log")
         or payload.get("climbing_routes")
         or float(payload.get("load", 0) or 0) > 0
         or str(payload.get("physio_time", "") or "").strip()
@@ -1942,6 +1982,8 @@ def normalize_activity_entry(payload: dict) -> dict:
             base.get("metric_source_preferences", {}),
             source_files,
         ),
+        "hangboard_session_id": normalize_optional_int(base.get("hangboard_session_id")),
+        "hangboard_log": base.get("hangboard_log", {}) if isinstance(base.get("hangboard_log", {}), dict) else {},
     }
     normalized["status"] = "done" if activity_has_content(normalized) else "todo"
     if normalized["activity_type"] not in {"escalade", "outdoor_climbing"}:
@@ -2060,8 +2102,10 @@ def get_calendar_activity_entry_summaries(payload: dict) -> list[dict]:
             "performed_items": activity.get("performed_items", []) or [],
             "climbing_count": len(activity.get("climbing_routes", []) or []),
             "image": str(activity.get("image", "") or "").strip(),
-            "source_files": source_files,
-            "source_count": len(source_files),
+        "source_files": source_files,
+        "hangboard_session_id": activity.get("hangboard_session_id"),
+        "hangboard_log": activity.get("hangboard_log", {}),
+        "source_count": len(source_files),
             "metrics": {
                 source.get("id", ""): source.get("metrics", {})
                 for source in source_files
@@ -2161,6 +2205,8 @@ def normalize_session_payload(payload: dict, existing: dict | None = None) -> di
         "plan_notes": str(base.get("plan_notes", "") or ""),
         "planned_items": planned_items,
         "used_equipment": mirrored_activity.get("used_equipment", []),
+        "hangboard_session_id": mirrored_activity.get("hangboard_session_id"),
+        "hangboard_log": mirrored_activity.get("hangboard_log", {}),
         "activities": normalized_activities,
         "draft_active_activity_index": active_activity_index,
         "draft_performed_editor": normalize_performed_editor_draft(base.get("draft_performed_editor", {})),
@@ -4461,6 +4507,22 @@ def seed_default_user():
 seed_default_user()
 cache_existing_brand_logos()
 
+def seed_hangboard_boards():
+    db = SessionLocal()
+    try:
+        existing = db.query(HangboardBoardModel).filter_by(slug=BEASTMAKER_1000["slug"]).first()
+        holds_json = json.dumps(BEASTMAKER_1000["holds"])
+        if existing:
+            existing.name = BEASTMAKER_1000["name"]
+            existing.holds_json = holds_json
+        else:
+            db.add(HangboardBoardModel(slug=BEASTMAKER_1000["slug"], name=BEASTMAKER_1000["name"], holds_json=holds_json))
+        db.commit()
+    finally:
+        db.close()
+
+seed_hangboard_boards()
+
 def seed_climbing_data():
     db = SessionLocal()
     try:
@@ -6389,6 +6451,245 @@ def delete_my_equipment(purchase_id: int, current_user: UserModel = Depends(get_
         db.delete(row)
         db.commit()
         return {"ok": True}
+    finally:
+        db.close()
+
+def serialize_hangboard_board(row: HangboardBoardModel) -> dict:
+    try:
+        holds = json.loads(row.holds_json or "[]")
+    except json.JSONDecodeError:
+        holds = []
+    return {"slug": row.slug, "name": row.name, "holds": holds}
+
+def serialize_hangboard_template(row: HangboardTemplateModel) -> dict:
+    return {
+        "id": row.id,
+        "name": row.name,
+        "options": json.loads(row.options_json or "{}"),
+        "workout": json.loads(row.workout_json or "{}"),
+        "created_at": row.created_at,
+        "updated_at": row.updated_at,
+    }
+
+def serialize_hangboard_session(row: HangboardSessionModel) -> dict:
+    return {
+        "id": row.id,
+        "template_id": row.template_id,
+        "date": row.date,
+        "status": row.status,
+        "options": json.loads(row.options_json or "{}"),
+        "workout": json.loads(row.workout_json or "{}"),
+        "log": json.loads(row.log_json or "{}") if row.log_json else {},
+        "recommendation": json.loads(row.recommendation_json or "{}") if row.recommendation_json else {},
+        "created_at": row.created_at,
+        "completed_at": row.completed_at,
+    }
+
+def parse_hangboard_date(value: str | None) -> str:
+    raw = str(value or "").strip() or date.today().isoformat()
+    try:
+        return date.fromisoformat(raw).isoformat()
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid session date") from exc
+
+def normalize_hangboard_log(payload: dict, workout: dict) -> dict:
+    if not isinstance(payload, dict):
+        payload = {}
+    total_hangs = len([step for step in workout.get("steps", []) if step.get("type") == "hang"])
+    completed_reps = normalize_optional_int(payload.get("completedReps", payload.get("completed_reps")))
+    failed_reps = normalize_optional_int(payload.get("failedReps", payload.get("failed_reps")))
+    average_rpe = normalize_optional_float(payload.get("averageRpe", payload.get("average_rpe")))
+    pain_score = normalize_optional_int(payload.get("painScore", payload.get("pain_score")))
+    return {
+        "completedReps": max(0, min(total_hangs, completed_reps if completed_reps is not None else total_hangs)),
+        "failedReps": max(0, failed_reps if failed_reps is not None else 0),
+        "averageRpe": max(0, min(10, average_rpe if average_rpe is not None else 0)),
+        "painScore": max(0, min(10, pain_score if pain_score is not None else 0)),
+        "notes": str(payload.get("notes", "") or "").strip(),
+    }
+
+def comparable_clean_hangboard_count(db, username: str, current_row: HangboardSessionModel, workout: dict) -> int:
+    count = 0
+    current_options = json.loads(current_row.options_json or "{}")
+    rows = (
+        db.query(HangboardSessionModel)
+        .filter(HangboardSessionModel.username == username)
+        .filter(HangboardSessionModel.id != current_row.id)
+        .filter(HangboardSessionModel.status == "completed")
+        .order_by(HangboardSessionModel.completed_at.desc(), HangboardSessionModel.id.desc())
+        .limit(8)
+        .all()
+    )
+    for row in rows:
+        options = json.loads(row.options_json or "{}")
+        if any(options.get(key) != current_options.get(key) for key in ["board", "level", "focus", "sessionLength", "loadMode"]):
+            continue
+        log = json.loads(row.log_json or "{}") if row.log_json else {}
+        row_workout = json.loads(row.workout_json or "{}")
+        total_hangs = len([step for step in row_workout.get("steps", []) if step.get("type") == "hang"])
+        if (
+            int(log.get("painScore", 0) or 0) == 0
+            and int(log.get("failedReps", 0) or 0) == 0
+            and int(log.get("completedReps", 0) or 0) >= total_hangs
+            and float(log.get("averageRpe", 0) or 0) <= 8
+        ):
+            count += 1
+    return count
+
+def add_hangboard_activity_to_day(db, username: str, row: HangboardSessionModel, log: dict, recommendation: dict):
+    date_str = row.date
+    session_row = get_session_obj(db, username, date_str)
+    payload = session_payload_from_row(session_row)
+    workout = json.loads(row.workout_json or "{}")
+    summary = workout.get("summary", {})
+    activity = normalize_activity_entry({
+        "title": f"Hangboard - {workout.get('level', '')} {str(workout.get('focus', '')).replace('_', ' ')}".strip(),
+        "activity_type": "hangboard",
+        "activity_details": (
+            f"{workout.get('boardName', 'Hangboard')} | "
+            f"{summary.get('blocks', 0)} blocks | "
+            f"{log.get('completedReps', 0)} completed / {log.get('failedReps', 0)} failed | "
+            f"RPE {log.get('averageRpe', 0)} | pain {log.get('painScore', 0)}"
+        ),
+        "note": recommendation.get("action", ""),
+        "hangboard_session_id": row.id,
+        "hangboard_log": {"log": log, "recommendation": recommendation},
+    })
+    activities = [
+        item for item in get_session_activities(payload)
+        if normalize_optional_int(item.get("hangboard_session_id")) != row.id
+    ]
+    activities.append(activity)
+    payload["activities"] = activities
+    payload["draft_active_activity_index"] = len(activities) - 1
+    normalized_payload = normalize_session_payload(payload)
+    if session_row:
+        session_row.data = json.dumps(normalized_payload)
+    else:
+        db.add(SessionModel(username=username, date=date_str, data=json.dumps(normalized_payload)))
+
+@app.get("/api/hangboard/boards")
+def list_hangboard_boards(current_user: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        rows = db.query(HangboardBoardModel).order_by(HangboardBoardModel.name).all()
+        return [serialize_hangboard_board(row) for row in rows]
+    finally:
+        db.close()
+
+@app.post("/api/hangboard/generate")
+def generate_hangboard_workout(payload: dict, current_user: UserModel = Depends(get_current_user)):
+    options = normalize_generator_input(payload)
+    if options["board"] != BEASTMAKER_1000["slug"]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported hangboard")
+    return {"ok": True, "options": options, "workout": generate_workout(options)}
+
+@app.post("/api/hangboard/templates")
+def save_hangboard_template(payload: dict, current_user: UserModel = Depends(get_current_user)):
+    name = str(payload.get("name", "") or "").strip() or "Hangboard workout"
+    options = normalize_generator_input(payload.get("options", payload))
+    workout = generate_workout(options)
+    now = datetime.now(timezone.utc).isoformat()
+    db = get_db()
+    try:
+        row = HangboardTemplateModel(
+            username=current_user.username,
+            name=name[:120],
+            options_json=json.dumps(options),
+            workout_json=json.dumps(workout),
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return {"ok": True, "template": serialize_hangboard_template(row)}
+    finally:
+        db.close()
+
+@app.post("/api/hangboard/sessions")
+def create_hangboard_session(payload: dict, current_user: UserModel = Depends(get_current_user)):
+    date_str = parse_hangboard_date(payload.get("date"))
+    template_id = normalize_optional_int(payload.get("template_id"))
+    db = get_db()
+    try:
+        template = None
+        if template_id is not None:
+            template = db.query(HangboardTemplateModel).filter_by(id=template_id, username=current_user.username).first()
+            if not template:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
+        if template:
+            options = json.loads(template.options_json or "{}")
+            workout = json.loads(template.workout_json or "{}")
+        else:
+            options = normalize_generator_input(payload.get("options", payload))
+            workout = generate_workout(options)
+        now = datetime.now(timezone.utc).isoformat()
+        row = HangboardSessionModel(
+            username=current_user.username,
+            template_id=template.id if template else None,
+            date=date_str,
+            status="planned",
+            options_json=json.dumps(options),
+            workout_json=json.dumps(workout),
+            created_at=now,
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return {"ok": True, "session": serialize_hangboard_session(row)}
+    finally:
+        db.close()
+
+@app.post("/api/hangboard/sessions/{session_id}/complete")
+def complete_hangboard_session(session_id: int, payload: dict, current_user: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        row = db.query(HangboardSessionModel).filter_by(id=session_id, username=current_user.username).first()
+        if not row:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hangboard session not found")
+        workout = json.loads(row.workout_json or "{}")
+        log = normalize_hangboard_log(payload, workout)
+        clean_count = comparable_clean_hangboard_count(db, current_user.username, row, workout)
+        recommendation = recommend_progression(workout, log, comparable_clean_count=clean_count)
+        row.status = "completed"
+        row.log_json = json.dumps(log)
+        row.recommendation_json = json.dumps(recommendation)
+        row.completed_at = datetime.now(timezone.utc).isoformat()
+        add_hangboard_activity_to_day(db, current_user.username, row, log, recommendation)
+        write_audit_log(
+            db,
+            current_user.username,
+            "complete_hangboard_session",
+            "hangboard_session",
+            str(row.id),
+            f"Completed hangboard session on {row.date}",
+        )
+        db.commit()
+        db.refresh(row)
+        return {"ok": True, "session": serialize_hangboard_session(row), "recommendation": recommendation}
+    finally:
+        db.close()
+
+@app.get("/api/hangboard/sessions")
+def get_hangboard_history(limit: int = 20, current_user: UserModel = Depends(get_current_user)):
+    safe_limit = max(1, min(100, int(limit or 20)))
+    db = get_db()
+    try:
+        rows = (
+            db.query(HangboardSessionModel)
+            .filter_by(username=current_user.username)
+            .order_by(HangboardSessionModel.date.desc(), HangboardSessionModel.id.desc())
+            .limit(safe_limit)
+            .all()
+        )
+        completed = [row for row in rows if row.status == "completed"]
+        stats = {
+            "totalSessions": len(completed),
+            "totalCompletedReps": sum(int((json.loads(row.log_json or "{}") if row.log_json else {}).get("completedReps", 0) or 0) for row in completed),
+            "painFreeSessions": sum(1 for row in completed if int((json.loads(row.log_json or "{}") if row.log_json else {}).get("painScore", 0) or 0) == 0),
+        }
+        return {"sessions": [serialize_hangboard_session(row) for row in rows], "stats": stats}
     finally:
         db.close()
 
