@@ -3247,6 +3247,26 @@ def build_fit_activity_summary(parsed: dict, source_name: str, extra_details: st
     return "\n".join(part for part in lines if part).strip()
 
 
+def infer_activity_source_provider(parsed_activity: dict, filename: str = "") -> str:
+    text = " ".join(
+        str(value or "")
+        for value in [
+            filename,
+            parsed_activity.get("source_file"),
+            parsed_activity.get("source_label"),
+            parsed_activity.get("sport"),
+            parsed_activity.get("sub_sport"),
+        ]
+    ).lower()
+    if "mywhoosh" in text or "mywoosh" in text:
+        return "MyWhoosh"
+    if "zwift" in text:
+        return "Zwift"
+    if "garmin" in text:
+        return "Garmin"
+    return "Imported file"
+
+
 def infer_activity_type_from_fit(sport: str, sub_sport: str) -> str:
     normalized_sport = str(sport or "").strip().lower()
     normalized_sub_sport = str(sub_sport or "").strip().lower()
@@ -3615,11 +3635,24 @@ def import_activity_file_into_db(
 
     activity_type = normalize_activity_type(activity_type_override) or normalize_activity_type(parsed_activity.get("activity_type")) or "velo"
     summary = build_fit_activity_summary(parsed_activity, parsed_activity.get("source_file", ""))
+    source_id = uuid.uuid4().hex
+    source_filename = str(parsed_activity.get("source_file", "") or "").strip()
+    selected_format = detect_activity_file_format(source_filename, "")
+    source_record = build_activity_source_file_record(
+        source_id=source_id,
+        provider=infer_activity_source_provider(parsed_activity, source_filename),
+        label=str(title or "").strip() or parsed_activity.get("source_label", ""),
+        filename=source_filename,
+        file_format=selected_format,
+        file_url="",
+        parsed_activity=parsed_activity,
+    )
     imported_activity = normalize_activity_entry({
         "title": str(title or "").strip(),
         "activity_type": activity_type,
         "activity_details": summary,
         "note": str(note or "").strip(),
+        "source_files": [source_record] if source_record.get("metrics") else [],
     })
     existing_activities.append(imported_activity)
 

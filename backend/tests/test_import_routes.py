@@ -106,6 +106,10 @@ def test_activity_file_import_appends_activity_and_audits_import(client):
     assert activity["title"] == "Imported MyWhoosh ride"
     assert activity["activity_type"] == "velo"
     assert "00:20:00" in activity["activity_details"]
+    assert activity["source_files"][0]["provider"] == "MyWhoosh"
+    assert activity["source_files"][0]["metrics"]["duration"]["seconds"] == 1200
+    assert activity["source_files"][0]["metrics"]["power"]["avg"] == 200
+    assert activity["source_files"][0]["metrics"]["power"]["max"] == 220
 
     db = main.SessionLocal()
     try:
