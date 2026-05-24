@@ -285,11 +285,7 @@ function formatMetricValue(metricKey, values) {
   if (metricKey === "cadence") return values.avg ? `${Math.round(values.avg)} rpm` : "";
   if (metricKey === "distance") return values.km ? `${Number(values.km).toFixed(2)} km` : "";
   if (metricKey === "duration") {
-    const seconds = Number(values.seconds || 0);
-    if (!seconds) return "";
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return hours ? `${hours}h ${String(minutes).padStart(2, "0")}` : `${minutes} min`;
+    return formatDurationSeconds(values.seconds);
   }
   if (metricKey === "calories") return values.value ? `${Math.round(values.value)} kcal` : "";
   return "";
@@ -297,6 +293,75 @@ function formatMetricValue(metricKey, values) {
 
 function getSourceTitle(source, fallbackIndex) {
   return String(source.label || source.provider || source.filename || `Source ${fallbackIndex + 1}`).trim();
+}
+
+function formatDurationSeconds(rawSeconds) {
+  const seconds = Number(rawSeconds || 0);
+  if (!seconds) return "";
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+  if (hours) return `${hours}h ${String(minutes).padStart(2, "0")}m ${String(remainingSeconds).padStart(2, "0")}s`;
+  if (minutes) return `${minutes}m ${String(remainingSeconds).padStart(2, "0")}s`;
+  return `${remainingSeconds}s`;
+}
+
+function getPreferredMetricSource(activity, metricKey) {
+  const sourceFiles = Array.isArray(activity?.source_files) ? activity.source_files : [];
+  const preferredId = activity?.metric_source_preferences?.[metricKey];
+  const preferredSource = sourceFiles.find((source) => source.id === preferredId && source.metrics?.[metricKey]);
+  return preferredSource || sourceFiles.find((source) => source.metrics?.[metricKey]) || null;
+}
+
+function readMetricValue(activity, metricKey, valueKey) {
+  const source = getPreferredMetricSource(activity, metricKey);
+  const value = source?.metrics?.[metricKey]?.[valueKey];
+  const numeric = Number(value || 0);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+}
+
+function buildActivityMetricFields(activity) {
+  const durationSeconds = readMetricValue(activity, "duration", "seconds");
+  const distanceKm = readMetricValue(activity, "distance", "km");
+  const avgPower = readMetricValue(activity, "power", "avg");
+  const maxPower = readMetricValue(activity, "power", "max");
+  const avgCadence = readMetricValue(activity, "cadence", "avg");
+  const calories = readMetricValue(activity, "calories", "value");
+  const avgHeartRate = readMetricValue(activity, "heart_rate", "avg");
+  const maxHeartRate = readMetricValue(activity, "heart_rate", "max");
+  return [
+    durationSeconds ? { label: "Duration", value: formatDurationSeconds(durationSeconds) } : null,
+    distanceKm ? { label: "Distance", value: `${distanceKm.toFixed(2)} km` } : null,
+    avgPower ? { label: "Average power", value: `${Math.round(avgPower)} W` } : null,
+    maxPower ? { label: "Max power", value: `${Math.round(maxPower)} W` } : null,
+    avgCadence ? { label: "Average cadence", value: `${Math.round(avgCadence)} rpm` } : null,
+    calories ? { label: "Calories", value: `${Math.round(calories)} kcal` } : null,
+    avgHeartRate ? { label: "Average heart rate", value: `${Math.round(avgHeartRate)} bpm` } : null,
+    maxHeartRate ? { label: "Max heart rate", value: `${Math.round(maxHeartRate)} bpm` } : null,
+  ].filter(Boolean);
+}
+
+function ActivityMetricFields({ activity, t }) {
+  const fields = buildActivityMetricFields(activity);
+  if (!fields.length) return null;
+  return (
+    <section className="activity-metric-fields" aria-label={t("Activity metrics")}>
+      <div className="section-heading-row">
+        <div>
+          <p className="eyebrow">{t("Activity data")}</p>
+          <h3>{t("Imported metrics")}</h3>
+        </div>
+      </div>
+      <div className="activity-metric-grid">
+        {fields.map((field) => (
+          <div className="activity-metric-field" key={field.label}>
+            <span>{t(field.label)}</span>
+            <strong>{field.value}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 function ActivitySourceFilesPanel({ activity, canManage, uploading, error, onUpload, onPreferenceChange, t }) {
@@ -891,6 +956,7 @@ export default function DaySessionModal({
                               placeholder={t("Duration, zone, location, quick summary...")}
                             />
                           </label>
+                          <ActivityMetricFields activity={activeActivity} t={t} />
                           <label>
                             {t("Notes")}
                             <textarea
