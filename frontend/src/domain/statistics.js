@@ -60,6 +60,22 @@ const ACTIVITY_TYPE_ALIASES = new Map([
   ["pilates", "pilates"],
 ]);
 
+export const POWER_CURVE_DURATIONS = [
+  5,
+  10,
+  15,
+  30,
+  60,
+  120,
+  300,
+  600,
+  1200,
+  1800,
+  3600,
+  5400,
+  7200,
+];
+
 export function getStatMetric(key) {
   return STAT_METRICS.find((metric) => metric.key === key) || EXERCISE_STAT_METRICS.find((metric) => metric.key === key) || STAT_METRICS[0];
 }
@@ -266,6 +282,83 @@ function getActivityEntries(row = {}) {
     return [{ activity_type: row.activity_type, details: row.activity_details, source_files: row.source_files || [] }];
   }
   return [];
+}
+
+function rowInDateRange(row = {}, startDate = "", endDate = "") {
+  const date = String(row.date || "");
+  if (!date) return false;
+  if (startDate && date < startDate) return false;
+  if (endDate && date > endDate) return false;
+  return true;
+}
+
+function formatPowerCurveDuration(seconds) {
+  const safeSeconds = Number(seconds || 0);
+  if (safeSeconds < 60) return `${safeSeconds}s`;
+  if (safeSeconds < 3600) return `${Math.round(safeSeconds / 60)}m`;
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.round((safeSeconds % 3600) / 60);
+  return minutes ? `${hours}h${String(minutes).padStart(2, "0")}` : `${hours}h`;
+}
+
+function getSeriesInterval(points = [], declaredInterval = 5) {
+  const interval = numberOrZero(declaredInterval);
+  if (interval > 0) return interval;
+  for (let index = 1; index < points.length; index += 1) {
+    const delta = numberOrZero(points[index].t) - numberOrZero(points[index - 1].t);
+    if (delta > 0) return delta;
+  }
+  return 5;
+}
+
+function bestRollingAveragePower(points = [], durationSec = 0, intervalSec = 5) {
+  const powerValues = points.map((point) => numberOrZero(point.power)).filter((value) => value > 0);
+  const windowSize = Math.max(1, Math.round(numberOrZero(durationSec) / Math.max(numberOrZero(intervalSec), 1)));
+  if (powerValues.length < windowSize) return 0;
+  let rollingSum = 0;
+  let best = 0;
+  for (let index = 0; index < powerValues.length; index += 1) {
+    rollingSum += powerValues[index];
+    if (index >= windowSize) rollingSum -= powerValues[index - windowSize];
+    if (index >= windowSize - 1) best = Math.max(best, rollingSum / windowSize);
+  }
+  return best;
+}
+
+export function buildPowerDurationCurve(rows = [], { startDate = "", endDate = "" } = {}) {
+  const bestByDuration = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (!rowInDateRange(row, startDate, endDate)) continue;
+    for (const activity of getActivityEntries(row)) {
+      if (!activityMatchesType(activity, "velo")) continue;
+      for (const source of Array.isArray(activity.source_files) ? activity.source_files : []) {
+        if (!sourceMatchesType(source, "velo")) continue;
+        const series = source.series && typeof source.series === "object" ? source.series : {};
+        const rawPoints = Array.isArray(series.points) ? series.points : [];
+        const points = rawPoints
+          .map((point) => ({ t: numberOrZero(point.t), power: numberOrZero(point.power) }))
+          .filter((point) => point.power > 0)
+          .sort((left, right) => left.t - right.t);
+        if (points.length < 2) continue;
+        const interval = getSeriesInterval(points, series.sample_interval_seconds);
+        for (const durationSec of POWER_CURVE_DURATIONS) {
+          const bestPower = bestRollingAveragePower(points, durationSec, interval);
+          if (!bestPower) continue;
+          const currentBest = bestByDuration.get(durationSec);
+          if (!currentBest || bestPower > currentBest.power) {
+            bestByDuration.set(durationSec, {
+              duration_sec: durationSec,
+              label: formatPowerCurveDuration(durationSec),
+              power: bestPower,
+              date: row.date || "",
+              activity: activity.title || activity.summary || source.label || source.filename || "",
+            });
+          }
+        }
+      }
+    }
+  }
+  return POWER_CURVE_DURATIONS.map((durationSec) => bestByDuration.get(durationSec)).filter(Boolean);
 }
 
 function getPerformedItems(activity = {}) {

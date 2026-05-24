@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   aggregateMetric,
+  buildPowerDurationCurve,
   buildDailyStats,
   buildExerciseDailyStats,
   buildExerciseMonthlyStats,
@@ -149,6 +150,62 @@ test("reads legacy imported activity metrics from details text", () => {
   assert.equal(cyclingDaily[0].avg_cadence, 73);
   assert.equal(cyclingDaily[0].calories, 864);
   assert.equal(strengthDaily[0].duration_min, 0);
+});
+
+test("builds cycling power duration curve from source series", () => {
+  const rows = [
+    {
+      date: "2026-05-01",
+      activity_entries: [
+        {
+          activity_type: "velo",
+          source_files: [
+            {
+              parsed: { activity_type: "velo" },
+              series: {
+                sample_interval_seconds: 5,
+                points: [
+                  { t: 0, power: 100 },
+                  { t: 5, power: 200 },
+                  { t: 10, power: 300 },
+                  { t: 15, power: 400 },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      date: "2025-05-01",
+      activity_entries: [
+        {
+          activity_type: "velo",
+          source_files: [
+            {
+              parsed: { activity_type: "velo" },
+              series: {
+                sample_interval_seconds: 5,
+                points: [
+                  { t: 0, power: 500 },
+                  { t: 5, power: 500 },
+                  { t: 10, power: 500 },
+                  { t: 15, power: 500 },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+  ];
+
+  const curve = buildPowerDurationCurve(rows, { startDate: "2026-01-01", endDate: "2026-12-31" });
+
+  assert.equal(curve.find((point) => point.duration_sec === 5).power, 400);
+  assert.equal(curve.find((point) => point.duration_sec === 10).power, 350);
+  assert.equal(curve.find((point) => point.duration_sec === 15).power, 300);
+  assert.equal(curve.find((point) => point.duration_sec === 30), undefined);
 });
 
 test("includes indoor cycling performed inside strength activities", () => {

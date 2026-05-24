@@ -12,6 +12,7 @@ import {
   buildExerciseDailyStats,
   buildExerciseMonthlyStats,
   buildMonthlyStats,
+  buildPowerDurationCurve,
   formatStatValue,
   getAvailableStatisticActivityTypes,
   getAvailableStatisticExercises,
@@ -27,6 +28,25 @@ function shiftDateIso(dateIso, days) {
   const date = new Date(`${dateIso}T12:00:00`);
   date.setDate(date.getDate() + days);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function getYearStartIso(dateIso) {
+  return `${String(dateIso || getLocalTodayIso()).slice(0, 4)}-01-01`;
+}
+
+function minDateIso(...values) {
+  return values.filter(Boolean).sort()[0] || getLocalTodayIso();
+}
+
+function maxDateIso(...values) {
+  const dates = values.filter(Boolean).sort();
+  return dates[dates.length - 1] || getLocalTodayIso();
+}
+
+function getPowerPeriodRange(mode, customStart, customEnd, today) {
+  if (mode === "inception") return { start: "2020-01-01", end: today };
+  if (mode === "custom") return { start: customStart || today, end: customEnd || today };
+  return { start: getYearStartIso(today), end: today };
 }
 
 function normalizeChartValue(row, metricKey) {
@@ -135,9 +155,78 @@ function StatsChart({ rows, metricA, metricB, t }) {
   );
 }
 
+function PowerDurationChart({ primaryRows, secondaryRows, primaryLabel, secondaryLabel, t }) {
+  const width = 900;
+  const height = 340;
+  const padding = { top: 28, right: 34, bottom: 62, left: 64 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const allRows = [...primaryRows, ...secondaryRows];
+  if (!primaryRows.length && !secondaryRows.length) {
+    return <div className="empty-state compact">{t("No power curve data for this period.")}</div>;
+  }
+  const labels = Array.from(new Set(allRows.map((row) => row.label)));
+  const maxPower = Math.max(...allRows.map((row) => Number(row.power || 0)), 1);
+  const xForIndex = (index) => padding.left + (labels.length <= 1 ? chartWidth / 2 : (index / (labels.length - 1)) * chartWidth);
+  const yForPower = (power) => height - padding.bottom - (Number(power || 0) / maxPower) * chartHeight;
+  const pathForRows = (rows) =>
+    rows
+      .map((row) => {
+        const index = labels.indexOf(row.label);
+        return `${xForIndex(index).toFixed(1)},${yForPower(row.power).toFixed(1)}`;
+      })
+      .join(" ");
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => maxPower * ratio);
+
+  return (
+    <div className="stats-chart-frame power-duration-chart">
+      <div className="chart-legend-row">
+        {primaryRows.length ? <span><i className="legend-dot primary" />{primaryLabel} - max {Math.round(Math.max(...primaryRows.map((row) => row.power)))} W</span> : null}
+        {secondaryRows.length ? <span><i className="legend-dot secondary" />{secondaryLabel} - max {Math.round(Math.max(...secondaryRows.map((row) => row.power)))} W</span> : null}
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("Power duration curve")}>
+        <line x1={padding.left} y1={height - padding.bottom} x2={width - padding.right} y2={height - padding.bottom} className="chart-axis" />
+        <line x1={padding.left} y1={padding.top} x2={padding.left} y2={height - padding.bottom} className="chart-axis" />
+        {ticks.map((tick) => {
+          const y = yForPower(tick);
+          return (
+            <g key={tick}>
+              <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} className="chart-grid-line" />
+              <text x={padding.left - 8} y={y + 4} textAnchor="end" className="chart-label primary">{Math.round(tick)} W</text>
+            </g>
+          );
+        })}
+        {primaryRows.length ? <polyline points={pathForRows(primaryRows)} className="chart-line primary" /> : null}
+        {secondaryRows.length ? <polyline points={pathForRows(secondaryRows)} className="chart-line secondary" /> : null}
+        {primaryRows.map((row) => {
+          const index = labels.indexOf(row.label);
+          return (
+            <circle key={`primary-${row.label}`} cx={xForIndex(index)} cy={yForPower(row.power)} r="5" className="chart-point primary">
+              <title>{`${row.label}: ${Math.round(row.power)} W - ${row.date} ${row.activity}`}</title>
+            </circle>
+          );
+        })}
+        {secondaryRows.map((row) => {
+          const index = labels.indexOf(row.label);
+          return (
+            <circle key={`secondary-${row.label}`} cx={xForIndex(index)} cy={yForPower(row.power)} r="4" className="chart-point secondary">
+              <title>{`${row.label}: ${Math.round(row.power)} W - ${row.date} ${row.activity}`}</title>
+            </circle>
+          );
+        })}
+        {labels.map((label, index) => (
+          <text key={label} x={xForIndex(index)} y={height - 24} textAnchor="middle" className="chart-label">
+            {label}
+          </text>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 export default function StatisticsPage() {
   const { language, t } = useTranslation();
-  const [rows, setRows] = useState([]);
+  const [allRows, setAllRows] = useState([]);
   const [exercises, setExercises] = useState([]);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
@@ -150,15 +239,25 @@ export default function StatisticsPage() {
   const today = getLocalTodayIso();
   const [startDate, setStartDate] = useState(shiftDateIso(today, -180));
   const [endDate, setEndDate] = useState(today);
+  const [powerPeriod, setPowerPeriod] = useState("ytd");
+  const [powerStartDate, setPowerStartDate] = useState(getYearStartIso(today));
+  const [powerEndDate, setPowerEndDate] = useState(today);
+  const [comparePowerPeriod, setComparePowerPeriod] = useState("none");
+  const [comparePowerStartDate, setComparePowerStartDate] = useState(shiftDateIso(getYearStartIso(today), -365));
+  const [comparePowerEndDate, setComparePowerEndDate] = useState(shiftDateIso(today, -365));
+  const primaryPowerRange = getPowerPeriodRange(powerPeriod, powerStartDate, powerEndDate, today);
+  const comparePowerRange = comparePowerPeriod === "none" ? null : getPowerPeriodRange(comparePowerPeriod, comparePowerStartDate, comparePowerEndDate, today);
+  const requestStartDate = minDateIso(startDate, primaryPowerRange.start, comparePowerRange?.start);
+  const requestEndDate = maxDateIso(endDate, primaryPowerRange.end, comparePowerRange?.end);
 
   useEffect(() => {
     let mounted = true;
     setStatus("loading");
     setError("");
-    getCalendar({ startDate, endDate })
+    getCalendar({ startDate: requestStartDate, endDate: requestEndDate })
       .then((payload) => {
         if (!mounted) return;
-        setRows(Array.isArray(payload) ? payload : []);
+        setAllRows(Array.isArray(payload) ? payload : []);
         setStatus("ready");
       })
       .catch((statsError) => {
@@ -169,7 +268,7 @@ export default function StatisticsPage() {
     return () => {
       mounted = false;
     };
-  }, [startDate, endDate]);
+  }, [requestStartDate, requestEndDate]);
 
   useEffect(() => {
     let mounted = true;
@@ -187,6 +286,7 @@ export default function StatisticsPage() {
     };
   }, []);
 
+  const rows = useMemo(() => allRows.filter((row) => String(row.date || "") >= startDate && String(row.date || "") <= endDate), [allRows, endDate, startDate]);
   const availableActivityTypes = useMemo(() => {
     const values = getAvailableStatisticActivityTypes(rows);
     return ACTIVITY_TYPES.filter((type) => values.has(type.value));
@@ -219,6 +319,17 @@ export default function StatisticsPage() {
   const chartRows = period === "monthly" ? monthlyRows : dailyRows;
   const plottedRows = useMemo(() => chartRows.filter((row) => rowHasSelectedMetric(row, safeMetricA, safeMetricB)), [chartRows, safeMetricA, safeMetricB]);
   const selectedActivityLabel = activityType ? t(getActivityTypeLabel(activityType)) : t("All types");
+  const showPowerCurve = statsMode === "activities" && activityType === "velo";
+  const primaryPowerCurve = useMemo(
+    () => (showPowerCurve ? buildPowerDurationCurve(allRows, { startDate: primaryPowerRange.start, endDate: primaryPowerRange.end }) : []),
+    [allRows, primaryPowerRange.end, primaryPowerRange.start, showPowerCurve],
+  );
+  const comparePowerCurve = useMemo(
+    () => (showPowerCurve && comparePowerRange ? buildPowerDurationCurve(allRows, { startDate: comparePowerRange.start, endDate: comparePowerRange.end }) : []),
+    [allRows, comparePowerRange?.end, comparePowerRange?.start, showPowerCurve],
+  );
+  const primaryPowerLabel = `${primaryPowerRange.start} to ${primaryPowerRange.end}`;
+  const comparePowerLabel = comparePowerRange ? `${comparePowerRange.start} to ${comparePowerRange.end}` : "";
   const summaryRows = [
     { metric: safeMetricA, value: aggregateMetric(chartRows, safeMetricA) },
     safeMetricB ? { metric: safeMetricB, value: aggregateMetric(chartRows, safeMetricB) } : null,
@@ -334,6 +445,68 @@ export default function StatisticsPage() {
         </div>
         <StatsChart rows={plottedRows} metricA={safeMetricA} metricB={safeMetricB} t={t} />
       </section>
+
+      {showPowerCurve ? (
+        <section className="app-panel statistics-chart-panel power-curve-panel">
+          <div className="chart-header">
+            <div>
+              <p className="eyebrow">{t("Cycling")}</p>
+              <h2>{t("Power duration curve")}</h2>
+              <span className="muted-text">{t("Best average power by duration")}</span>
+            </div>
+          </div>
+          <div className="power-curve-toolbar">
+            <label>
+              {t("Period")}
+              <select value={powerPeriod} onChange={(event) => setPowerPeriod(event.target.value)}>
+                <option value="inception">{t("Since inception")}</option>
+                <option value="ytd">{t("Year to date")}</option>
+                <option value="custom">{t("Custom period")}</option>
+              </select>
+            </label>
+            {powerPeriod === "custom" ? (
+              <>
+                <label>
+                  {t("From")}
+                  <input type="date" value={powerStartDate} onChange={(event) => setPowerStartDate(event.target.value)} />
+                </label>
+                <label>
+                  {t("To")}
+                  <input type="date" value={powerEndDate} onChange={(event) => setPowerEndDate(event.target.value)} />
+                </label>
+              </>
+            ) : null}
+            <label>
+              {t("Compare with")}
+              <select value={comparePowerPeriod} onChange={(event) => setComparePowerPeriod(event.target.value)}>
+                <option value="none">{t("None")}</option>
+                <option value="inception">{t("Since inception")}</option>
+                <option value="ytd">{t("Year to date")}</option>
+                <option value="custom">{t("Custom period")}</option>
+              </select>
+            </label>
+            {comparePowerPeriod === "custom" ? (
+              <>
+                <label>
+                  {t("From")}
+                  <input type="date" value={comparePowerStartDate} onChange={(event) => setComparePowerStartDate(event.target.value)} />
+                </label>
+                <label>
+                  {t("To")}
+                  <input type="date" value={comparePowerEndDate} onChange={(event) => setComparePowerEndDate(event.target.value)} />
+                </label>
+              </>
+            ) : null}
+          </div>
+          <PowerDurationChart
+            primaryRows={primaryPowerCurve}
+            secondaryRows={comparePowerCurve}
+            primaryLabel={primaryPowerLabel}
+            secondaryLabel={comparePowerLabel}
+            t={t}
+          />
+        </section>
+      ) : null}
     </main>
   );
 }
