@@ -107,9 +107,18 @@ def test_activity_file_import_appends_activity_and_audits_import(client):
     assert activity["activity_type"] == "velo"
     assert "00:20:00" in activity["activity_details"]
     assert activity["source_files"][0]["provider"] == "MyWhoosh"
+    assert activity["source_files"][0]["file_url"].startswith("/api/uploads/activity-sources/")
     assert activity["source_files"][0]["metrics"]["duration"]["seconds"] == 1200
     assert activity["source_files"][0]["metrics"]["power"]["avg"] == 200
     assert activity["source_files"][0]["metrics"]["power"]["max"] == 220
+    assert activity["source_files"][0]["series"]["sample_interval_seconds"] == 5
+    assert activity["source_files"][0]["series"]["points"] == [
+        {"t": 0, "power": 180, "hr": 120, "cadence": 82, "distance_m": 0},
+        {"t": 1200, "power": 220, "hr": 140, "cadence": 88, "distance_m": 135.4},
+    ]
+    downloaded = client.get(activity["source_files"][0]["file_url"])
+    assert downloaded.status_code == 200
+    assert downloaded.content == gpx_payload()
 
     db = main.SessionLocal()
     try:

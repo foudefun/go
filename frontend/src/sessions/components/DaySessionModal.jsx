@@ -364,6 +364,55 @@ function ActivityMetricFields({ activity, t }) {
   );
 }
 
+function getPowerSeries(activity) {
+  const sourceFiles = Array.isArray(activity?.source_files) ? activity.source_files : [];
+  const preferredSource = getPreferredMetricSource(activity, "power");
+  const candidates = [preferredSource, ...sourceFiles].filter(Boolean);
+  for (const source of candidates) {
+    const points = Array.isArray(source.series?.points) ? source.series.points : [];
+    const powerPoints = points
+      .map((point) => ({ t: Number(point.t || 0), power: Number(point.power || 0) }))
+      .filter((point) => Number.isFinite(point.t) && Number.isFinite(point.power) && point.power >= 0);
+    if (powerPoints.length >= 2) return powerPoints;
+  }
+  return [];
+}
+
+function ActivityPowerCurve({ activity, t }) {
+  const points = getPowerSeries(activity);
+  if (points.length < 2) return null;
+  const width = 600;
+  const height = 160;
+  const paddingX = 18;
+  const paddingY = 18;
+  const maxTime = Math.max(...points.map((point) => point.t), 1);
+  const maxPower = Math.max(...points.map((point) => point.power), 1);
+  const avgPower = points.reduce((sum, point) => sum + point.power, 0) / points.length;
+  const polyline = points
+    .map((point) => {
+      const x = paddingX + (point.t / maxTime) * (width - paddingX * 2);
+      const y = height - paddingY - (point.power / maxPower) * (height - paddingY * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  return (
+    <section className="activity-power-curve" aria-label={t("Power curve")}>
+      <div className="section-heading-row">
+        <div>
+          <p className="eyebrow">{t("Power curve")}</p>
+          <h3>{`${Math.round(avgPower)} W ${t("avg")} / ${Math.round(maxPower)} W ${t("max")}`}</h3>
+        </div>
+        <span>{formatDurationSeconds(maxTime)}</span>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("Power over time")}>
+        <line x1={paddingX} y1={height - paddingY} x2={width - paddingX} y2={height - paddingY} />
+        <line x1={paddingX} y1={paddingY} x2={paddingX} y2={height - paddingY} />
+        <polyline points={polyline} />
+      </svg>
+    </section>
+  );
+}
+
 function ActivitySourceFilesPanel({ activity, canManage, uploading, error, onUpload, onPreferenceChange, t }) {
   const fileRef = useRef(null);
   const [provider, setProvider] = useState("Garmin");
@@ -957,6 +1006,7 @@ export default function DaySessionModal({
                             />
                           </label>
                           <ActivityMetricFields activity={activeActivity} t={t} />
+                          <ActivityPowerCurve activity={activeActivity} t={t} />
                           <label>
                             {t("Notes")}
                             <textarea

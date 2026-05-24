@@ -96,6 +96,8 @@ TOKEN_TTL_HOURS = int(os.getenv("REHAB_TOKEN_TTL_HOURS", "168"))
 PASSWORD_ITERATIONS = 200_000
 MAX_IMAGE_UPLOAD_BYTES = int(os.getenv("REHAB_MAX_IMAGE_UPLOAD_BYTES", str(5 * 1024 * 1024)))
 MAX_ACTIVITY_SOURCE_UPLOAD_BYTES = int(os.getenv("REHAB_MAX_ACTIVITY_SOURCE_UPLOAD_BYTES", str(25 * 1024 * 1024)))
+ACTIVITY_SERIES_INTERVAL_SECONDS = int(os.getenv("REHAB_ACTIVITY_SERIES_INTERVAL_SECONDS", "5"))
+MAX_ACTIVITY_SERIES_POINTS = int(os.getenv("REHAB_MAX_ACTIVITY_SERIES_POINTS", "10000"))
 LOGIN_LOCK_MAX_FAILURES = int(os.getenv("REHAB_LOGIN_LOCK_MAX_FAILURES", "6"))
 LOGIN_LOCK_WINDOW_MINUTES = int(os.getenv("REHAB_LOGIN_LOCK_WINDOW_MINUTES", "10"))
 LOGIN_LOCK_DURATION_MINUTES = int(os.getenv("REHAB_LOGIN_LOCK_DURATION_MINUTES", "15"))
@@ -1833,6 +1835,41 @@ def build_activity_source_metrics(parsed_activity: dict) -> dict:
     return normalize_activity_source_metrics(metrics)
 
 
+def normalize_activity_source_series(series: dict) -> dict:
+    if not isinstance(series, dict):
+        return {}
+    interval = normalize_optional_int(series.get("sample_interval_seconds"))
+    points = series.get("points") if isinstance(series.get("points"), list) else []
+    normalized_points = []
+    for item in points[:MAX_ACTIVITY_SERIES_POINTS]:
+        if not isinstance(item, dict):
+            continue
+        point = {}
+        elapsed = normalize_optional_int(item.get("t"))
+        if elapsed is None:
+            continue
+        point["t"] = elapsed
+        for source_key, target_key in [
+            ("power", "power"),
+            ("power_w", "power"),
+            ("hr", "hr"),
+            ("heart_rate", "hr"),
+            ("cadence", "cadence"),
+            ("distance_m", "distance_m"),
+        ]:
+            value = normalize_optional_float(item.get(source_key))
+            if value is not None:
+                point[target_key] = value
+        if len(point) > 1:
+            normalized_points.append(point)
+    if not normalized_points:
+        return {}
+    return {
+        "sample_interval_seconds": interval or ACTIVITY_SERIES_INTERVAL_SECONDS,
+        "points": normalized_points,
+    }
+
+
 def normalize_activity_source_file(item: dict) -> dict:
     if not isinstance(item, dict):
         return {}
@@ -1843,6 +1880,7 @@ def normalize_activity_source_file(item: dict) -> dict:
     metrics = normalize_activity_source_metrics(item.get("metrics") if isinstance(item.get("metrics"), dict) else {})
     if not metrics and parsed:
         metrics = build_activity_source_metrics(parsed)
+    series = normalize_activity_source_series(item.get("series") if isinstance(item.get("series"), dict) else parsed.get("series", {}))
     normalized = {
         "id": source_id,
         "provider": str(item.get("provider", "") or "").strip(),
@@ -1853,6 +1891,7 @@ def normalize_activity_source_file(item: dict) -> dict:
         "imported_at": str(item.get("imported_at", "") or "").strip(),
         "parsed": parsed,
         "metrics": metrics,
+        "series": series,
     }
     return {key: value for key, value in normalized.items() if value not in ("", None, {}, [])}
 
@@ -2794,6 +2833,8 @@ def build_activity_source_file_record(
     file_url: str,
     parsed_activity: dict,
 ) -> dict:
+    parsed_for_storage = dict(parsed_activity or {})
+    series = parsed_for_storage.pop("series", {})
     return normalize_activity_source_file({
         "id": source_id,
         "provider": str(provider or "").strip() or "Other",
@@ -2802,9 +2843,30 @@ def build_activity_source_file_record(
         "file_format": str(file_format or "").strip().lower(),
         "file_url": file_url,
         "imported_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-        "parsed": parsed_activity,
+        "parsed": parsed_for_storage,
         "metrics": build_activity_source_metrics(parsed_activity),
+        "series": series,
     })
+
+
+def store_activity_source_upload(
+    *,
+    username: str,
+    date_str: str,
+    activity_index: int,
+    source_id: str,
+    suffix: str,
+    content: bytes,
+) -> str:
+    safe_username = "".join(ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in username).strip("_") or "user"
+    safe_date = str(date_str or "").replace("-", "")
+    safe_suffix = f".{str(suffix or '').strip().lower().lstrip('.')}"
+    if safe_suffix not in {".fit", ".tcx", ".gpx"}:
+        safe_suffix = ".fit"
+    target_name = f"{safe_username}_{safe_date}_activity_{activity_index + 1}_{source_id[:12]}{safe_suffix}"
+    target_path = ACTIVITY_SOURCE_UPLOADS_DIR / target_name
+    target_path.write_bytes(content)
+    return f"/api/uploads/activity-sources/{target_name}"
 
 
 def set_exercise_images(row: ExerciseModel, images: list[str]) -> None:
@@ -3320,6 +3382,14 @@ def numeric_xml_values(root, *names: str) -> list[float]:
     return values
 
 
+def first_numeric_xml_value(root, *names: str) -> float | None:
+    for element in iter_xml(root, *names):
+        value = normalize_optional_float(element.text)
+        if value is not None:
+            return value
+    return None
+
+
 def nested_numeric_xml_values(root, parent_name: str, child_name: str = "Value") -> list[float]:
     values: list[float] = []
     for parent in iter_xml(root, parent_name):
@@ -3334,6 +3404,67 @@ def average(values: list[float]) -> float | None:
     if not cleaned:
         return None
     return sum(cleaned) / len(cleaned)
+
+
+def rounded_series_value(value: float | None, digits: int = 0):
+    if value is None:
+        return None
+    rounded = round(value, digits)
+    if isinstance(rounded, float) and rounded.is_integer():
+        return int(rounded)
+    return rounded
+
+
+def build_activity_series(samples: list[dict], interval_seconds: int = ACTIVITY_SERIES_INTERVAL_SECONDS) -> dict:
+    timestamped = [sample for sample in samples if isinstance(sample.get("timestamp"), datetime)]
+    if not timestamped:
+        return {}
+    start_time = min(sample["timestamp"] for sample in timestamped)
+    buckets: dict[int, dict] = {}
+    for sample in timestamped:
+        elapsed = max(0, int((sample["timestamp"] - start_time).total_seconds()))
+        bucket_key = (elapsed // max(interval_seconds, 1)) * max(interval_seconds, 1)
+        bucket = buckets.setdefault(
+            bucket_key,
+            {
+                "power_values": [],
+                "hr_values": [],
+                "cadence_values": [],
+                "distance_m": None,
+                "distance_elapsed": -1,
+            },
+        )
+        for source_key, bucket_key_name in [("power", "power_values"), ("hr", "hr_values"), ("cadence", "cadence_values")]:
+            value = normalize_optional_float(sample.get(source_key))
+            if value is not None:
+                bucket[bucket_key_name].append(value)
+        distance_m = normalize_optional_float(sample.get("distance_m"))
+        if distance_m is not None and elapsed >= bucket["distance_elapsed"]:
+            bucket["distance_m"] = distance_m
+            bucket["distance_elapsed"] = elapsed
+
+    points = []
+    for elapsed in sorted(buckets):
+        bucket = buckets[elapsed]
+        point = {"t": elapsed}
+        if bucket["power_values"]:
+            point["power"] = rounded_series_value(average(bucket["power_values"]))
+        if bucket["hr_values"]:
+            point["hr"] = rounded_series_value(average(bucket["hr_values"]))
+        if bucket["cadence_values"]:
+            point["cadence"] = rounded_series_value(average(bucket["cadence_values"]))
+        if bucket["distance_m"] is not None:
+            point["distance_m"] = rounded_series_value(bucket["distance_m"], 1)
+        if len(point) > 1:
+            points.append(point)
+        if len(points) >= MAX_ACTIVITY_SERIES_POINTS:
+            break
+    if not points:
+        return {}
+    return {
+        "sample_interval_seconds": interval_seconds,
+        "points": points,
+    }
 
 
 def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -3392,6 +3523,18 @@ def parse_tcx_activity_file(content: bytes, filename: str = "") -> dict:
     avg_power_values = numeric_xml_values(activity, "AvgWatts", "Watts")
     max_power_values = numeric_xml_values(activity, "MaxWatts", "Watts")
     calories_values = numeric_xml_values(activity, "Calories")
+    series_samples = []
+    for trackpoint in iter_xml(activity, "Trackpoint"):
+        point_time = parse_activity_datetime(first_xml_text(trackpoint, "Time"))
+        if not point_time:
+            continue
+        series_samples.append({
+            "timestamp": point_time,
+            "power": first_numeric_xml_value(trackpoint, "Watts"),
+            "hr": first_numeric_xml_value(trackpoint, "Value"),
+            "cadence": first_numeric_xml_value(trackpoint, "Cadence"),
+            "distance_m": first_numeric_xml_value(trackpoint, "DistanceMeters"),
+        })
 
     return {
         "date": start_time.date().isoformat(),
@@ -3410,6 +3553,7 @@ def parse_tcx_activity_file(content: bytes, filename: str = "") -> dict:
         "avg_cadence": average(cadence_values),
         "calories": sum(calories_values) if calories_values else None,
         "record_count": len(track_times),
+        "series": build_activity_series(series_samples),
         "source_label": f"Import TCX: {sport.strip() or 'activity'}",
         "source_file": str(filename or "").strip(),
     }
@@ -3427,19 +3571,40 @@ def parse_gpx_activity_file(content: bytes, filename: str = "") -> dict:
     hr_values: list[float] = []
     cadence_values: list[float] = []
     power_values: list[float] = []
+    series_samples = []
+    cumulative_distance_m = 0.0
+    previous_point = None
     for point in iter_xml(root, "trkpt"):
         lat = normalize_optional_float(point.attrib.get("lat"))
         lon = normalize_optional_float(point.attrib.get("lon"))
         if lat is not None and lon is not None:
             points.append((lat, lon))
+            if previous_point is not None:
+                cumulative_distance_m += haversine_m(previous_point[0], previous_point[1], lat, lon)
+            previous_point = (lat, lon)
+        parsed_time = None
         for time_element in iter_xml(point, "time"):
             parsed_time = parse_activity_datetime(time_element.text)
             if parsed_time:
                 timestamps.append(parsed_time)
                 break
-        hr_values.extend(numeric_xml_values(point, "hr", "heartrate", "heartRate"))
-        cadence_values.extend(numeric_xml_values(point, "cad", "cadence"))
-        power_values.extend(numeric_xml_values(point, "power", "watts"))
+        hr_value = first_numeric_xml_value(point, "hr", "heartrate", "heartRate")
+        cadence_value = first_numeric_xml_value(point, "cad", "cadence")
+        power_value = first_numeric_xml_value(point, "power", "watts")
+        if hr_value is not None:
+            hr_values.append(hr_value)
+        if cadence_value is not None:
+            cadence_values.append(cadence_value)
+        if power_value is not None:
+            power_values.append(power_value)
+        if parsed_time:
+            series_samples.append({
+                "timestamp": parsed_time,
+                "power": power_value,
+                "hr": hr_value,
+                "cadence": cadence_value,
+                "distance_m": cumulative_distance_m if points else None,
+            })
 
     if not timestamps:
         metadata_time = parse_activity_datetime(first_xml_text(root, "time"))
@@ -3476,6 +3641,7 @@ def parse_gpx_activity_file(content: bytes, filename: str = "") -> dict:
         "avg_cadence": average(cadence_values),
         "calories": None,
         "record_count": len(points),
+        "series": build_activity_series(series_samples),
         "source_label": f"Import GPX: {name or activity_type or 'activity'}",
         "source_file": str(filename or "").strip(),
     }
@@ -3522,6 +3688,7 @@ def parse_fit_activity_file(content: bytes, filename: str = "") -> dict:
     last_record_timestamp = None
     last_record_distance = None
     record_count = 0
+    series_samples = []
 
     try:
         for message in fit_file.get_messages():
@@ -3541,6 +3708,18 @@ def parse_fit_activity_file(content: bytes, filename: str = "") -> dict:
                 distance_value = normalize_optional_float(message.get_value("distance"))
                 if distance_value is not None:
                     last_record_distance = distance_value
+                if isinstance(timestamp, datetime):
+                    power_value = normalize_optional_float(message.get_value("power"))
+                    hr_value = normalize_optional_float(message.get_value("heart_rate"))
+                    cadence_value = normalize_optional_float(message.get_value("cadence"))
+                    if any(value is not None for value in [power_value, hr_value, cadence_value, distance_value]):
+                        series_samples.append({
+                            "timestamp": timestamp,
+                            "power": power_value,
+                            "hr": hr_value,
+                            "cadence": cadence_value,
+                            "distance_m": distance_value,
+                        })
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed while parsing FIT activity data") from exc
 
@@ -3606,6 +3785,7 @@ def parse_fit_activity_file(content: bytes, filename: str = "") -> dict:
         "avg_cadence": avg_cadence,
         "calories": calories,
         "record_count": record_count,
+        "series": build_activity_series(series_samples),
         "source_label": source_label,
         "source_file": str(filename or "").strip(),
     }
@@ -3616,6 +3796,8 @@ def import_activity_file_into_db(
     username: str,
     *,
     parsed_activity: dict,
+    source_file_content: bytes | None = None,
+    source_file_format: str = "",
     activity_type_override: str = "",
     date_override: str = "",
     title: str = "",
@@ -3637,14 +3819,25 @@ def import_activity_file_into_db(
     summary = build_fit_activity_summary(parsed_activity, parsed_activity.get("source_file", ""))
     source_id = uuid.uuid4().hex
     source_filename = str(parsed_activity.get("source_file", "") or "").strip()
-    selected_format = detect_activity_file_format(source_filename, "")
+    selected_format = detect_activity_file_format(source_filename, source_file_format)
+    activity_index = len(existing_activities)
+    file_url = ""
+    if source_file_content:
+        file_url = store_activity_source_upload(
+            username=username,
+            date_str=target_date,
+            activity_index=activity_index,
+            source_id=source_id,
+            suffix=selected_format,
+            content=source_file_content,
+        )
     source_record = build_activity_source_file_record(
         source_id=source_id,
         provider=infer_activity_source_provider(parsed_activity, source_filename),
         label=str(title or "").strip() or parsed_activity.get("source_label", ""),
         filename=source_filename,
         file_format=selected_format,
-        file_url="",
+        file_url=file_url,
         parsed_activity=parsed_activity,
     )
     imported_activity = normalize_activity_entry({
@@ -3652,7 +3845,7 @@ def import_activity_file_into_db(
         "activity_type": activity_type,
         "activity_details": summary,
         "note": str(note or "").strip(),
-        "source_files": [source_record] if source_record.get("metrics") else [],
+        "source_files": [source_record] if (source_record.get("metrics") or source_record.get("series") or source_record.get("file_url")) else [],
     })
     existing_activities.append(imported_activity)
 
@@ -5894,11 +6087,15 @@ async def upload_activity_source_file(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Activity not found")
 
         safe_username = "".join(ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in current_user.username).strip("_") or "user"
-        safe_date = date_str.replace("-", "")
         source_id = uuid.uuid4().hex
-        target_name = f"{safe_username}_{safe_date}_activity_{activity_index + 1}_{source_id[:12]}{suffix}"
-        target_path = ACTIVITY_SOURCE_UPLOADS_DIR / target_name
-        target_path.write_bytes(content)
+        file_url = store_activity_source_upload(
+            username=safe_username,
+            date_str=date_str,
+            activity_index=activity_index,
+            source_id=source_id,
+            suffix=suffix,
+            content=content,
+        )
 
         activity = normalize_activity_entry(activities[activity_index])
         source_files = normalize_activity_source_files(activity.get("source_files", []))
@@ -5908,7 +6105,7 @@ async def upload_activity_source_file(
             label=label,
             filename=filename,
             file_format=selected_format,
-            file_url=f"/api/uploads/activity-sources/{target_name}",
+            file_url=file_url,
             parsed_activity=parsed_activity,
         )
         source_files.append(source_record)
@@ -6780,6 +6977,8 @@ async def import_activity_file(
     content = await file.read()
     if not content:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The uploaded file is empty")
+    if len(content) > MAX_ACTIVITY_SOURCE_UPLOAD_BYTES:
+        raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="Uploaded file is too large")
 
     parsed_activity = parse_activity_file(content, filename, selected_format)
 
@@ -6789,6 +6988,8 @@ async def import_activity_file(
             db,
             current_user.username,
             parsed_activity=parsed_activity,
+            source_file_content=content,
+            source_file_format=selected_format,
             activity_type_override=activity_type_override,
             date_override=date_override,
             title=title,

@@ -1421,6 +1421,46 @@ select[multiple] {
   overflow-wrap: anywhere;
 }
 
+.activity-power-curve {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #dce4f0;
+  border-radius: 12px;
+  background: #fff;
+  padding: 12px;
+}
+
+.activity-power-curve h3 {
+  margin: 0;
+  color: #172033;
+  line-height: 1.1;
+}
+
+.activity-power-curve .section-heading-row > span {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.activity-power-curve svg {
+  width: 100%;
+  height: 180px;
+  overflow: visible;
+}
+
+.activity-power-curve line {
+  stroke: #dce4f0;
+  stroke-width: 2;
+}
+
+.activity-power-curve polyline {
+  fill: none;
+  stroke: #2563eb;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
 .section-heading-row {
   display: flex;
   justify-content: space-between;
