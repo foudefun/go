@@ -728,13 +728,21 @@ select[multiple] {
   opacity: 0.82;
 }
 
-.chart-line.primary,
+.chart-line.primary {
+  stroke: #0f766e;
+  fill: none;
+}
+
+.chart-line.secondary {
+  stroke: #2563eb;
+  fill: none;
+}
+
 .chart-point.primary {
   stroke: #0f766e;
   fill: #0f766e;
 }
 
-.chart-line.secondary,
 .chart-point.secondary {
   stroke: #2563eb;
   fill: #2563eb;
