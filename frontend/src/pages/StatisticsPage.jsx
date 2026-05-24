@@ -30,6 +30,17 @@ function shiftDateIso(dateIso, days) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+function shiftMonthIso(dateIso, months) {
+  const date = new Date(`${dateIso}T12:00:00`);
+  const targetMonth = date.getMonth() + months;
+  const day = date.getDate();
+  date.setDate(1);
+  date.setMonth(targetMonth);
+  const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  date.setDate(Math.min(day, lastDay));
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 function getYearStartIso(dateIso) {
   return `${String(dateIso || getLocalTodayIso()).slice(0, 4)}-01-01`;
 }
@@ -47,6 +58,17 @@ function getPowerPeriodRange(mode, customStart, customEnd, today) {
   if (mode === "inception") return { start: "2020-01-01", end: today };
   if (mode === "custom") return { start: customStart || today, end: customEnd || today };
   return { start: getYearStartIso(today), end: today };
+}
+
+function getComparePowerPeriodRange(mode, customStart, customEnd, today, primaryRange) {
+  if (mode === "none") return null;
+  if (mode === "previous_month") {
+    return { start: shiftMonthIso(primaryRange.start, -1), end: shiftMonthIso(primaryRange.end, -1) };
+  }
+  if (mode === "previous_year") {
+    return { start: shiftMonthIso(primaryRange.start, -12), end: shiftMonthIso(primaryRange.end, -12) };
+  }
+  return getPowerPeriodRange(mode, customStart, customEnd, today);
 }
 
 function normalizeChartValue(row, metricKey) {
@@ -246,7 +268,7 @@ export default function StatisticsPage() {
   const [comparePowerStartDate, setComparePowerStartDate] = useState(shiftDateIso(getYearStartIso(today), -365));
   const [comparePowerEndDate, setComparePowerEndDate] = useState(shiftDateIso(today, -365));
   const primaryPowerRange = getPowerPeriodRange(powerPeriod, powerStartDate, powerEndDate, today);
-  const comparePowerRange = comparePowerPeriod === "none" ? null : getPowerPeriodRange(comparePowerPeriod, comparePowerStartDate, comparePowerEndDate, today);
+  const comparePowerRange = getComparePowerPeriodRange(comparePowerPeriod, comparePowerStartDate, comparePowerEndDate, today, primaryPowerRange);
   const requestStartDate = minDateIso(startDate, primaryPowerRange.start, comparePowerRange?.start);
   const requestEndDate = maxDateIso(endDate, primaryPowerRange.end, comparePowerRange?.end);
 
@@ -480,6 +502,8 @@ export default function StatisticsPage() {
               {t("Compare with")}
               <select value={comparePowerPeriod} onChange={(event) => setComparePowerPeriod(event.target.value)}>
                 <option value="none">{t("None")}</option>
+                <option value="previous_month">{t("1 month ago")}</option>
+                <option value="previous_year">{t("1 year ago")}</option>
                 <option value="inception">{t("Since inception")}</option>
                 <option value="ytd">{t("Year to date")}</option>
                 <option value="custom">{t("Custom period")}</option>

@@ -2,6 +2,8 @@ import { useAuth } from "../auth/AuthProvider.jsx";
 
 const FR = {
   "All types": "Tous les types",
+  "1 month ago": "Il y a 1 mois",
+  "1 year ago": "Il y a 1 an",
   "Average heart rate": "Frequence cardiaque moyenne",
   "Average power": "Puissance moyenne",
   "Average cadence": "Cadence moyenne",
