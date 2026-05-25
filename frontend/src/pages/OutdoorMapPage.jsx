@@ -429,7 +429,7 @@ export default function OutdoorMapPage() {
         </div>
       </section>
 
-      <section className="stats-summary-grid route-summary-grid">
+      <section className="stats-summary-grid route-summary-grid outdoor-map-summary-grid">
         <span><strong>{filteredLocations.length}</strong>{t("Places")}</span>
         <span><strong>{filteredRoutes.length}</strong>{t("Routes")}</span>
         <span><strong>{payload?.totals?.locations || 0}</strong>{t("Mapped points")}</span>

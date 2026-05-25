@@ -1350,6 +1350,21 @@ select[multiple] {
   font-size: 24px;
 }
 
+.outdoor-map-summary-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.outdoor-map-summary-grid span {
+  min-height: 70px;
+  padding: 10px 12px;
+}
+
+.outdoor-map-summary-grid strong {
+  font-size: 20px;
+  line-height: 1.1;
+}
+
 .route-detail-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
