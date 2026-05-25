@@ -45,7 +45,7 @@ def seed_map_data():
         )
         db.add_all([route, summit, hut, hidden_waypoint])
         db.flush()
-        db.add(
+        db.add_all([
             main.OutdoorRouteLocationRoleModel(
                 entity_type="route",
                 entity_id=route.id,
@@ -54,8 +54,17 @@ def seed_map_data():
                 role="main_objective",
                 created_at=now,
                 updated_at=now,
-            )
-        )
+            ),
+            main.OutdoorRouteLocationRoleModel(
+                entity_type="route",
+                entity_id=route.id,
+                location_entity_type="hut",
+                location_entity_id=hut.id,
+                role="start",
+                created_at=now,
+                updated_at=now,
+            ),
+        ])
         db.commit()
         return route.id
     finally:
@@ -75,6 +84,9 @@ def test_get_outdoor_map_returns_locations_and_route_points(client):
     assert payload["totals"]["routes"] == 1
     assert payload["routes"][0]["route"]["id"] == route_id
     assert payload["routes"][0]["main_objective"]["name"] == "Mont Blanc"
+    assert payload["routes"][0]["map_line"]["type"] == "straight"
+    assert payload["routes"][0]["map_line"]["start"]["name"] == "Gouter Hut"
+    assert payload["routes"][0]["map_line"]["coordinates"] == [[6.829, 45.852], [6.8652, 45.8326]]
     assert payload["bounds"]["min_latitude"] == 45.8326
 
 

@@ -21,7 +21,7 @@ from fastapi import Cookie, Depends, FastAPI, File, Form, Header, HTTPException,
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint, and_, create_engine, event, or_
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint, and_, case, create_engine, event, or_
 from sqlalchemy.orm import object_session, sessionmaker, declarative_base
 
 from app.hangboard import BEASTMAKER_1000, generate_workout, normalize_generator_input, recommend_progression
@@ -2513,6 +2513,44 @@ def serialize_outdoor_route_location_role(db, row: OutdoorRouteLocationRoleModel
         "updated_at": row.updated_at,
     }
 
+def build_outdoor_route_map_line(db, route_id: int, main_objective: dict) -> dict:
+    if main_objective.get("latitude") is None or main_objective.get("longitude") is None:
+        return {}
+    roles = (
+        db.query(OutdoorRouteLocationRoleModel)
+        .filter_by(entity_type="route", entity_id=route_id)
+        .filter(OutdoorRouteLocationRoleModel.role.in_(["start", "approach_start"]))
+        .order_by(
+            case(
+                (OutdoorRouteLocationRoleModel.role == "start", 0),
+                (OutdoorRouteLocationRoleModel.role == "approach_start", 1),
+                else_=2,
+            ),
+            OutdoorRouteLocationRoleModel.order_index.is_(None),
+            OutdoorRouteLocationRoleModel.order_index,
+            OutdoorRouteLocationRoleModel.id,
+        )
+        .all()
+    )
+    for role in roles:
+        start_location = serialize_outdoor_location(
+            get_outdoor_location(db, role.location_entity_type, role.location_entity_id),
+            role.location_entity_type,
+        )
+        if start_location.get("latitude") is None or start_location.get("longitude") is None:
+            continue
+        return {
+            "type": "straight",
+            "start_role": role.role,
+            "start": start_location,
+            "end": main_objective,
+            "coordinates": [
+                [start_location["longitude"], start_location["latitude"]],
+                [main_objective["longitude"], main_objective["latitude"]],
+            ],
+        }
+    return {}
+
 def build_outdoor_route_details(db, route: OutdoorRouteModel) -> dict:
     route_roles = (
         db.query(OutdoorRouteLocationRoleModel)
@@ -2586,6 +2624,7 @@ def build_outdoor_route_list_item(db, route: OutdoorRouteModel) -> dict:
     return {
         "route": serialize_outdoor_route(route),
         "main_objective": main_objective,
+        "map_line": build_outdoor_route_map_line(db, route.id, main_objective),
         "variant_count": variant_count,
         "segment_count": segment_count,
         "location_role_count": location_role_count,

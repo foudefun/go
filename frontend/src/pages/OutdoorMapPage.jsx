@@ -34,6 +34,8 @@ const MAP_STYLE = {
     },
   ],
 };
+const ROUTE_LINE_SOURCE_ID = "outdoor-route-lines";
+const ROUTE_LINE_LAYER_ID = "outdoor-route-lines";
 
 function formatCode(value) {
   return String(value || "").replaceAll("_", " ");
@@ -57,7 +59,58 @@ function formatCoordinate(value) {
   return Number(value).toFixed(5);
 }
 
-function OutdoorMapCanvas({ locations, selectedId, onSelect }) {
+function buildRouteLineFeatureCollection(routeLines) {
+  return {
+    type: "FeatureCollection",
+    features: routeLines.map((line) => ({
+      type: "Feature",
+      properties: {
+        routeId: line.routeId,
+        name: line.name,
+        activityType: line.activityType,
+        difficultyLabel: line.difficultyLabel,
+      },
+      geometry: {
+        type: "LineString",
+        coordinates: line.coordinates,
+      },
+    })),
+  };
+}
+
+function syncRouteLines(map, routeLines) {
+  if (!map.isStyleLoaded()) return false;
+  const data = buildRouteLineFeatureCollection(routeLines);
+  const source = map.getSource(ROUTE_LINE_SOURCE_ID);
+  if (source) {
+    source.setData(data);
+  } else {
+    map.addSource(ROUTE_LINE_SOURCE_ID, {
+      type: "geojson",
+      data,
+    });
+  }
+  if (!map.getLayer(ROUTE_LINE_LAYER_ID)) {
+    map.addLayer({
+      id: ROUTE_LINE_LAYER_ID,
+      type: "line",
+      source: ROUTE_LINE_SOURCE_ID,
+      layout: {
+        "line-cap": "round",
+        "line-join": "round",
+      },
+      paint: {
+        "line-color": "#dc2626",
+        "line-width": 2.5,
+        "line-opacity": 0.78,
+        "line-dasharray": [1.2, 1.2],
+      },
+    });
+  }
+  return true;
+}
+
+function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -75,6 +128,28 @@ function OutdoorMapCanvas({ locations, selectedId, onSelect }) {
     }));
     return locationPoints.filter((point) => point.latitude != null && point.longitude != null);
   }, [locations]);
+  const routeLines = useMemo(
+    () =>
+      routes
+        .map((item) => ({
+          routeId: item.route.id,
+          name: item.route.name,
+          activityType: item.route.activity_type,
+          difficultyLabel: item.route.difficulty_label,
+          coordinates: item.map_line?.coordinates,
+        }))
+        .filter((line) => (
+          Array.isArray(line.coordinates)
+          && line.coordinates.length >= 2
+          && line.coordinates.every((coordinate) => (
+            Array.isArray(coordinate)
+            && coordinate.length >= 2
+            && coordinate[0] != null
+            && coordinate[1] != null
+          ))
+        )),
+    [routes],
+  );
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -100,6 +175,17 @@ function OutdoorMapCanvas({ locations, selectedId, onSelect }) {
 
   useEffect(() => {
     const map = mapRef.current;
+    if (!map) return undefined;
+    const applyRouteLines = () => syncRouteLines(map, routeLines);
+    if (!applyRouteLines()) {
+      map.once("load", applyRouteLines);
+      return () => map.off("load", applyRouteLines);
+    }
+    return undefined;
+  }, [routeLines]);
+
+  useEffect(() => {
+    const map = mapRef.current;
     if (!map) return;
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = points.map((point) => {
@@ -116,17 +202,22 @@ function OutdoorMapCanvas({ locations, selectedId, onSelect }) {
         .setLngLat([Number(point.longitude), Number(point.latitude)])
         .addTo(map);
     });
-    if (points.length) {
-      const bounds = points.reduce(
-        (current, point) => current.extend([Number(point.longitude), Number(point.latitude)]),
+    const routeLineCoordinates = routeLines.flatMap((line) => line.coordinates);
+    const boundsCoordinates = [
+      ...points.map((point) => [Number(point.longitude), Number(point.latitude)]),
+      ...routeLineCoordinates.map((coordinate) => [Number(coordinate[0]), Number(coordinate[1])]),
+    ];
+    if (boundsCoordinates.length) {
+      const bounds = boundsCoordinates.reduce(
+        (current, coordinate) => current.extend(coordinate),
         new maplibregl.LngLatBounds(
-          [Number(points[0].longitude), Number(points[0].latitude)],
-          [Number(points[0].longitude), Number(points[0].latitude)],
+          boundsCoordinates[0],
+          boundsCoordinates[0],
         ),
       );
       map.fitBounds(bounds, { padding: 48, maxZoom: 9, duration: 0 });
     }
-  }, [onSelect, points]);
+  }, [onSelect, points, routeLines]);
 
   useEffect(() => {
     markersRef.current.forEach((marker) => {
@@ -269,6 +360,7 @@ export default function OutdoorMapPage() {
           <div className="app-panel outdoor-map-panel">
             <OutdoorMapCanvas
               locations={filteredLocations}
+              routes={filteredRoutes}
               selectedId={selectedPoint?.id}
               onSelect={setSelectedPoint}
             />
