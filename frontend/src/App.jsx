@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthProvider.jsx";
 import { useTranslation } from "./i18n/translations.js";
@@ -12,10 +13,11 @@ import ExercisesPage from "./pages/ExercisesPage.jsx";
 import HangboardPage from "./pages/HangboardPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import OutdoorRouteDetailPage from "./pages/OutdoorRouteDetailPage.jsx";
-import OutdoorMapPage from "./pages/OutdoorMapPage.jsx";
 import OutdoorRoutesPage from "./pages/OutdoorRoutesPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import StatisticsPage from "./pages/StatisticsPage.jsx";
+
+const OutdoorMapPage = lazy(() => import("./pages/OutdoorMapPage.jsx"));
 
 const tabs = [
   { to: "/calendar", labelKey: "Calendar" },
@@ -67,7 +69,14 @@ function AppLayout() {
         <Route path="/equipment" element={<EquipmentPage />} />
         <Route path="/climbing" element={<ClimbingPage />} />
         <Route path="/outdoor-climbing" element={<OutdoorClimbingPage />} />
-        <Route path="/outdoor-map" element={<OutdoorMapPage />} />
+        <Route
+          path="/outdoor-map"
+          element={
+            <Suspense fallback={<main className="page-shell"><div className="app-panel empty-state">{t("Loading map...")}</div></main>}>
+              <OutdoorMapPage />
+            </Suspense>
+          }
+        />
         <Route path="/outdoor-routes" element={<OutdoorRoutesPage />} />
         <Route path="/outdoor-routes/:routeId" element={<OutdoorRouteDetailPage />} />
         <Route path="/hangboard" element={<HangboardPage />} />

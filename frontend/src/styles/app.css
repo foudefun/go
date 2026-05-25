@@ -1540,77 +1540,64 @@ select[multiple] {
 }
 
 .outdoor-map-canvas {
-  display: block;
   width: 100%;
-  min-height: 420px;
+  min-height: 520px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #eef4f8;
 }
 
-.outdoor-map-canvas rect {
-  fill: #eef4f8;
-}
-
-.map-grid line {
-  stroke: rgba(68, 80, 102, 0.15);
-  stroke-width: 1;
-}
-
-.map-svg-button,
-.outdoor-map-canvas a {
+.outdoor-map-marker {
+  display: block;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(17, 24, 39, 0.28);
   cursor: pointer;
+  padding: 0;
 }
 
-.map-point {
-  stroke: #fff;
-  stroke-width: 2;
+.outdoor-map-marker.location {
+  width: 14px;
+  height: 14px;
+  background: #445066;
 }
 
-.map-point.location {
-  fill: #445066;
+.outdoor-map-marker.location.summit {
+  width: 17px;
+  height: 17px;
+  background: #172033;
 }
 
-.map-point.location.summit {
-  fill: #172033;
+.outdoor-map-marker.location.hut,
+.outdoor-map-marker.location.station {
+  background: #0f766e;
 }
 
-.map-point.location.hut,
-.map-point.location.station {
-  fill: #0f766e;
+.outdoor-map-marker.location.trailhead,
+.outdoor-map-marker.location.parking {
+  background: #2563eb;
 }
 
-.map-point.location.trailhead,
-.map-point.location.parking {
-  fill: #2563eb;
+.outdoor-map-marker.location.pass,
+.outdoor-map-marker.location.waypoint {
+  background: #92400e;
 }
 
-.map-point.location.pass,
-.map-point.location.waypoint {
-  fill: #92400e;
+.outdoor-map-marker.route {
+  width: 24px;
+  height: 24px;
+  border-color: #0f766e;
+  background: rgba(15, 118, 110, 0.34);
 }
 
-.map-point.route {
-  fill: rgba(15, 118, 110, 0.32);
-  stroke: #0f766e;
-  stroke-width: 3;
+.outdoor-map-marker.route.ski_touring {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.34);
 }
 
-.map-point.route.ski_touring {
-  fill: rgba(37, 99, 235, 0.3);
-  stroke: #2563eb;
-}
-
-.map-point.selected {
-  stroke: #dc2626;
-  stroke-width: 4;
-}
-
-.outdoor-map-canvas text {
-  fill: #111827;
-  font-size: 13px;
-  font-weight: 800;
-  paint-order: stroke;
-  pointer-events: none;
-  stroke: rgba(255, 255, 255, 0.85);
-  stroke-width: 4px;
+.outdoor-map-marker.selected {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.22), 0 2px 8px rgba(17, 24, 39, 0.28);
 }
 
 .outdoor-map-selection {

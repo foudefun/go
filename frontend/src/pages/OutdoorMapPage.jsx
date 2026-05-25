@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { getOutdoorMap } from "../api/outdoorRoutesApi.js";
 import { getOutdoorRouteActivityTypeLabel } from "../domain/outdoorRouteDomain.js";
 import { useTranslation } from "../i18n/translations.js";
@@ -15,6 +17,24 @@ const LOCATION_FILTERS = [
   "other_location",
 ];
 const ACTIVITY_FILTERS = ["", "alpinism", "ski_touring", "hiking", "outdoor_climbing"];
+const MAP_STYLE = {
+  version: 8,
+  sources: {
+    osm: {
+      type: "raster",
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "© OpenStreetMap contributors",
+    },
+  },
+  layers: [
+    {
+      id: "osm",
+      type: "raster",
+      source: "osm",
+    },
+  ],
+};
 
 function formatCode(value) {
   return String(value || "").replaceAll("_", " ");
@@ -24,86 +44,92 @@ function isStructuredRoute(item) {
   return Number(item.variant_count || 0) > 0 && Number(item.segment_count || 0) > 0;
 }
 
-function projectPoint(latitude, longitude, bounds) {
-  const minLat = Number(bounds.min_latitude ?? latitude);
-  const maxLat = Number(bounds.max_latitude ?? latitude);
-  const minLon = Number(bounds.min_longitude ?? longitude);
-  const maxLon = Number(bounds.max_longitude ?? longitude);
-  const latSpan = Math.max(0.001, maxLat - minLat);
-  const lonSpan = Math.max(0.001, maxLon - minLon);
-  const padding = 42;
-  const width = 1000 - padding * 2;
-  const height = 620 - padding * 2;
-  return {
-    x: padding + ((longitude - minLon) / lonSpan) * width,
-    y: padding + (1 - (latitude - minLat) / latSpan) * height,
-  };
+function getMarkerClass(point) {
+  if (point.kind === "route") return `outdoor-map-marker route ${point.activityType || ""}`;
+  return `outdoor-map-marker location ${point.kind || ""}`;
 }
 
-function OutdoorMapCanvas({ locations, routes, bounds, selectedId, onSelect }) {
-  const routePoints = routes.map((item) => ({
+function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
+  const containerRef = useRef(null);
+  const mapRef = useRef(null);
+  const markersRef = useRef([]);
+  const points = useMemo(() => {
+    const routePoints = routes.map((item) => ({
     id: `route-${item.route.id}`,
     kind: "route",
     label: item.route.name,
     activityType: item.route.activity_type,
     difficulty: item.route.difficulty_label,
     routeId: item.route.id,
-    ...projectPoint(item.main_objective.latitude, item.main_objective.longitude, bounds),
-  }));
-  const locationPoints = locations.map((item) => ({
-    id: `location-${item.location.location_entity_type}-${item.location.id}`,
-    kind: item.location.location_entity_type,
-    label: item.location.name,
-    elevation: item.location.elevation_meters,
-    routeRoleCount: item.route_role_count,
-    ...projectPoint(item.location.latitude, item.location.longitude, bounds),
-  }));
+      latitude: item.main_objective.latitude,
+      longitude: item.main_objective.longitude,
+    }));
+    const locationPoints = locations.map((item) => ({
+      id: `location-${item.location.location_entity_type}-${item.location.id}`,
+      kind: item.location.location_entity_type,
+      label: item.location.name,
+      elevation: item.location.elevation_meters,
+      routeRoleCount: item.route_role_count,
+      latitude: item.location.latitude,
+      longitude: item.location.longitude,
+    }));
+    return [...locationPoints, ...routePoints].filter((point) => point.latitude != null && point.longitude != null);
+  }, [locations, routes]);
 
-  return (
-    <svg className="outdoor-map-canvas" viewBox="0 0 1000 620" role="img" aria-label="Outdoor route map">
-      <rect x="0" y="0" width="1000" height="620" rx="8" />
-      <g className="map-grid">
-        {[140, 260, 380, 500, 620, 740, 860].map((x) => <line key={`x-${x}`} x1={x} x2={x} y1="42" y2="578" />)}
-        {[120, 220, 320, 420, 520].map((y) => <line key={`y-${y}`} x1="42" x2="958" y1={y} y2={y} />)}
-      </g>
-      <g>
-        {locationPoints.map((point) => (
-          <g
-            key={point.id}
-            className="map-svg-button"
-            onClick={() => onSelect(point)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") onSelect(point);
-            }}
-            role="button"
-            tabIndex="0"
-            aria-label={point.label}
-          >
-            <title>{point.label}</title>
-            <circle className={`map-point location ${point.kind} ${selectedId === point.id ? "selected" : ""}`} cx={point.x} cy={point.y} r={point.kind === "summit" ? 7 : 5} />
-            {selectedId === point.id ? <text x={point.x + 10} y={point.y - 8}>{point.label}</text> : null}
-          </g>
-        ))}
-        {routePoints.map((point) => (
-          <g
-            key={point.id}
-            className="map-svg-button"
-            onClick={() => onSelect(point)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") onSelect(point);
-            }}
-            role="button"
-            tabIndex="0"
-            aria-label={point.label}
-          >
-            <title>{point.label}</title>
-            <circle className={`map-point route ${point.activityType} ${selectedId === point.id ? "selected" : ""}`} cx={point.x} cy={point.y} r="10" />
-            {selectedId === point.id ? <text x={point.x + 12} y={point.y + 4}>{point.difficulty || formatCode(point.activityType)}</text> : null}
-          </g>
-        ))}
-      </g>
-    </svg>
-  );
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+    mapRef.current = new maplibregl.Map({
+      container: containerRef.current,
+      style: MAP_STYLE,
+      center: [7.55, 46.05],
+      zoom: 6.3,
+      attributionControl: { compact: true },
+    });
+    mapRef.current.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+    return () => {
+      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current = [];
+      mapRef.current?.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    markersRef.current.forEach((marker) => marker.remove());
+    markersRef.current = points.map((point) => {
+      const markerElement = document.createElement("button");
+      markerElement.type = "button";
+      markerElement.className = getMarkerClass(point);
+      markerElement.title = point.label;
+      markerElement.setAttribute("aria-label", point.label);
+      markerElement.dataset.pointId = point.id;
+      markerElement.addEventListener("click", () => onSelect(point));
+      return new maplibregl.Marker({ element: markerElement, anchor: "center" })
+        .setLngLat([Number(point.longitude), Number(point.latitude)])
+        .addTo(map);
+    });
+    if (points.length) {
+      const bounds = points.reduce(
+        (current, point) => current.extend([Number(point.longitude), Number(point.latitude)]),
+        new maplibregl.LngLatBounds(
+          [Number(points[0].longitude), Number(points[0].latitude)],
+          [Number(points[0].longitude), Number(points[0].latitude)],
+        ),
+      );
+      map.fitBounds(bounds, { padding: 48, maxZoom: 9, duration: 0 });
+    }
+  }, [onSelect, points]);
+
+  useEffect(() => {
+    markersRef.current.forEach((marker) => {
+      const element = marker.getElement();
+      element.classList.toggle("selected", element.dataset.pointId === selectedId);
+    });
+  }, [selectedId]);
+
+  return <div ref={containerRef} className="outdoor-map-canvas" role="region" aria-label="Outdoor route map" />;
 }
 
 export default function OutdoorMapPage() {
@@ -233,7 +259,6 @@ export default function OutdoorMapPage() {
             <OutdoorMapCanvas
               locations={filteredLocations}
               routes={filteredRoutes}
-              bounds={payload.bounds || {}}
               selectedId={selectedPoint?.id}
               onSelect={setSelectedPoint}
             />
