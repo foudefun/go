@@ -60,6 +60,19 @@ function formatCoordinate(value) {
   return Number(value).toFixed(5);
 }
 
+function parseOptionalNumber(value) {
+  if (String(value || "").trim() === "") return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function formatElevationRange(minimum, maximum, t) {
+  if (minimum == null && maximum == null) return t("All altitudes");
+  if (minimum != null && maximum != null) return `${minimum}-${maximum} m`;
+  if (minimum != null) return `>= ${minimum} m`;
+  return `<= ${maximum} m`;
+}
+
 function buildRouteLineFeatureCollection(routeLines) {
   return {
     type: "FeatureCollection",
@@ -249,6 +262,8 @@ export default function OutdoorMapPage() {
   const [activityType, setActivityType] = useState("");
   const [difficulty, setDifficulty] = useState("");
   const [structuredOnly, setStructuredOnly] = useState(false);
+  const [minimumElevation, setMinimumElevation] = useState("");
+  const [maximumElevation, setMaximumElevation] = useState("");
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [selectedRouteId, setSelectedRouteId] = useState(null);
 
@@ -278,6 +293,18 @@ export default function OutdoorMapPage() {
     () => Array.from(new Set(allRoutes.map((item) => item.route.difficulty_label).filter(Boolean))).sort(),
     [allRoutes],
   );
+  const elevationBounds = useMemo(() => {
+    const elevations = allLocations
+      .map((item) => Number(item.location.elevation_meters))
+      .filter((value) => Number.isFinite(value));
+    if (!elevations.length) return { minimum: null, maximum: null };
+    return {
+      minimum: Math.floor(Math.min(...elevations)),
+      maximum: Math.ceil(Math.max(...elevations)),
+    };
+  }, [allLocations]);
+  const minimumElevationValue = parseOptionalNumber(minimumElevation);
+  const maximumElevationValue = parseOptionalNumber(maximumElevation);
   const filteredRoutes = useMemo(
     () =>
       allRoutes.filter((item) => {
@@ -290,8 +317,14 @@ export default function OutdoorMapPage() {
     [activityType, allRoutes, difficulty, showRoutes, structuredOnly],
   );
   const filteredLocations = useMemo(
-    () => allLocations.filter((item) => locationTypes.has(item.location.location_entity_type)),
-    [allLocations, locationTypes],
+    () => allLocations.filter((item) => {
+      if (!locationTypes.has(item.location.location_entity_type)) return false;
+      const elevation = Number(item.location.elevation_meters);
+      if (minimumElevationValue != null && (!Number.isFinite(elevation) || elevation < minimumElevationValue)) return false;
+      if (maximumElevationValue != null && (!Number.isFinite(elevation) || elevation > maximumElevationValue)) return false;
+      return true;
+    }),
+    [allLocations, locationTypes, maximumElevationValue, minimumElevationValue],
   );
 
   function toggleLocationType(type) {
@@ -343,6 +376,30 @@ export default function OutdoorMapPage() {
             {difficultyOptions.map((value) => <option key={value} value={value}>{value}</option>)}
           </select>
         </label>
+        <label>
+          {t("Min altitude")}
+          <input
+            type="number"
+            inputMode="numeric"
+            min={elevationBounds.minimum ?? undefined}
+            max={elevationBounds.maximum ?? undefined}
+            placeholder={elevationBounds.minimum == null ? "" : String(elevationBounds.minimum)}
+            value={minimumElevation}
+            onChange={(event) => setMinimumElevation(event.target.value)}
+          />
+        </label>
+        <label>
+          {t("Max altitude")}
+          <input
+            type="number"
+            inputMode="numeric"
+            min={elevationBounds.minimum ?? undefined}
+            max={elevationBounds.maximum ?? undefined}
+            placeholder={elevationBounds.maximum == null ? "" : String(elevationBounds.maximum)}
+            value={maximumElevation}
+            onChange={(event) => setMaximumElevation(event.target.value)}
+          />
+        </label>
         <label className="checkbox-label">
           <input type="checkbox" checked={showRoutes} onChange={(event) => setShowRoutes(event.target.checked)} />
           {t("Routes")}
@@ -370,6 +427,7 @@ export default function OutdoorMapPage() {
         <span><strong>{filteredRoutes.length}</strong>{t("Routes")}</span>
         <span><strong>{payload?.totals?.locations || 0}</strong>{t("Mapped points")}</span>
         <span><strong>{difficulty || t("All grades")}</strong>{t("Difficulty")}</span>
+        <span><strong>{formatElevationRange(minimumElevationValue, maximumElevationValue, t)}</strong>{t("Altitude")}</span>
       </section>
 
       {status === "loading" ? <div className="app-panel empty-state">{t("Loading map...")}</div> : null}

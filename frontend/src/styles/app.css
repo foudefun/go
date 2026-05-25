@@ -1493,7 +1493,7 @@ select[multiple] {
 
 .outdoor-map-filters {
   display: grid;
-  grid-template-columns: minmax(150px, 220px) minmax(130px, 180px) auto auto minmax(260px, 1fr);
+  grid-template-columns: minmax(150px, 220px) minmax(130px, 180px) minmax(110px, 140px) minmax(110px, 140px) auto auto minmax(260px, 1fr);
   gap: 12px;
   align-items: end;
   padding: 16px;
