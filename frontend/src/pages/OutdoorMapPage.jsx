@@ -22,9 +22,13 @@ const MAP_STYLE = {
   sources: {
     osm: {
       type: "raster",
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tiles: [
+        "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+        "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+        "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+      ],
       tileSize: 256,
-      attribution: "© OpenStreetMap contributors",
+      attribution: "(c) OpenStreetMap contributors (c) CARTO",
     },
   },
   layers: [
@@ -85,6 +89,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
       zoom: 6.3,
       attributionControl: { compact: true },
     });
+    mapRef.current.once("load", () => mapRef.current?.resize());
     mapRef.current.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
     return () => {
       markersRef.current.forEach((marker) => marker.remove());
@@ -282,3 +287,4 @@ export default function OutdoorMapPage() {
     </main>
   );
 }
+

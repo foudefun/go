@@ -1548,12 +1548,20 @@ select[multiple] {
 }
 
 .outdoor-map-marker {
-  display: block;
+  appearance: none;
+  display: block !important;
+  align-items: initial;
+  justify-content: initial;
+  min-width: 0 !important;
+  min-height: 0 !important;
   border: 2px solid #fff;
   border-radius: 999px;
   box-shadow: 0 2px 8px rgba(17, 24, 39, 0.28);
   cursor: pointer;
-  padding: 0;
+  padding: 0 !important;
+  font-size: 0;
+  font-weight: 400;
+  line-height: 0;
 }
 
 .outdoor-map-marker.location {
