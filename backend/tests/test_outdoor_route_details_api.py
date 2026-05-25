@@ -46,6 +46,7 @@ def seed_route_details():
             name="Standard Gouter Route",
             variant_type="standard",
             route_shape="other",
+            geometry_json='{"type":"LineString","coordinates":[[6.829,45.852],[6.84,45.86],[6.8652,45.8326]]}',
             difficulty_label="PD",
             created_at=now,
             updated_at=now,
@@ -92,6 +93,8 @@ def test_list_outdoor_routes_returns_summary_rows(client):
     assert item["route"]["id"] == route_id
     assert item["route"]["name"] == "Mont Blanc via Gouter Route"
     assert item["main_objective"]["name"] == "Mont Blanc"
+    assert item["map_line"]["type"] == "geometry"
+    assert item["map_line"]["coordinates"] == [[6.829, 45.852], [6.84, 45.86], [6.8652, 45.8326]]
     assert item["variant_count"] == 1
     assert item["segment_count"] == 1
     assert item["location_role_count"] == 1
@@ -126,6 +129,7 @@ def test_get_outdoor_route_details_returns_nested_structure(client):
     assert payload["location_roles"][0]["role"] == "main_objective"
     assert payload["location_roles"][0]["location"]["name"] == "Mont Blanc"
     assert payload["variants"][0]["variant"]["name"] == "Standard Gouter Route"
+    assert payload["variants"][0]["variant"]["geometry"]["type"] == "LineString"
     assert payload["variants"][0]["segments"][0]["segment"]["name"] == "Grand Couloir"
     assert payload["variants"][0]["segments"][0]["source_references"][0]["url"] == "https://example.com/route"
 

@@ -117,6 +117,7 @@ def build_preview(payload: dict) -> tuple[dict | None, list[dict], list[dict], l
             "estimated_duration_minutes": variant.get("estimated_duration_minutes")
             or hours_to_minutes(variant.get("estimated_duration_hours")),
             "route_shape": str(variant.get("route_shape") or "other"),
+            "geometry": backend.normalize_line_string_geometry(variant.get("geometry") or variant.get("geometry_json")),
             "summary": str(variant.get("summary", "") or ""),
             "description": str(variant.get("description", "") or ""),
             "recommended_direction": str(variant.get("recommended_direction", "") or ""),
@@ -127,6 +128,8 @@ def build_preview(payload: dict) -> tuple[dict | None, list[dict], list[dict], l
         }
         if preview["route_shape"] not in backend.OUTDOOR_ROUTE_SHAPES:
             issues.append(f"{label} '{name}': unsupported route_shape '{preview['route_shape']}'")
+        if (variant.get("geometry") or variant.get("geometry_json")) and not preview["geometry"]:
+            issues.append(f"{label} '{name}': geometry must be a GeoJSON LineString or coordinate array")
         variant_previews.append(preview)
         known_variant_names.add(name)
 
@@ -248,6 +251,7 @@ def upsert_variant(db, route_id: int, preview: dict, now: str) -> tuple[str, bac
     row.max_elevation_meters = preview["max_elevation_meters"]
     row.estimated_duration_minutes = preview["estimated_duration_minutes"]
     row.route_shape = preview["route_shape"]
+    row.geometry_json = json.dumps(preview["geometry"], ensure_ascii=False) if preview["geometry"] else ""
     row.summary = preview["summary"]
     row.description = preview["description"]
     row.recommended_direction = preview["recommended_direction"]

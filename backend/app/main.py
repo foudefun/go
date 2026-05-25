@@ -468,6 +468,7 @@ class OutdoorRouteVariantModel(Base):
     max_elevation_meters = Column(Float)
     estimated_duration_minutes = Column(Integer)
     route_shape = Column(String, nullable=False, default="other")
+    geometry_json = Column(Text)
     summary = Column(Text)
     description = Column(Text)
     recommended_direction = Column(String)
@@ -1114,6 +1115,10 @@ def ensure_columns():
             {"username": DEFAULT_USERNAME},
         )
 
+        route_variant_columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(outdoor_route_variants)").fetchall()}
+        if route_variant_columns and "geometry_json" not in route_variant_columns:
+            conn.exec_driver_sql("ALTER TABLE outdoor_route_variants ADD COLUMN geometry_json TEXT")
+
 SQLITE_FOREIGN_KEY_TABLES = {
     "equipment_brands": {
         "columns": "id, name, normalized_name, country_id, year_established, website_url, description, logo_url, is_active, created_at, updated_at, history",
@@ -1563,7 +1568,7 @@ SQLITE_FOREIGN_KEY_TABLES = {
         """,
     },
     "outdoor_route_variants": {
-        "columns": "id, route_id, name, variant_type, distance_km, elevation_gain_meters, elevation_loss_meters, min_elevation_meters, max_elevation_meters, estimated_duration_minutes, route_shape, summary, description, recommended_direction, difficulty_label, exposure_level, commitment_level, created_at, updated_at",
+        "columns": "id, route_id, name, variant_type, distance_km, elevation_gain_meters, elevation_loss_meters, min_elevation_meters, max_elevation_meters, estimated_duration_minutes, route_shape, geometry_json, summary, description, recommended_direction, difficulty_label, exposure_level, commitment_level, created_at, updated_at",
         "foreign_keys": {("route_id", "outdoor_routes", "id", "CASCADE")},
         "create_sql": """
             CREATE TABLE {table} (
@@ -1578,6 +1583,7 @@ SQLITE_FOREIGN_KEY_TABLES = {
                 max_elevation_meters FLOAT,
                 estimated_duration_minutes INTEGER,
                 route_shape VARCHAR NOT NULL DEFAULT 'other',
+                geometry_json TEXT,
                 summary TEXT,
                 description TEXT,
                 recommended_direction VARCHAR,
@@ -2441,6 +2447,37 @@ def serialize_outdoor_route(row: OutdoorRouteModel) -> dict:
         "updated_at": row.updated_at,
     }
 
+def normalize_line_string_geometry(value) -> dict:
+    if not value:
+        return {}
+    raw_value = value
+    if isinstance(raw_value, str):
+        try:
+            raw_value = json.loads(raw_value)
+        except (TypeError, json.JSONDecodeError):
+            return {}
+    coordinates = raw_value.get("coordinates") if isinstance(raw_value, dict) else raw_value
+    if not isinstance(coordinates, list):
+        return {}
+    normalized_coordinates = []
+    for coordinate in coordinates:
+        if not isinstance(coordinate, (list, tuple)) or len(coordinate) < 2:
+            return {}
+        try:
+            longitude = float(coordinate[0])
+            latitude = float(coordinate[1])
+        except (TypeError, ValueError):
+            return {}
+        if not (-180 <= longitude <= 180 and -90 <= latitude <= 90):
+            return {}
+        normalized_coordinates.append([longitude, latitude])
+    if len(normalized_coordinates) < 2:
+        return {}
+    return {
+        "type": "LineString",
+        "coordinates": normalized_coordinates,
+    }
+
 def serialize_outdoor_route_variant(row: OutdoorRouteVariantModel) -> dict:
     return {
         "id": row.id,
@@ -2454,6 +2491,7 @@ def serialize_outdoor_route_variant(row: OutdoorRouteVariantModel) -> dict:
         "max_elevation_meters": row.max_elevation_meters,
         "estimated_duration_minutes": row.estimated_duration_minutes,
         "route_shape": row.route_shape,
+        "geometry": normalize_line_string_geometry(row.geometry_json),
         "summary": row.summary or "",
         "description": row.description or "",
         "recommended_direction": row.recommended_direction or "",
@@ -2514,6 +2552,21 @@ def serialize_outdoor_route_location_role(db, row: OutdoorRouteLocationRoleModel
     }
 
 def build_outdoor_route_map_line(db, route_id: int, main_objective: dict) -> dict:
+    variants = (
+        db.query(OutdoorRouteVariantModel)
+        .filter_by(route_id=route_id)
+        .order_by(OutdoorRouteVariantModel.id)
+        .all()
+    )
+    for variant in variants:
+        geometry = normalize_line_string_geometry(variant.geometry_json)
+        if geometry:
+            return {
+                "type": "geometry",
+                "variant_id": variant.id,
+                "variant_name": variant.name,
+                "coordinates": geometry["coordinates"],
+            }
     if main_objective.get("latitude") is None or main_objective.get("longitude") is None:
         return {}
     roles = (

@@ -48,6 +48,10 @@ def write_details(path):
                         "variant_type": "standard",
                         "difficulty_label": "PD",
                         "estimated_duration_hours": 2.5,
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": [[6.829, 45.852], [6.8652, 45.8326]],
+                        },
                         "source_references": [],
                     }
                 ],
@@ -132,6 +136,7 @@ def test_import_details_apply_upserts_variants_segments_and_roles(tmp_path, clie
         assert len(variants) == 1
         assert variants[0].variant_type == "standard"
         assert variants[0].estimated_duration_minutes == 150
+        assert json.loads(variants[0].geometry_json)["coordinates"] == [[6.829, 45.852], [6.8652, 45.8326]]
         segments = db.query(main.OutdoorRouteSegmentModel).filter_by(route_variant_id=variants[0].id).all()
         assert len(segments) == 1
         assert segments[0].segment_type == "hazard_crossing"

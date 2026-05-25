@@ -46,7 +46,7 @@ def test_phase_2_outdoor_route_table_columns():
         "created_at",
         "updated_at",
     }.issubset(sqlite_columns("outdoor_routes"))
-    assert {"route_id", "variant_type", "route_shape"}.issubset(sqlite_columns("outdoor_route_variants"))
+    assert {"route_id", "variant_type", "route_shape", "geometry_json"}.issubset(sqlite_columns("outdoor_route_variants"))
     assert {"route_variant_id", "order_index", "segment_type"}.issubset(sqlite_columns("outdoor_route_segments"))
     assert {"entity_type", "location_entity_type", "role"}.issubset(sqlite_columns("outdoor_route_location_roles"))
     assert {"entity_type", "source_type", "url"}.issubset(sqlite_columns("outdoor_source_references"))
