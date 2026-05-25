@@ -67,6 +67,74 @@ function formatElevationRange(minimum, maximum, t) {
   return `${minimum}-${maximum} m`;
 }
 
+function escapeXml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+}
+
+function filenameSlug(value) {
+  return String(value || "summit")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    || "summit";
+}
+
+function downloadTextFile(filename, mimeType, content) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function buildPointGeoJson(point) {
+  return JSON.stringify(
+    {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: {
+            type: "Point",
+            coordinates: [Number(point.longitude), Number(point.latitude)],
+          },
+          properties: {
+            name: point.label,
+            type: point.kind,
+            elevation_meters: point.elevation,
+            coordinate_status: point.coordinateStatus,
+          },
+        },
+      ],
+    },
+    null,
+    2,
+  );
+}
+
+function buildPointGpx(point) {
+  const elevation = point.elevation != null ? `\n    <ele>${Number(point.elevation)}</ele>` : "";
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Let's GO" xmlns="http://www.topografix.com/GPX/1/1">
+  <wpt lat="${Number(point.latitude)}" lon="${Number(point.longitude)}">${elevation}
+    <name>${escapeXml(point.label)}</name>
+    <type>${escapeXml(point.kind)}</type>
+  </wpt>
+</gpx>
+`;
+}
+
 function buildRouteLineFeatureCollection(routeLines) {
   return {
     type: "FeatureCollection",
@@ -341,6 +409,16 @@ export default function OutdoorMapPage() {
     setAltitudeRange([altitudeRange[0], nextMaximum]);
   }
 
+  function exportSelectedPoint(format) {
+    if (!selectedPoint || selectedPoint.latitude == null || selectedPoint.longitude == null) return;
+    const slug = filenameSlug(selectedPoint.label);
+    if (format === "geojson") {
+      downloadTextFile(`${slug}.geojson`, "application/geo+json;charset=utf-8", buildPointGeoJson(selectedPoint));
+    } else if (format === "gpx") {
+      downloadTextFile(`${slug}.gpx`, "application/gpx+xml;charset=utf-8", buildPointGpx(selectedPoint));
+    }
+  }
+
   const altitudeMinPercent = (minimumElevationValue / ALTITUDE_MAX) * 100;
   const altitudeMaxPercent = (maximumElevationValue / ALTITUDE_MAX) * 100;
 
@@ -462,6 +540,12 @@ export default function OutdoorMapPage() {
                 ) : null}
                 {selectedPoint.coordinateStatus ? <small>{formatCode(selectedPoint.coordinateStatus)} coordinates</small> : null}
                 {selectedPoint.routeRoleCount ? <small>{selectedPoint.routeRoleCount} {t("route links")}</small> : null}
+                {selectedPoint.latitude != null && selectedPoint.longitude != null ? (
+                  <div className="outdoor-map-export-actions">
+                    <button type="button" onClick={() => exportSelectedPoint("geojson")}>{t("Export GeoJSON")}</button>
+                    <button type="button" onClick={() => exportSelectedPoint("gpx")}>{t("Export GPX")}</button>
+                  </div>
+                ) : null}
                 {selectedPoint.linkedRoutes?.length ? (
                   <div className="outdoor-map-linked-routes">
                     {selectedPoint.linkedRoutes.map((item) => (

@@ -1808,6 +1808,18 @@ select[multiple] {
   color: #667085;
 }
 
+.outdoor-map-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.outdoor-map-export-actions button {
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
 .outdoor-map-linked-routes {
   display: grid;
   gap: 8px;

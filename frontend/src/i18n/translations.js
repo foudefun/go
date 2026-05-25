@@ -361,6 +361,8 @@ const FR = {
   "Loading map...": "Chargement de la carte...",
   "Open route": "Ouvrir l'itineraire",
   "Show on map": "Afficher sur la carte",
+  "Export GeoJSON": "Exporter GeoJSON",
+  "Export GPX": "Exporter GPX",
   "route links": "liens d'itineraire",
   "Route library": "Bibliotheque d'itineraires",
   "Browse imported alpine routes, variants, and structured segments.": "Parcourez les itineraires alpins importes, les variantes et les segments structures.",
