@@ -80,7 +80,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
       latitude: item.location.latitude,
       longitude: item.location.longitude,
     }));
-    return [...locationPoints, ...routePoints].filter((point) => point.latitude != null && point.longitude != null);
+    return [...routePoints, ...locationPoints].filter((point) => point.latitude != null && point.longitude != null);
   }, [locations, routes]);
 
   useEffect(() => {
@@ -117,6 +117,8 @@ function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
       markerElement.title = point.label;
       markerElement.setAttribute("aria-label", point.label);
       markerElement.dataset.pointId = point.id;
+      markerElement.style.zIndex = point.kind === "route" ? "1" : "2";
+      if (point.kind === "summit") markerElement.style.zIndex = "3";
       markerElement.addEventListener("click", () => onSelect(point));
       return new maplibregl.Marker({ element: markerElement, anchor: "center" })
         .setLngLat([Number(point.longitude), Number(point.latitude)])
