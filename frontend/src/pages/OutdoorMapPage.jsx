@@ -17,6 +17,8 @@ const LOCATION_FILTERS = [
   "other_location",
 ];
 const ACTIVITY_FILTERS = ["", "alpinism", "ski_touring", "hiking", "outdoor_climbing"];
+const ALTITUDE_MIN = 0;
+const ALTITUDE_MAX = 5000;
 const MAP_STYLE = {
   version: 8,
   sources: {
@@ -60,17 +62,9 @@ function formatCoordinate(value) {
   return Number(value).toFixed(5);
 }
 
-function parseOptionalNumber(value) {
-  if (String(value || "").trim() === "") return null;
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : null;
-}
-
 function formatElevationRange(minimum, maximum, t) {
-  if (minimum == null && maximum == null) return t("All altitudes");
-  if (minimum != null && maximum != null) return `${minimum}-${maximum} m`;
-  if (minimum != null) return `>= ${minimum} m`;
-  return `<= ${maximum} m`;
+  if (minimum === ALTITUDE_MIN && maximum === ALTITUDE_MAX) return t("All altitudes");
+  return `${minimum}-${maximum} m`;
 }
 
 function buildRouteLineFeatureCollection(routeLines) {
@@ -262,8 +256,7 @@ export default function OutdoorMapPage() {
   const [activityType, setActivityType] = useState("");
   const [difficulty, setDifficulty] = useState("");
   const [structuredOnly, setStructuredOnly] = useState(false);
-  const [minimumElevation, setMinimumElevation] = useState("");
-  const [maximumElevation, setMaximumElevation] = useState("");
+  const [altitudeRange, setAltitudeRange] = useState([ALTITUDE_MIN, ALTITUDE_MAX]);
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [selectedRouteId, setSelectedRouteId] = useState(null);
 
@@ -293,18 +286,7 @@ export default function OutdoorMapPage() {
     () => Array.from(new Set(allRoutes.map((item) => item.route.difficulty_label).filter(Boolean))).sort(),
     [allRoutes],
   );
-  const elevationBounds = useMemo(() => {
-    const elevations = allLocations
-      .map((item) => Number(item.location.elevation_meters))
-      .filter((value) => Number.isFinite(value));
-    if (!elevations.length) return { minimum: null, maximum: null };
-    return {
-      minimum: Math.floor(Math.min(...elevations)),
-      maximum: Math.ceil(Math.max(...elevations)),
-    };
-  }, [allLocations]);
-  const minimumElevationValue = parseOptionalNumber(minimumElevation);
-  const maximumElevationValue = parseOptionalNumber(maximumElevation);
+  const [minimumElevationValue, maximumElevationValue] = altitudeRange;
   const filteredRoutes = useMemo(
     () =>
       allRoutes.filter((item) => {
@@ -320,8 +302,8 @@ export default function OutdoorMapPage() {
     () => allLocations.filter((item) => {
       if (!locationTypes.has(item.location.location_entity_type)) return false;
       const elevation = Number(item.location.elevation_meters);
-      if (minimumElevationValue != null && (!Number.isFinite(elevation) || elevation < minimumElevationValue)) return false;
-      if (maximumElevationValue != null && (!Number.isFinite(elevation) || elevation > maximumElevationValue)) return false;
+      if (!Number.isFinite(elevation)) return false;
+      if (elevation < minimumElevationValue || elevation > maximumElevationValue) return false;
       return true;
     }),
     [allLocations, locationTypes, maximumElevationValue, minimumElevationValue],
@@ -348,6 +330,19 @@ export default function OutdoorMapPage() {
     setDifficulty("");
     setStructuredOnly(false);
   }
+
+  function updateMinimumAltitude(value) {
+    const nextMinimum = Math.min(Number(value), altitudeRange[1]);
+    setAltitudeRange([nextMinimum, altitudeRange[1]]);
+  }
+
+  function updateMaximumAltitude(value) {
+    const nextMaximum = Math.max(Number(value), altitudeRange[0]);
+    setAltitudeRange([altitudeRange[0], nextMaximum]);
+  }
+
+  const altitudeMinPercent = (minimumElevationValue / ALTITUDE_MAX) * 100;
+  const altitudeMaxPercent = (maximumElevationValue / ALTITUDE_MAX) * 100;
 
   return (
     <main className="page-shell outdoor-map-page">
@@ -376,30 +371,42 @@ export default function OutdoorMapPage() {
             {difficultyOptions.map((value) => <option key={value} value={value}>{value}</option>)}
           </select>
         </label>
-        <label>
-          {t("Min altitude")}
-          <input
-            type="number"
-            inputMode="numeric"
-            min={elevationBounds.minimum ?? undefined}
-            max={elevationBounds.maximum ?? undefined}
-            placeholder={elevationBounds.minimum == null ? "" : String(elevationBounds.minimum)}
-            value={minimumElevation}
-            onChange={(event) => setMinimumElevation(event.target.value)}
-          />
-        </label>
-        <label>
-          {t("Max altitude")}
-          <input
-            type="number"
-            inputMode="numeric"
-            min={elevationBounds.minimum ?? undefined}
-            max={elevationBounds.maximum ?? undefined}
-            placeholder={elevationBounds.maximum == null ? "" : String(elevationBounds.maximum)}
-            value={maximumElevation}
-            onChange={(event) => setMaximumElevation(event.target.value)}
-          />
-        </label>
+        <div className="altitude-range-filter">
+          <div className="altitude-range-header">
+            <span>{t("Altitude")}</span>
+            <strong>{minimumElevationValue} m - {maximumElevationValue} m</strong>
+          </div>
+          <div
+            className="altitude-range-slider"
+            style={{
+              "--altitude-min": `${altitudeMinPercent}%`,
+              "--altitude-max": `${altitudeMaxPercent}%`,
+            }}
+          >
+            <input
+              type="range"
+              min={ALTITUDE_MIN}
+              max={ALTITUDE_MAX}
+              step="50"
+              value={minimumElevationValue}
+              aria-label={t("Min altitude")}
+              onChange={(event) => updateMinimumAltitude(event.target.value)}
+            />
+            <input
+              type="range"
+              min={ALTITUDE_MIN}
+              max={ALTITUDE_MAX}
+              step="50"
+              value={maximumElevationValue}
+              aria-label={t("Max altitude")}
+              onChange={(event) => updateMaximumAltitude(event.target.value)}
+            />
+          </div>
+          <div className="altitude-range-scale">
+            <span>0 m</span>
+            <span>5000 m</span>
+          </div>
+        </div>
         <label className="checkbox-label">
           <input type="checkbox" checked={showRoutes} onChange={(event) => setShowRoutes(event.target.checked)} />
           {t("Routes")}

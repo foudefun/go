@@ -1493,10 +1493,108 @@ select[multiple] {
 
 .outdoor-map-filters {
   display: grid;
-  grid-template-columns: minmax(150px, 220px) minmax(130px, 180px) minmax(110px, 140px) minmax(110px, 140px) auto auto minmax(260px, 1fr);
+  grid-template-columns: minmax(150px, 220px) minmax(130px, 180px) minmax(240px, 320px) auto auto minmax(260px, 1fr);
   gap: 12px;
   align-items: end;
   padding: 16px;
+}
+
+.altitude-range-filter {
+  display: grid;
+  gap: 8px;
+}
+
+.altitude-range-header,
+.altitude-range-scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.altitude-range-header span {
+  color: #344054;
+  font-weight: 800;
+}
+
+.altitude-range-header strong,
+.altitude-range-scale {
+  color: #667085;
+  font-size: 13px;
+}
+
+.altitude-range-slider {
+  --altitude-min: 0%;
+  --altitude-max: 100%;
+  position: relative;
+  height: 32px;
+}
+
+.altitude-range-slider::before,
+.altitude-range-slider::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 14px;
+  height: 4px;
+  border-radius: 999px;
+}
+
+.altitude-range-slider::before {
+  background: #d8e1ef;
+}
+
+.altitude-range-slider::after {
+  left: var(--altitude-min);
+  right: calc(100% - var(--altitude-max));
+  background: #0f766e;
+}
+
+.altitude-range-slider input[type="range"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 32px;
+  min-height: 32px;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.altitude-range-slider input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: transparent;
+}
+
+.altitude-range-slider input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: transparent;
+}
+
+.altitude-range-slider input[type="range"]::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  margin-top: -7px;
+  border: 3px solid #0f766e;
+  border-radius: 50%;
+  appearance: none;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(17, 24, 39, 0.22);
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.altitude-range-slider input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 3px solid #0f766e;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(17, 24, 39, 0.22);
+  cursor: grab;
+  pointer-events: auto;
 }
 
 .checkbox-label {
