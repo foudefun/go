@@ -1568,6 +1568,7 @@ select[multiple] {
 
 .outdoor-map-marker {
   appearance: none;
+  position: relative;
   display: block !important;
   align-items: initial;
   justify-content: initial;
@@ -1590,9 +1591,37 @@ select[multiple] {
 }
 
 .outdoor-map-marker.location.summit {
-  width: 17px;
-  height: 17px;
-  background: #172033;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.outdoor-map-marker.location.summit::before,
+.outdoor-map-marker.location.summit::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transform: translate(-50%, -50%);
+}
+
+.outdoor-map-marker.location.summit::before {
+  z-index: 1;
+  border-right: 7px solid transparent;
+  border-bottom: 14px solid #172033;
+  border-left: 7px solid transparent;
+  filter: drop-shadow(0 2px 4px rgba(17, 24, 39, 0.34));
+}
+
+.outdoor-map-marker.location.summit::after {
+  border-right: 9px solid transparent;
+  border-bottom: 18px solid #fff;
+  border-left: 9px solid transparent;
 }
 
 .outdoor-map-marker.location.hut,
@@ -1625,6 +1654,14 @@ select[multiple] {
 .outdoor-map-marker.selected {
   border-color: #dc2626;
   box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.22), 0 2px 8px rgba(17, 24, 39, 0.28);
+}
+
+.outdoor-map-marker.location.summit.selected {
+  box-shadow: none;
+}
+
+.outdoor-map-marker.location.summit.selected::after {
+  border-bottom-color: #dc2626;
 }
 
 .outdoor-map-selection {
