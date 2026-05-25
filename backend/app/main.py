@@ -2657,8 +2657,8 @@ def get_outdoor_route_ids_matching_location_search(db, usernames: list[str], sea
 def build_outdoor_map_location_item(db, usernames: list[str], row, location_entity_type: str) -> dict | None:
     if row.latitude is None or row.longitude is None:
         return None
-    role_count = (
-        db.query(OutdoorRouteLocationRoleModel)
+    role_rows = (
+        db.query(OutdoorRouteLocationRoleModel, OutdoorRouteModel)
         .join(
             OutdoorRouteModel,
             and_(
@@ -2671,11 +2671,25 @@ def build_outdoor_map_location_item(db, usernames: list[str], row, location_enti
             OutdoorRouteLocationRoleModel.location_entity_type == location_entity_type,
             OutdoorRouteLocationRoleModel.location_entity_id == row.id,
         )
-        .count()
+        .order_by(OutdoorRouteModel.name, OutdoorRouteLocationRoleModel.id)
+        .all()
     )
+    linked_routes = []
+    seen_route_ids = set()
+    for role, route in role_rows:
+        if route.id in seen_route_ids:
+            continue
+        seen_route_ids.add(route.id)
+        linked_routes.append(
+            {
+                "role": role.role,
+                "route": serialize_outdoor_route(route),
+            }
+        )
     return {
         "location": serialize_outdoor_location(row, location_entity_type),
-        "route_role_count": role_count,
+        "route_role_count": len(role_rows),
+        "linked_routes": linked_routes,
     }
 
 def build_outdoor_map_payload(db, username: str) -> dict:

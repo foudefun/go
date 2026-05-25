@@ -88,6 +88,10 @@ def test_get_outdoor_map_returns_locations_and_route_points(client):
     assert payload["routes"][0]["map_line"]["start"]["name"] == "Gouter Hut"
     assert payload["routes"][0]["map_line"]["coordinates"] == [[6.829, 45.852], [6.8652, 45.8326]]
     assert payload["bounds"]["min_latitude"] == 45.8326
+    summit_item = next(item for item in payload["locations"] if item["location"]["name"] == "Mont Blanc")
+    assert summit_item["route_role_count"] == 1
+    assert summit_item["linked_routes"][0]["route"]["id"] == route_id
+    assert summit_item["linked_routes"][0]["role"] == "main_objective"
 
 
 def test_get_outdoor_map_includes_admin_library_for_members(non_admin_client):

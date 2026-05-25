@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { getOutdoorMap } from "../api/outdoorRoutesApi.js";
@@ -69,6 +70,7 @@ function buildRouteLineFeatureCollection(routeLines) {
         name: line.name,
         activityType: line.activityType,
         difficultyLabel: line.difficultyLabel,
+        selected: line.selected,
       },
       geometry: {
         type: "LineString",
@@ -100,8 +102,8 @@ function syncRouteLines(map, routeLines) {
         "line-join": "round",
       },
       paint: {
-        "line-color": "#dc2626",
-        "line-width": 2.5,
+        "line-color": ["case", ["boolean", ["get", "selected"], false], "#dc2626", "#0f766e"],
+        "line-width": ["case", ["boolean", ["get", "selected"], false], 4.5, 2.5],
         "line-opacity": 0.78,
         "line-dasharray": [1.2, 1.2],
       },
@@ -110,7 +112,7 @@ function syncRouteLines(map, routeLines) {
   return true;
 }
 
-function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
+function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSelect }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -123,6 +125,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
       elevation: item.location.elevation_meters,
       coordinateStatus: item.location.coordinate_status,
       routeRoleCount: item.route_role_count,
+      linkedRoutes: item.linked_routes || [],
       latitude: item.location.latitude,
       longitude: item.location.longitude,
     }));
@@ -137,6 +140,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
           activityType: item.route.activity_type,
           difficultyLabel: item.route.difficulty_label,
           coordinates: item.map_line?.coordinates,
+          selected: item.route.id === selectedRouteId,
         }))
         .filter((line) => (
           Array.isArray(line.coordinates)
@@ -148,7 +152,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
             && coordinate[1] != null
           ))
         )),
-    [routes],
+    [routes, selectedRouteId],
   );
 
   useEffect(() => {
@@ -202,9 +206,10 @@ function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
         .setLngLat([Number(point.longitude), Number(point.latitude)])
         .addTo(map);
     });
-    const routeLineCoordinates = routeLines.flatMap((line) => line.coordinates);
+    const selectedRouteLine = routeLines.find((line) => line.routeId === selectedRouteId);
+    const routeLineCoordinates = selectedRouteLine?.coordinates || routeLines.flatMap((line) => line.coordinates);
     const boundsCoordinates = [
-      ...points.map((point) => [Number(point.longitude), Number(point.latitude)]),
+      ...(selectedRouteLine ? [] : points.map((point) => [Number(point.longitude), Number(point.latitude)])),
       ...routeLineCoordinates.map((coordinate) => [Number(coordinate[0]), Number(coordinate[1])]),
     ];
     if (boundsCoordinates.length) {
@@ -217,7 +222,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
       );
       map.fitBounds(bounds, { padding: 48, maxZoom: 9, duration: 0 });
     }
-  }, [onSelect, points, routeLines]);
+  }, [onSelect, points, routeLines, selectedRouteId]);
 
   useEffect(() => {
     markersRef.current.forEach((marker) => {
@@ -245,6 +250,7 @@ export default function OutdoorMapPage() {
   const [difficulty, setDifficulty] = useState("");
   const [structuredOnly, setStructuredOnly] = useState(false);
   const [selectedPoint, setSelectedPoint] = useState(null);
+  const [selectedRouteId, setSelectedRouteId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -295,6 +301,19 @@ export default function OutdoorMapPage() {
       else next.add(type);
       return next;
     });
+  }
+
+  function selectPoint(point) {
+    setSelectedPoint(point);
+    setSelectedRouteId(null);
+  }
+
+  function showLinkedRoute(routeId) {
+    setSelectedRouteId(routeId);
+    setShowRoutes(true);
+    setActivityType("");
+    setDifficulty("");
+    setStructuredOnly(false);
   }
 
   return (
@@ -362,7 +381,8 @@ export default function OutdoorMapPage() {
               locations={filteredLocations}
               routes={filteredRoutes}
               selectedId={selectedPoint?.id}
-              onSelect={setSelectedPoint}
+              selectedRouteId={selectedRouteId}
+              onSelect={selectPoint}
             />
           </div>
           <aside className="app-panel outdoor-map-selection">
@@ -377,6 +397,22 @@ export default function OutdoorMapPage() {
                 ) : null}
                 {selectedPoint.coordinateStatus ? <small>{formatCode(selectedPoint.coordinateStatus)} coordinates</small> : null}
                 {selectedPoint.routeRoleCount ? <small>{selectedPoint.routeRoleCount} {t("route links")}</small> : null}
+                {selectedPoint.linkedRoutes?.length ? (
+                  <div className="outdoor-map-linked-routes">
+                    {selectedPoint.linkedRoutes.map((item) => (
+                      <div
+                        key={`${item.route.id}-${item.role}`}
+                        className={selectedRouteId === item.route.id ? "selected" : ""}
+                      >
+                        <Link to={`/outdoor-routes/${item.route.id}`}>{item.route.name}</Link>
+                        <small>{formatCode(item.role)}{item.route.difficulty_label ? ` · ${item.route.difficulty_label}` : ""}</small>
+                        <button type="button" onClick={() => showLinkedRoute(item.route.id)}>
+                          {t("Show on map")}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </>
             ) : (
               <p>{t("Select a point on the map.")}</p>

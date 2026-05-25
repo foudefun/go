@@ -1695,6 +1695,42 @@ select[multiple] {
   color: #667085;
 }
 
+.outdoor-map-linked-routes {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.outdoor-map-linked-routes > div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #d8e1ef;
+  border-radius: 8px;
+  padding: 9px;
+}
+
+.outdoor-map-linked-routes > div.selected {
+  border-color: #dc2626;
+  background: #fff7f7;
+}
+
+.outdoor-map-linked-routes a {
+  color: #0f172a;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.outdoor-map-linked-routes a:hover {
+  text-decoration: underline;
+}
+
+.outdoor-map-linked-routes button {
+  min-height: 32px;
+  width: fit-content;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
 .button-link {
   display: inline-flex;
   align-items: center;
