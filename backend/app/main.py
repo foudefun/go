@@ -21,7 +21,7 @@ from fastapi import Cookie, Depends, FastAPI, File, Form, Header, HTTPException,
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine, event, or_
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint, and_, create_engine, event, or_
 from sqlalchemy.orm import object_session, sessionmaker, declarative_base
 
 from app.hangboard import BEASTMAKER_1000, generate_workout, normalize_generator_input, recommend_progression
@@ -2608,6 +2608,77 @@ def get_outdoor_route_ids_matching_location_search(db, username: str, search_tex
         )
         route_ids.update(row.entity_id for row in role_rows)
     return route_ids
+
+def build_outdoor_map_location_item(db, username: str, row, location_entity_type: str) -> dict | None:
+    if row.latitude is None or row.longitude is None:
+        return None
+    role_count = (
+        db.query(OutdoorRouteLocationRoleModel)
+        .join(
+            OutdoorRouteModel,
+            and_(
+                OutdoorRouteLocationRoleModel.entity_type == "route",
+                OutdoorRouteLocationRoleModel.entity_id == OutdoorRouteModel.id,
+            ),
+        )
+        .filter(OutdoorRouteModel.username == username)
+        .filter(
+            OutdoorRouteLocationRoleModel.location_entity_type == location_entity_type,
+            OutdoorRouteLocationRoleModel.location_entity_id == row.id,
+        )
+        .count()
+    )
+    return {
+        "location": serialize_outdoor_location(row, location_entity_type),
+        "route_role_count": role_count,
+    }
+
+def build_outdoor_map_payload(db, username: str) -> dict:
+    locations = []
+    for location_entity_type, model in OUTDOOR_LOCATION_MODEL_BY_TYPE.items():
+        rows = (
+            db.query(model)
+            .filter(model.username == username)
+            .filter(model.latitude.isnot(None), model.longitude.isnot(None))
+            .order_by(model.name)
+            .all()
+        )
+        for row in rows:
+            item = build_outdoor_map_location_item(db, username, row, location_entity_type)
+            if item:
+                locations.append(item)
+    routes = [
+        item
+        for item in (
+            build_outdoor_route_list_item(db, route)
+            for route in db.query(OutdoorRouteModel).filter_by(username=username).order_by(OutdoorRouteModel.name).all()
+        )
+        if item.get("main_objective", {}).get("latitude") is not None
+        and item.get("main_objective", {}).get("longitude") is not None
+    ]
+    bounds_points = [
+        (item["location"]["latitude"], item["location"]["longitude"])
+        for item in locations
+    ]
+    bounds = {}
+    if bounds_points:
+        latitudes = [point[0] for point in bounds_points]
+        longitudes = [point[1] for point in bounds_points]
+        bounds = {
+            "min_latitude": min(latitudes),
+            "max_latitude": max(latitudes),
+            "min_longitude": min(longitudes),
+            "max_longitude": max(longitudes),
+        }
+    return {
+        "locations": locations,
+        "routes": routes,
+        "bounds": bounds,
+        "totals": {
+            "locations": len(locations),
+            "routes": len(routes),
+        },
+    }
 
 class NormalizedCoordinate(BaseModel):
     x: float = Field(ge=0, le=1)
@@ -6705,6 +6776,14 @@ def list_outdoor_routes(
             "routes": [build_outdoor_route_list_item(db, row) for row in rows],
             "total": len(rows),
         }
+    finally:
+        db.close()
+
+@app.get("/api/outdoor-map")
+def get_outdoor_map(current_user: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        return build_outdoor_map_payload(db, current_user.username)
     finally:
         db.close()
 

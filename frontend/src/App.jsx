@@ -12,6 +12,7 @@ import ExercisesPage from "./pages/ExercisesPage.jsx";
 import HangboardPage from "./pages/HangboardPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import OutdoorRouteDetailPage from "./pages/OutdoorRouteDetailPage.jsx";
+import OutdoorMapPage from "./pages/OutdoorMapPage.jsx";
 import OutdoorRoutesPage from "./pages/OutdoorRoutesPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import StatisticsPage from "./pages/StatisticsPage.jsx";
@@ -23,6 +24,7 @@ const tabs = [
   { to: "/exercises", labelKey: "Exercises" },
   { to: "/equipment", labelKey: "Equipment" },
   { to: "/climbing", labelKey: "Climbing" },
+  { to: "/outdoor-map", labelKey: "Outdoor map" },
   { to: "/outdoor-routes", labelKey: "Outdoor routes" },
   { to: "/account", labelKey: "Account" },
 ];
@@ -65,6 +67,7 @@ function AppLayout() {
         <Route path="/equipment" element={<EquipmentPage />} />
         <Route path="/climbing" element={<ClimbingPage />} />
         <Route path="/outdoor-climbing" element={<OutdoorClimbingPage />} />
+        <Route path="/outdoor-map" element={<OutdoorMapPage />} />
         <Route path="/outdoor-routes" element={<OutdoorRoutesPage />} />
         <Route path="/outdoor-routes/:routeId" element={<OutdoorRouteDetailPage />} />
         <Route path="/hangboard" element={<HangboardPage />} />

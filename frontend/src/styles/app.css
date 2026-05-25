@@ -1482,8 +1482,171 @@ select[multiple] {
   color: #111827;
 }
 
+.outdoor-map-page {
+  display: grid;
+  gap: 18px;
+}
+
+.outdoor-map-header {
+  margin-bottom: 0;
+}
+
+.outdoor-map-filters {
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) minmax(130px, 180px) auto auto minmax(260px, 1fr);
+  gap: 12px;
+  align-items: end;
+  padding: 16px;
+}
+
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.checkbox-label input {
+  width: auto;
+  min-height: 0;
+}
+
+.location-filter-set {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.location-filter-set button {
+  min-height: 36px;
+  padding: 7px 10px;
+}
+
+.location-filter-set button.active {
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #fff;
+}
+
+.outdoor-map-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  gap: 18px;
+  align-items: start;
+}
+
+.outdoor-map-panel,
+.outdoor-map-selection {
+  padding: 14px;
+}
+
+.outdoor-map-canvas {
+  display: block;
+  width: 100%;
+  min-height: 420px;
+}
+
+.outdoor-map-canvas rect {
+  fill: #eef4f8;
+}
+
+.map-grid line {
+  stroke: rgba(68, 80, 102, 0.15);
+  stroke-width: 1;
+}
+
+.map-svg-button,
+.outdoor-map-canvas a {
+  cursor: pointer;
+}
+
+.map-point {
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.map-point.location {
+  fill: #445066;
+}
+
+.map-point.location.summit {
+  fill: #172033;
+}
+
+.map-point.location.hut,
+.map-point.location.station {
+  fill: #0f766e;
+}
+
+.map-point.location.trailhead,
+.map-point.location.parking {
+  fill: #2563eb;
+}
+
+.map-point.location.pass,
+.map-point.location.waypoint {
+  fill: #92400e;
+}
+
+.map-point.route {
+  fill: rgba(15, 118, 110, 0.32);
+  stroke: #0f766e;
+  stroke-width: 3;
+}
+
+.map-point.route.ski_touring {
+  fill: rgba(37, 99, 235, 0.3);
+  stroke: #2563eb;
+}
+
+.map-point.selected {
+  stroke: #dc2626;
+  stroke-width: 4;
+}
+
+.outdoor-map-canvas text {
+  fill: #111827;
+  font-size: 13px;
+  font-weight: 800;
+  paint-order: stroke;
+  pointer-events: none;
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 4px;
+}
+
+.outdoor-map-selection {
+  display: grid;
+  gap: 8px;
+}
+
+.outdoor-map-selection h2,
+.outdoor-map-selection p {
+  margin: 0;
+}
+
+.outdoor-map-selection span,
+.outdoor-map-selection small {
+  color: #667085;
+}
+
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  width: fit-content;
+  border: 1px solid #0f766e;
+  border-radius: 8px;
+  background: #0f766e;
+  color: #fff;
+  font-weight: 800;
+  padding: 8px 12px;
+  text-decoration: none;
+}
+
 @media (max-width: 820px) {
   .outdoor-routes-toolbar,
+  .outdoor-map-filters,
+  .outdoor-map-layout,
   .route-detail-header,
   .route-detail-layout,
   .route-summary-grid {

@@ -11,3 +11,7 @@ export function listOutdoorRoutes({ search = "", activityType = "" } = {}) {
 export function getOutdoorRouteDetails(routeId) {
   return api(`/outdoor-routes/${routeId}/details`);
 }
+
+export function getOutdoorMap() {
+  return api("/outdoor-map");
+}
