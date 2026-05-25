@@ -21,7 +21,7 @@ from fastapi import Cookie, Depends, FastAPI, File, Form, Header, HTTPException,
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine, event
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine, event, or_
 from sqlalchemy.orm import object_session, sessionmaker, declarative_base
 
 from app.hangboard import BEASTMAKER_1000, generate_workout, normalize_generator_input, recommend_progression
@@ -422,6 +422,227 @@ class ClimbingCalibrationPointModel(Base):
     topo_y = Column(Float, nullable=False)
     camera_x = Column(Float, nullable=False)
     camera_y = Column(Float, nullable=False)
+
+class OutdoorRouteModel(Base):
+    __tablename__ = "outdoor_routes"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False)
+    slug = Column(String)
+    activity_type = Column(String, nullable=False)
+    route_category = Column(String, nullable=False, default="other")
+    summary = Column(Text)
+    description = Column(Text)
+    visibility = Column(String, nullable=False, default="private")
+    status = Column(String, nullable=False, default="draft")
+    distance_km = Column(Float)
+    elevation_gain_meters = Column(Float)
+    elevation_loss_meters = Column(Float)
+    min_elevation_meters = Column(Float)
+    max_elevation_meters = Column(Float)
+    estimated_duration_minutes = Column(Integer)
+    difficulty_label = Column(String)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class OutdoorRouteRelationshipModel(Base):
+    __tablename__ = "outdoor_route_relationships"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    from_route_id = Column(Integer, ForeignKey("outdoor_routes.id", ondelete="CASCADE"), nullable=False)
+    to_route_id = Column(Integer, ForeignKey("outdoor_routes.id", ondelete="CASCADE"), nullable=False)
+    relationship_type = Column(String, nullable=False)
+    notes = Column(Text)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class OutdoorRouteVariantModel(Base):
+    __tablename__ = "outdoor_route_variants"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    route_id = Column(Integer, ForeignKey("outdoor_routes.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False)
+    variant_type = Column(String, nullable=False, default="normal")
+    distance_km = Column(Float)
+    elevation_gain_meters = Column(Float)
+    elevation_loss_meters = Column(Float)
+    min_elevation_meters = Column(Float)
+    max_elevation_meters = Column(Float)
+    estimated_duration_minutes = Column(Integer)
+    route_shape = Column(String, nullable=False, default="other")
+    summary = Column(Text)
+    description = Column(Text)
+    recommended_direction = Column(String)
+    difficulty_label = Column(String)
+    exposure_level = Column(String)
+    commitment_level = Column(String)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class OutdoorRouteSegmentModel(Base):
+    __tablename__ = "outdoor_route_segments"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    route_variant_id = Column(Integer, ForeignKey("outdoor_route_variants.id", ondelete="CASCADE"), nullable=False)
+    order_index = Column(Integer, nullable=False, default=0)
+    segment_type = Column(String, nullable=False, default="other")
+    name = Column(String)
+    description = Column(Text)
+    distance_km = Column(Float)
+    elevation_gain_meters = Column(Float)
+    elevation_loss_meters = Column(Float)
+    estimated_duration_minutes = Column(Integer)
+    difficulty_label = Column(String)
+    notes = Column(Text)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class OutdoorRouteLocationRoleModel(Base):
+    __tablename__ = "outdoor_route_location_roles"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    entity_type = Column(String, nullable=False)
+    entity_id = Column(Integer, nullable=False)
+    location_entity_type = Column(String, nullable=False)
+    location_entity_id = Column(Integer, nullable=False)
+    role = Column(String, nullable=False)
+    order_index = Column(Integer)
+    notes = Column(Text)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class OutdoorSourceReferenceModel(Base):
+    __tablename__ = "outdoor_source_references"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    entity_type = Column(String, nullable=False)
+    entity_id = Column(Integer, nullable=False)
+    source_type = Column(String, nullable=False, default="other")
+    title = Column(String)
+    url = Column(Text)
+    author = Column(String)
+    publisher = Column(String)
+    published_at = Column(String)
+    accessed_at = Column(String)
+    license_notes = Column(Text)
+    notes = Column(Text)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class OutdoorSummitModel(Base):
+    __tablename__ = "outdoor_summits"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False)
+    aliases_json = Column(Text)
+    latitude = Column(Float)
+    longitude = Column(Float)
+    elevation_meters = Column(Float)
+    coordinate_status = Column(String, nullable=False, default="unknown")
+    description = Column(Text)
+    access_notes = Column(Text)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class OutdoorTrailheadModel(Base):
+    __tablename__ = "outdoor_trailheads"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False)
+    aliases_json = Column(Text)
+    latitude = Column(Float)
+    longitude = Column(Float)
+    elevation_meters = Column(Float)
+    coordinate_status = Column(String, nullable=False, default="unknown")
+    description = Column(Text)
+    access_notes = Column(Text)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class OutdoorParkingModel(Base):
+    __tablename__ = "outdoor_parkings"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False)
+    aliases_json = Column(Text)
+    latitude = Column(Float)
+    longitude = Column(Float)
+    elevation_meters = Column(Float)
+    coordinate_status = Column(String, nullable=False, default="unknown")
+    description = Column(Text)
+    access_notes = Column(Text)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class OutdoorHutModel(Base):
+    __tablename__ = "outdoor_huts"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False)
+    aliases_json = Column(Text)
+    latitude = Column(Float)
+    longitude = Column(Float)
+    elevation_meters = Column(Float)
+    coordinate_status = Column(String, nullable=False, default="unknown")
+    description = Column(Text)
+    access_notes = Column(Text)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class OutdoorStationModel(Base):
+    __tablename__ = "outdoor_stations"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False)
+    aliases_json = Column(Text)
+    latitude = Column(Float)
+    longitude = Column(Float)
+    elevation_meters = Column(Float)
+    coordinate_status = Column(String, nullable=False, default="unknown")
+    description = Column(Text)
+    access_notes = Column(Text)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class OutdoorPassModel(Base):
+    __tablename__ = "outdoor_passes"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False)
+    aliases_json = Column(Text)
+    latitude = Column(Float)
+    longitude = Column(Float)
+    elevation_meters = Column(Float)
+    coordinate_status = Column(String, nullable=False, default="unknown")
+    description = Column(Text)
+    access_notes = Column(Text)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class OutdoorWaypointModel(Base):
+    __tablename__ = "outdoor_waypoints"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False)
+    aliases_json = Column(Text)
+    latitude = Column(Float)
+    longitude = Column(Float)
+    elevation_meters = Column(Float)
+    coordinate_status = Column(String, nullable=False, default="unknown")
+    description = Column(Text)
+    access_notes = Column(Text)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+class OutdoorOtherLocationModel(Base):
+    __tablename__ = "outdoor_other_locations"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False)
+    aliases_json = Column(Text)
+    latitude = Column(Float)
+    longitude = Column(Float)
+    elevation_meters = Column(Float)
+    coordinate_status = Column(String, nullable=False, default="unknown")
+    description = Column(Text)
+    access_notes = Column(Text)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
 
 class HangboardBoardModel(Base):
     __tablename__ = "hangboard_boards"
@@ -1293,6 +1514,313 @@ SQLITE_FOREIGN_KEY_TABLES = {
             )
         """,
     },
+    "outdoor_routes": {
+        "columns": "id, username, name, slug, activity_type, route_category, summary, description, visibility, status, distance_km, elevation_gain_meters, elevation_loss_meters, min_elevation_meters, max_elevation_meters, estimated_duration_minutes, difficulty_label, created_at, updated_at",
+        "foreign_keys": {("username", "users", "username", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username VARCHAR NOT NULL,
+                name VARCHAR NOT NULL,
+                slug VARCHAR,
+                activity_type VARCHAR NOT NULL,
+                route_category VARCHAR NOT NULL DEFAULT 'other',
+                summary TEXT,
+                description TEXT,
+                visibility VARCHAR NOT NULL DEFAULT 'private',
+                status VARCHAR NOT NULL DEFAULT 'draft',
+                distance_km FLOAT,
+                elevation_gain_meters FLOAT,
+                elevation_loss_meters FLOAT,
+                min_elevation_meters FLOAT,
+                max_elevation_meters FLOAT,
+                estimated_duration_minutes INTEGER,
+                difficulty_label VARCHAR,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL,
+                FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
+            )
+        """,
+    },
+    "outdoor_route_relationships": {
+        "columns": "id, from_route_id, to_route_id, relationship_type, notes, created_at, updated_at",
+        "foreign_keys": {
+            ("from_route_id", "outdoor_routes", "id", "CASCADE"),
+            ("to_route_id", "outdoor_routes", "id", "CASCADE"),
+        },
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                from_route_id INTEGER NOT NULL,
+                to_route_id INTEGER NOT NULL,
+                relationship_type VARCHAR NOT NULL,
+                notes TEXT,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL,
+                FOREIGN KEY(from_route_id) REFERENCES outdoor_routes(id) ON DELETE CASCADE,
+                FOREIGN KEY(to_route_id) REFERENCES outdoor_routes(id) ON DELETE CASCADE
+            )
+        """,
+    },
+    "outdoor_route_variants": {
+        "columns": "id, route_id, name, variant_type, distance_km, elevation_gain_meters, elevation_loss_meters, min_elevation_meters, max_elevation_meters, estimated_duration_minutes, route_shape, summary, description, recommended_direction, difficulty_label, exposure_level, commitment_level, created_at, updated_at",
+        "foreign_keys": {("route_id", "outdoor_routes", "id", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                route_id INTEGER NOT NULL,
+                name VARCHAR NOT NULL,
+                variant_type VARCHAR NOT NULL DEFAULT 'normal',
+                distance_km FLOAT,
+                elevation_gain_meters FLOAT,
+                elevation_loss_meters FLOAT,
+                min_elevation_meters FLOAT,
+                max_elevation_meters FLOAT,
+                estimated_duration_minutes INTEGER,
+                route_shape VARCHAR NOT NULL DEFAULT 'other',
+                summary TEXT,
+                description TEXT,
+                recommended_direction VARCHAR,
+                difficulty_label VARCHAR,
+                exposure_level VARCHAR,
+                commitment_level VARCHAR,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL,
+                FOREIGN KEY(route_id) REFERENCES outdoor_routes(id) ON DELETE CASCADE
+            )
+        """,
+    },
+    "outdoor_route_segments": {
+        "columns": "id, route_variant_id, order_index, segment_type, name, description, distance_km, elevation_gain_meters, elevation_loss_meters, estimated_duration_minutes, difficulty_label, notes, created_at, updated_at",
+        "foreign_keys": {("route_variant_id", "outdoor_route_variants", "id", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                route_variant_id INTEGER NOT NULL,
+                order_index INTEGER NOT NULL DEFAULT 0,
+                segment_type VARCHAR NOT NULL DEFAULT 'other',
+                name VARCHAR,
+                description TEXT,
+                distance_km FLOAT,
+                elevation_gain_meters FLOAT,
+                elevation_loss_meters FLOAT,
+                estimated_duration_minutes INTEGER,
+                difficulty_label VARCHAR,
+                notes TEXT,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL,
+                FOREIGN KEY(route_variant_id) REFERENCES outdoor_route_variants(id) ON DELETE CASCADE
+            )
+        """,
+    },
+    "outdoor_route_location_roles": {
+        "columns": "id, entity_type, entity_id, location_entity_type, location_entity_id, role, order_index, notes, created_at, updated_at",
+        "foreign_keys": set(),
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                entity_type VARCHAR NOT NULL,
+                entity_id INTEGER NOT NULL,
+                location_entity_type VARCHAR NOT NULL,
+                location_entity_id INTEGER NOT NULL,
+                role VARCHAR NOT NULL,
+                order_index INTEGER,
+                notes TEXT,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL
+            )
+        """,
+    },
+    "outdoor_source_references": {
+        "columns": "id, entity_type, entity_id, source_type, title, url, author, publisher, published_at, accessed_at, license_notes, notes, created_at, updated_at",
+        "foreign_keys": set(),
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                entity_type VARCHAR NOT NULL,
+                entity_id INTEGER NOT NULL,
+                source_type VARCHAR NOT NULL DEFAULT 'other',
+                title VARCHAR,
+                url TEXT,
+                author VARCHAR,
+                publisher VARCHAR,
+                published_at VARCHAR,
+                accessed_at VARCHAR,
+                license_notes TEXT,
+                notes TEXT,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL
+            )
+        """,
+    },
+    "outdoor_summits": {
+        "columns": "id, username, name, aliases_json, latitude, longitude, elevation_meters, coordinate_status, description, access_notes, created_at, updated_at",
+        "foreign_keys": {("username", "users", "username", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username VARCHAR NOT NULL,
+                name VARCHAR NOT NULL,
+                aliases_json TEXT,
+                latitude FLOAT,
+                longitude FLOAT,
+                elevation_meters FLOAT,
+                coordinate_status VARCHAR NOT NULL DEFAULT 'unknown',
+                description TEXT,
+                access_notes TEXT,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL,
+                FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
+            )
+        """,
+    },
+    "outdoor_trailheads": {
+        "columns": "id, username, name, aliases_json, latitude, longitude, elevation_meters, coordinate_status, description, access_notes, created_at, updated_at",
+        "foreign_keys": {("username", "users", "username", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username VARCHAR NOT NULL,
+                name VARCHAR NOT NULL,
+                aliases_json TEXT,
+                latitude FLOAT,
+                longitude FLOAT,
+                elevation_meters FLOAT,
+                coordinate_status VARCHAR NOT NULL DEFAULT 'unknown',
+                description TEXT,
+                access_notes TEXT,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL,
+                FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
+            )
+        """,
+    },
+    "outdoor_parkings": {
+        "columns": "id, username, name, aliases_json, latitude, longitude, elevation_meters, coordinate_status, description, access_notes, created_at, updated_at",
+        "foreign_keys": {("username", "users", "username", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username VARCHAR NOT NULL,
+                name VARCHAR NOT NULL,
+                aliases_json TEXT,
+                latitude FLOAT,
+                longitude FLOAT,
+                elevation_meters FLOAT,
+                coordinate_status VARCHAR NOT NULL DEFAULT 'unknown',
+                description TEXT,
+                access_notes TEXT,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL,
+                FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
+            )
+        """,
+    },
+    "outdoor_huts": {
+        "columns": "id, username, name, aliases_json, latitude, longitude, elevation_meters, coordinate_status, description, access_notes, created_at, updated_at",
+        "foreign_keys": {("username", "users", "username", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username VARCHAR NOT NULL,
+                name VARCHAR NOT NULL,
+                aliases_json TEXT,
+                latitude FLOAT,
+                longitude FLOAT,
+                elevation_meters FLOAT,
+                coordinate_status VARCHAR NOT NULL DEFAULT 'unknown',
+                description TEXT,
+                access_notes TEXT,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL,
+                FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
+            )
+        """,
+    },
+    "outdoor_stations": {
+        "columns": "id, username, name, aliases_json, latitude, longitude, elevation_meters, coordinate_status, description, access_notes, created_at, updated_at",
+        "foreign_keys": {("username", "users", "username", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username VARCHAR NOT NULL,
+                name VARCHAR NOT NULL,
+                aliases_json TEXT,
+                latitude FLOAT,
+                longitude FLOAT,
+                elevation_meters FLOAT,
+                coordinate_status VARCHAR NOT NULL DEFAULT 'unknown',
+                description TEXT,
+                access_notes TEXT,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL,
+                FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
+            )
+        """,
+    },
+    "outdoor_passes": {
+        "columns": "id, username, name, aliases_json, latitude, longitude, elevation_meters, coordinate_status, description, access_notes, created_at, updated_at",
+        "foreign_keys": {("username", "users", "username", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username VARCHAR NOT NULL,
+                name VARCHAR NOT NULL,
+                aliases_json TEXT,
+                latitude FLOAT,
+                longitude FLOAT,
+                elevation_meters FLOAT,
+                coordinate_status VARCHAR NOT NULL DEFAULT 'unknown',
+                description TEXT,
+                access_notes TEXT,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL,
+                FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
+            )
+        """,
+    },
+    "outdoor_waypoints": {
+        "columns": "id, username, name, aliases_json, latitude, longitude, elevation_meters, coordinate_status, description, access_notes, created_at, updated_at",
+        "foreign_keys": {("username", "users", "username", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username VARCHAR NOT NULL,
+                name VARCHAR NOT NULL,
+                aliases_json TEXT,
+                latitude FLOAT,
+                longitude FLOAT,
+                elevation_meters FLOAT,
+                coordinate_status VARCHAR NOT NULL DEFAULT 'unknown',
+                description TEXT,
+                access_notes TEXT,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL,
+                FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
+            )
+        """,
+    },
+    "outdoor_other_locations": {
+        "columns": "id, username, name, aliases_json, latitude, longitude, elevation_meters, coordinate_status, description, access_notes, created_at, updated_at",
+        "foreign_keys": {("username", "users", "username", "CASCADE")},
+        "create_sql": """
+            CREATE TABLE {table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username VARCHAR NOT NULL,
+                name VARCHAR NOT NULL,
+                aliases_json TEXT,
+                latitude FLOAT,
+                longitude FLOAT,
+                elevation_meters FLOAT,
+                coordinate_status VARCHAR NOT NULL DEFAULT 'unknown',
+                description TEXT,
+                access_notes TEXT,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL,
+                FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
+            )
+        """,
+    },
 }
 
 def sqlite_table_exists(cursor, table_name: str) -> bool:
@@ -1579,6 +2107,9 @@ def normalize_activity_type(value) -> str:
         "course_a_pied",
         "velo",
         "vtt",
+        "ski_touring",
+        "hiking",
+        "alpinism",
         "hockey",
         "escalade",
         "outdoor_climbing",
@@ -1594,6 +2125,9 @@ ACTIVITY_LABELS = {
     "course_a_pied": {"fr": "Course", "en": "Running"},
     "velo": {"fr": "Vélo", "en": "Cycling"},
     "vtt": {"fr": "VTT", "en": "MTB"},
+    "ski_touring": {"fr": "Ski de randonnÃ©e", "en": "Ski touring"},
+    "hiking": {"fr": "RandonnÃ©e", "en": "Hiking"},
+    "alpinism": {"fr": "Alpinisme", "en": "Alpinism"},
     "hockey": {"fr": "Hockey", "en": "Hockey"},
     "escalade": {"fr": "Escalade", "en": "Climbing"},
     "outdoor_climbing": {"fr": "Escalade outdoor", "en": "Outdoor Climbing"},
@@ -1602,6 +2136,476 @@ ACTIVITY_LABELS = {
     "yoga": {"fr": "Yoga", "en": "Yoga"},
     "pilates": {"fr": "Pilates", "en": "Pilates"},
 }
+
+OUTDOOR_ROUTE_ACTIVITY_TYPES = {
+    "ski_touring": {"label": "Ski touring", "session_activity_types": ["ski_touring"], "is_active": True},
+    "hiking": {"label": "Hiking", "session_activity_types": ["hiking"], "is_active": True},
+    "alpinism": {"label": "Alpinism", "session_activity_types": ["alpinism"], "is_active": True},
+    "outdoor_climbing": {"label": "Outdoor Climbing", "session_activity_types": ["outdoor_climbing", "escalade"], "is_active": True},
+    "trail_running": {"label": "Trail running", "session_activity_types": ["course_a_pied"], "is_active": False},
+    "cycling": {"label": "Cycling", "session_activity_types": ["velo", "vtt"], "is_active": False},
+}
+
+OUTDOOR_ROUTE_ACTIVITY_ALIASES = {
+    "alpinism": "alpinism",
+    "alpinisme": "alpinism",
+    "alpine climbing": "alpinism",
+    "mountaineering": "alpinism",
+    "montagne": "alpinism",
+    "cycling": "cycling",
+    "bike": "cycling",
+    "biking": "cycling",
+    "velo": "cycling",
+    "vÃ©lo": "cycling",
+    "vtt": "cycling",
+    "mtb": "cycling",
+    "hiking": "hiking",
+    "hike": "hiking",
+    "randonnee": "hiking",
+    "randonnÃ©e": "hiking",
+    "walking": "hiking",
+    "outdoor climbing": "outdoor_climbing",
+    "outdoor_climbing": "outdoor_climbing",
+    "climbing": "outdoor_climbing",
+    "escalade": "outdoor_climbing",
+    "escalade outdoor": "outdoor_climbing",
+    "sport climbing": "outdoor_climbing",
+    "ski touring": "ski_touring",
+    "ski_touring": "ski_touring",
+    "skitouring": "ski_touring",
+    "ski": "ski_touring",
+    "ski de randonnee": "ski_touring",
+    "ski de randonnÃ©e": "ski_touring",
+    "ski_de_randonnee": "ski_touring",
+    "ski_de_randonnÃ©e": "ski_touring",
+    "trail running": "trail_running",
+    "trail_running": "trail_running",
+    "trail": "trail_running",
+}
+
+OUTDOOR_ROUTE_CLIMBING_LINK_TYPES = {
+    "primary_topo",
+    "related_topo",
+    "approach_topo",
+    "descent_topo",
+}
+
+OUTDOOR_ROUTE_CATEGORIES = {
+    "normal_route",
+    "summit",
+    "traverse",
+    "loop",
+    "out_and_back",
+    "point_to_point",
+    "climb",
+    "ski_tour",
+    "hike",
+    "trail",
+    "linkup",
+    "other",
+}
+
+OUTDOOR_ROUTE_VISIBILITIES = {"private", "unlisted", "public"}
+
+OUTDOOR_ROUTE_STATUSES = {"draft", "published", "archived", "needs_review"}
+
+OUTDOOR_ROUTE_RELATIONSHIP_TYPES = {
+    "same_objective",
+    "summer_version_of",
+    "winter_version_of",
+    "approach_for",
+    "descent_for",
+    "alternative_to",
+    "extension_of",
+    "nearby_route",
+}
+
+OUTDOOR_ROUTE_VARIANT_TYPES = {
+    "standard",
+    "normal",
+    "alternative_start",
+    "alternative_descent",
+    "descent",
+    "bad_weather",
+    "hut_strategy",
+    "shortcut",
+    "extension",
+    "harder",
+    "easier",
+    "approach_only",
+    "descent_only",
+    "bailout",
+    "other",
+}
+
+OUTDOOR_ROUTE_SHAPES = {
+    "loop",
+    "out_and_back",
+    "point_to_point",
+    "traverse",
+    "there_and_back_with_descent_variant",
+    "other",
+}
+
+OUTDOOR_ROUTE_SEGMENT_TYPES = {
+    "approach",
+    "main_route",
+    "descent",
+    "bailout",
+    "hazard_crossing",
+    "linkup",
+    "road_walk",
+    "transport",
+    "skin_track",
+    "ski_descent",
+    "climbing_section",
+    "glacier",
+    "glacier_section",
+    "ridge",
+    "summit_ridge",
+    "scramble",
+    "other",
+}
+
+OUTDOOR_ROUTE_LOCATION_ENTITY_TYPES = {
+    "summit",
+    "trailhead",
+    "parking",
+    "hut",
+    "station",
+    "pass",
+    "crag",
+    "sector",
+    "waypoint",
+    "other_location",
+}
+
+OUTDOOR_ROUTE_LOCATION_ROLES = {
+    "main_objective",
+    "start",
+    "end",
+    "passes_through",
+    "approach_start",
+    "descent_end",
+    "bailout",
+    "nearby",
+    "water",
+    "crux",
+    "transition",
+    "ski_depot",
+    "belay",
+    "anchor",
+    "rappel",
+}
+
+OUTDOOR_ROUTE_COORDINATE_STATUSES = {"exact", "approximate", "area_only", "unknown"}
+
+OUTDOOR_ROUTE_TRACK_QUALITY_STATUSES = {"unknown", "poor", "usable", "good", "verified"}
+
+OUTDOOR_ROUTE_CANDIDATE_TRACK_STATUSES = {
+    "candidate",
+    "under_review",
+    "accepted",
+    "rejected",
+    "superseded",
+}
+
+OUTDOOR_ROUTE_TRACK_TYPES = {
+    "primary",
+    "alternative",
+    "approach",
+    "descent",
+    "bailout",
+    "planned",
+    "manually_drawn",
+}
+
+OUTDOOR_ROUTE_SOURCE_ENTITY_TYPES = {
+    "route",
+    "route_variant",
+    "route_segment",
+    "location",
+    "route_track",
+    "candidate_route_track",
+    "hazard_note",
+    "condition_report",
+}
+
+OUTDOOR_ROUTE_SOURCE_TYPES = {
+    "guidebook",
+    "website",
+    "map",
+    "user_report",
+    "official_agency",
+    "hut",
+    "club",
+    "personal_knowledge",
+    "other",
+}
+
+def is_outdoor_route_domain_value(values: set[str], value) -> bool:
+    return str(value or "").strip() in values
+
+def normalize_outdoor_route_activity_type(value) -> str:
+    normalized = str(value or "").strip().lower().replace("-", "_")
+    if not normalized:
+        return ""
+    return OUTDOOR_ROUTE_ACTIVITY_ALIASES.get(normalized, "")
+
+def get_session_activity_types_for_route_activity(value) -> list[str]:
+    normalized = normalize_outdoor_route_activity_type(value)
+    config = OUTDOOR_ROUTE_ACTIVITY_TYPES.get(normalized, {})
+    return list(config.get("session_activity_types", []))
+
+def get_route_activity_types_for_session_activity(value) -> list[str]:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return []
+    return [
+        route_activity
+        for route_activity, config in OUTDOOR_ROUTE_ACTIVITY_TYPES.items()
+        if normalized in config.get("session_activity_types", [])
+    ]
+
+OUTDOOR_LOCATION_MODEL_BY_TYPE = {
+    "summit": OutdoorSummitModel,
+    "trailhead": OutdoorTrailheadModel,
+    "parking": OutdoorParkingModel,
+    "hut": OutdoorHutModel,
+    "station": OutdoorStationModel,
+    "pass": OutdoorPassModel,
+    "waypoint": OutdoorWaypointModel,
+    "other_location": OutdoorOtherLocationModel,
+}
+
+def serialize_outdoor_source_reference(row: OutdoorSourceReferenceModel) -> dict:
+    return {
+        "id": row.id,
+        "entity_type": row.entity_type,
+        "entity_id": row.entity_id,
+        "source_type": row.source_type,
+        "title": row.title or "",
+        "url": row.url or "",
+        "author": row.author or "",
+        "publisher": row.publisher or "",
+        "published_at": row.published_at or "",
+        "accessed_at": row.accessed_at or "",
+        "license_notes": row.license_notes or "",
+        "notes": row.notes or "",
+    }
+
+def serialize_outdoor_location(row, location_entity_type: str) -> dict:
+    if not row:
+        return {}
+    return {
+        "id": row.id,
+        "location_entity_type": location_entity_type,
+        "name": row.name,
+        "aliases": parse_json_field(row.aliases_json, []),
+        "latitude": row.latitude,
+        "longitude": row.longitude,
+        "elevation_meters": row.elevation_meters,
+        "coordinate_status": row.coordinate_status,
+        "description": row.description or "",
+        "access_notes": row.access_notes or "",
+    }
+
+def serialize_outdoor_route(row: OutdoorRouteModel) -> dict:
+    return {
+        "id": row.id,
+        "username": row.username,
+        "name": row.name,
+        "slug": row.slug or "",
+        "activity_type": row.activity_type,
+        "route_category": row.route_category,
+        "summary": row.summary or "",
+        "description": row.description or "",
+        "visibility": row.visibility,
+        "status": row.status,
+        "distance_km": row.distance_km,
+        "elevation_gain_meters": row.elevation_gain_meters,
+        "elevation_loss_meters": row.elevation_loss_meters,
+        "min_elevation_meters": row.min_elevation_meters,
+        "max_elevation_meters": row.max_elevation_meters,
+        "estimated_duration_minutes": row.estimated_duration_minutes,
+        "difficulty_label": row.difficulty_label or "",
+        "created_at": row.created_at,
+        "updated_at": row.updated_at,
+    }
+
+def serialize_outdoor_route_variant(row: OutdoorRouteVariantModel) -> dict:
+    return {
+        "id": row.id,
+        "route_id": row.route_id,
+        "name": row.name,
+        "variant_type": row.variant_type,
+        "distance_km": row.distance_km,
+        "elevation_gain_meters": row.elevation_gain_meters,
+        "elevation_loss_meters": row.elevation_loss_meters,
+        "min_elevation_meters": row.min_elevation_meters,
+        "max_elevation_meters": row.max_elevation_meters,
+        "estimated_duration_minutes": row.estimated_duration_minutes,
+        "route_shape": row.route_shape,
+        "summary": row.summary or "",
+        "description": row.description or "",
+        "recommended_direction": row.recommended_direction or "",
+        "difficulty_label": row.difficulty_label or "",
+        "exposure_level": row.exposure_level or "",
+        "commitment_level": row.commitment_level or "",
+        "created_at": row.created_at,
+        "updated_at": row.updated_at,
+    }
+
+def serialize_outdoor_route_segment(row: OutdoorRouteSegmentModel) -> dict:
+    return {
+        "id": row.id,
+        "route_variant_id": row.route_variant_id,
+        "order_index": row.order_index,
+        "segment_type": row.segment_type,
+        "name": row.name or "",
+        "description": row.description or "",
+        "distance_km": row.distance_km,
+        "elevation_gain_meters": row.elevation_gain_meters,
+        "elevation_loss_meters": row.elevation_loss_meters,
+        "estimated_duration_minutes": row.estimated_duration_minutes,
+        "difficulty_label": row.difficulty_label or "",
+        "notes": row.notes or "",
+        "created_at": row.created_at,
+        "updated_at": row.updated_at,
+    }
+
+def get_outdoor_source_references(db, entity_type: str, entity_id: int) -> list[dict]:
+    rows = (
+        db.query(OutdoorSourceReferenceModel)
+        .filter_by(entity_type=entity_type, entity_id=entity_id)
+        .order_by(OutdoorSourceReferenceModel.id)
+        .all()
+    )
+    return [serialize_outdoor_source_reference(row) for row in rows]
+
+def get_outdoor_location(db, location_entity_type: str, location_entity_id: int):
+    model = OUTDOOR_LOCATION_MODEL_BY_TYPE.get(location_entity_type)
+    if not model:
+        return None
+    return db.query(model).filter_by(id=location_entity_id).first()
+
+def serialize_outdoor_route_location_role(db, row: OutdoorRouteLocationRoleModel) -> dict:
+    location = get_outdoor_location(db, row.location_entity_type, row.location_entity_id)
+    return {
+        "id": row.id,
+        "entity_type": row.entity_type,
+        "entity_id": row.entity_id,
+        "location_entity_type": row.location_entity_type,
+        "location_entity_id": row.location_entity_id,
+        "role": row.role,
+        "order_index": row.order_index,
+        "notes": row.notes or "",
+        "location": serialize_outdoor_location(location, row.location_entity_type),
+        "created_at": row.created_at,
+        "updated_at": row.updated_at,
+    }
+
+def build_outdoor_route_details(db, route: OutdoorRouteModel) -> dict:
+    route_roles = (
+        db.query(OutdoorRouteLocationRoleModel)
+        .filter_by(entity_type="route", entity_id=route.id)
+        .order_by(OutdoorRouteLocationRoleModel.order_index.is_(None), OutdoorRouteLocationRoleModel.order_index, OutdoorRouteLocationRoleModel.id)
+        .all()
+    )
+    main_objective_role = next((role for role in route_roles if role.role == "main_objective"), None)
+    main_objective = {}
+    if main_objective_role:
+        main_objective = serialize_outdoor_location(
+            get_outdoor_location(db, main_objective_role.location_entity_type, main_objective_role.location_entity_id),
+            main_objective_role.location_entity_type,
+        )
+    variants = (
+        db.query(OutdoorRouteVariantModel)
+        .filter_by(route_id=route.id)
+        .order_by(OutdoorRouteVariantModel.id)
+        .all()
+    )
+    variant_payloads = []
+    for variant in variants:
+        segments = (
+            db.query(OutdoorRouteSegmentModel)
+            .filter_by(route_variant_id=variant.id)
+            .order_by(OutdoorRouteSegmentModel.order_index, OutdoorRouteSegmentModel.id)
+            .all()
+        )
+        variant_payloads.append(
+            {
+                "variant": serialize_outdoor_route_variant(variant),
+                "segments": [
+                    {
+                        "segment": serialize_outdoor_route_segment(segment),
+                        "source_references": get_outdoor_source_references(db, "route_segment", segment.id),
+                    }
+                    for segment in segments
+                ],
+                "source_references": get_outdoor_source_references(db, "route_variant", variant.id),
+            }
+        )
+    return {
+        "route": serialize_outdoor_route(route),
+        "main_objective": main_objective,
+        "location_roles": [serialize_outdoor_route_location_role(db, role) for role in route_roles],
+        "variants": variant_payloads,
+        "source_references": get_outdoor_source_references(db, "route", route.id),
+    }
+
+def build_outdoor_route_list_item(db, route: OutdoorRouteModel) -> dict:
+    main_role = (
+        db.query(OutdoorRouteLocationRoleModel)
+        .filter_by(entity_type="route", entity_id=route.id, role="main_objective")
+        .order_by(OutdoorRouteLocationRoleModel.id)
+        .first()
+    )
+    main_objective = {}
+    if main_role:
+        main_objective = serialize_outdoor_location(
+            get_outdoor_location(db, main_role.location_entity_type, main_role.location_entity_id),
+            main_role.location_entity_type,
+        )
+    variant_count = db.query(OutdoorRouteVariantModel).filter_by(route_id=route.id).count()
+    location_role_count = db.query(OutdoorRouteLocationRoleModel).filter_by(entity_type="route", entity_id=route.id).count()
+    segment_count = (
+        db.query(OutdoorRouteSegmentModel)
+        .join(OutdoorRouteVariantModel, OutdoorRouteSegmentModel.route_variant_id == OutdoorRouteVariantModel.id)
+        .filter(OutdoorRouteVariantModel.route_id == route.id)
+        .count()
+    )
+    return {
+        "route": serialize_outdoor_route(route),
+        "main_objective": main_objective,
+        "variant_count": variant_count,
+        "segment_count": segment_count,
+        "location_role_count": location_role_count,
+    }
+
+def get_outdoor_route_ids_matching_location_search(db, username: str, search_text: str) -> set[int]:
+    like = f"%{search_text}%"
+    route_ids: set[int] = set()
+    for location_entity_type, model in OUTDOOR_LOCATION_MODEL_BY_TYPE.items():
+        location_ids = [
+            row.id
+            for row in (
+                db.query(model.id)
+                .filter(model.username == username)
+                .filter(or_(model.name.ilike(like), model.aliases_json.ilike(like)))
+                .all()
+            )
+        ]
+        if not location_ids:
+            continue
+        role_rows = (
+            db.query(OutdoorRouteLocationRoleModel.entity_id)
+            .filter_by(entity_type="route", location_entity_type=location_entity_type)
+            .filter(OutdoorRouteLocationRoleModel.location_entity_id.in_(location_ids))
+            .all()
+        )
+        route_ids.update(row.entity_id for row in role_rows)
+    return route_ids
 
 class NormalizedCoordinate(BaseModel):
     x: float = Field(ge=0, le=1)
@@ -5668,6 +6672,50 @@ def update_config(payload: dict, _: UserModel = Depends(get_current_user)):
     CONFIG.update(normalize_config(CONFIG))
     save_config(CONFIG)
     return {"ok": True, "config": CONFIG}
+
+@app.get("/api/outdoor-routes")
+def list_outdoor_routes(
+    search: str = "",
+    activity_type: str = "",
+    current_user: UserModel = Depends(get_current_user),
+):
+    db = get_db()
+    try:
+        query = db.query(OutdoorRouteModel).filter_by(username=current_user.username)
+        normalized_activity = normalize_outdoor_route_activity_type(activity_type)
+        if normalized_activity:
+            query = query.filter(OutdoorRouteModel.activity_type == normalized_activity)
+        search_text = str(search or "").strip()
+        if search_text:
+            like = f"%{search_text}%"
+            location_route_ids = get_outdoor_route_ids_matching_location_search(db, current_user.username, search_text)
+            query = query.filter(
+                or_(
+                    OutdoorRouteModel.name.ilike(like),
+                    OutdoorRouteModel.summary.ilike(like),
+                    OutdoorRouteModel.description.ilike(like),
+                    OutdoorRouteModel.difficulty_label.ilike(like),
+                    OutdoorRouteModel.id.in_(location_route_ids) if location_route_ids else False,
+                )
+            )
+        rows = query.order_by(OutdoorRouteModel.name).all()
+        return {
+            "routes": [build_outdoor_route_list_item(db, row) for row in rows],
+            "total": len(rows),
+        }
+    finally:
+        db.close()
+
+@app.get("/api/outdoor-routes/{route_id}/details")
+def get_outdoor_route_details(route_id: int, current_user: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        row = db.query(OutdoorRouteModel).filter_by(id=route_id, username=current_user.username).first()
+        if not row:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Outdoor route not found")
+        return build_outdoor_route_details(db, row)
+    finally:
+        db.close()
 
 @app.get("/api/exercises")
 def get_exercises(_: UserModel = Depends(get_current_user)):
