@@ -6770,7 +6770,6 @@ def get_carto_voyager_tile(
     z: int,
     x: int,
     y: int,
-    _: UserModel = Depends(get_current_user),
 ):
     return proxy_carto_voyager_tile(z, x, y)
 
