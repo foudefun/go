@@ -17,7 +17,24 @@ const LOCATION_FILTERS = [
   "other_location",
 ];
 const ACTIVITY_FILTERS = ["", "alpinism", "ski_touring", "hiking", "outdoor_climbing"];
-const MAP_STYLE_URL = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
+const MAP_STYLE = {
+  version: 8,
+  sources: {
+    cartoVoyager: {
+      type: "raster",
+      tiles: ["/api/map-tiles/cartovoyager/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "(c) OpenStreetMap contributors (c) CARTO",
+    },
+  },
+  layers: [
+    {
+      id: "cartoVoyager",
+      type: "raster",
+      source: "cartoVoyager",
+    },
+  ],
+};
 
 function formatCode(value) {
   return String(value || "").replaceAll("_", " ");
@@ -64,7 +81,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
     if (!containerRef.current || mapRef.current) return;
     mapRef.current = new maplibregl.Map({
       container: containerRef.current,
-      style: MAP_STYLE_URL,
+      style: MAP_STYLE,
       center: [7.55, 46.05],
       zoom: 6.3,
       attributionControl: { compact: true },

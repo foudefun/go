@@ -3907,6 +3907,30 @@ def uploaded_file_response(
     )
 
 
+def proxy_carto_voyager_tile(z: int, x: int, y: int) -> Response:
+    if z < 0 or z > 18:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Map tile not found")
+    max_index = 2 ** z
+    if x < 0 or y < 0 or x >= max_index or y >= max_index:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Map tile not found")
+    subdomain = ("a", "b", "c")[(x + y) % 3]
+    url = f"https://{subdomain}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
+    request = Request(url, headers={"User-Agent": "RehabTracker/1.0"})
+    try:
+        with urlopen(request, timeout=12) as response:
+            tile_bytes = response.read()
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Map tile could not be loaded") from exc
+    return Response(
+        content=tile_bytes,
+        media_type="image/png",
+        headers={
+            "Cache-Control": "public, max-age=86400",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
 def build_activity_source_file_record(
     *,
     source_id: str,
@@ -6740,6 +6764,15 @@ def delete_user(
 @app.get("/api/config")
 def read_config(_: UserModel = Depends(get_current_user)):
     return CONFIG
+
+@app.get("/api/map-tiles/cartovoyager/{z}/{x}/{y}.png")
+def get_carto_voyager_tile(
+    z: int,
+    x: int,
+    y: int,
+    _: UserModel = Depends(get_current_user),
+):
+    return proxy_carto_voyager_tile(z, x, y)
 
 @app.put("/api/config")
 def update_config(payload: dict, _: UserModel = Depends(get_current_user)):

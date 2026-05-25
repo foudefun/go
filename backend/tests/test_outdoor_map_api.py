@@ -88,3 +88,9 @@ def test_get_outdoor_map_includes_admin_library_for_members(non_admin_client):
     assert payload["totals"]["locations"] == 2
     assert payload["totals"]["routes"] == 1
     assert payload["routes"][0]["route"]["id"] == route_id
+
+
+def test_map_tile_proxy_rejects_invalid_tile(client):
+    response = client.get("/api/map-tiles/cartovoyager/19/0/0.png")
+
+    assert response.status_code == 404
