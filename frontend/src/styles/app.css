@@ -1569,9 +1569,9 @@ select[multiple] {
 .outdoor-map-marker {
   appearance: none;
   position: relative;
-  display: block !important;
-  align-items: initial;
-  justify-content: initial;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
   min-width: 0 !important;
   min-height: 0 !important;
   border: 2px solid #fff;
@@ -1579,9 +1579,10 @@ select[multiple] {
   box-shadow: 0 2px 8px rgba(17, 24, 39, 0.28);
   cursor: pointer;
   padding: 0 !important;
+  color: #fff;
   font-size: 0;
-  font-weight: 400;
-  line-height: 0;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .outdoor-map-marker.location {
@@ -1632,6 +1633,21 @@ select[multiple] {
 .outdoor-map-marker.location.trailhead,
 .outdoor-map-marker.location.parking {
   background: #2563eb;
+}
+
+.outdoor-map-marker.location.parking {
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+}
+
+.outdoor-map-marker.location.hut {
+  width: 28px;
+  height: 18px;
+  border-radius: 5px;
+  font-size: 9px;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .outdoor-map-marker.location.pass,

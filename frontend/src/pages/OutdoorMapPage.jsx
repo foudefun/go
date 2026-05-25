@@ -49,6 +49,12 @@ function getMarkerClass(point) {
   return `outdoor-map-marker location ${point.kind || ""}`;
 }
 
+function getMarkerText(point) {
+  if (point.kind === "parking") return "P";
+  if (point.kind === "hut") return "hut";
+  return "";
+}
+
 function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -107,6 +113,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
       const markerElement = document.createElement("button");
       markerElement.type = "button";
       markerElement.className = getMarkerClass(point);
+      markerElement.textContent = getMarkerText(point);
       markerElement.title = point.label;
       markerElement.setAttribute("aria-label", point.label);
       markerElement.dataset.pointId = point.id;
