@@ -13,7 +13,7 @@
 - Review navigation and dense editor layouts to make the app more compact, reduce useless fields/spacing, improve button hierarchy, and clean up mobile/laptop display. Telegram/GitHub: #15.
 - Improve the exercise cleanup workflow with clearer duplicate detection, family grouping, and image coverage status.
 - Synchronize external calendars from ICS URLs/files first, then Google/Outlook OAuth free-busy, to show occupied/free time blocks without exposing private event details. Telegram/GitHub: #22.
-- Add map-based planning filters for activities done, recorded tracks, summits, and activities that are currently doable. Telegram/GitHub: #20.
+- Add an outdoor route map with filters for summits, places/trailheads/huts/stations/waypoints, recorded tracks, completed activities, and route overlays by activity type. Filters should adapt by activity, including route category, difficulty/grade, completeness status, season/doability, and available route segments/variants. Telegram/GitHub: #20.
 - Build out the equipment UI for model versions, variants, ownership status, maintenance events, and item history now that the normalized tables exist.
 - Discuss and design mountain/outdoor route tables before implementation: summits, places/trailheads, routes by activity type such as ski, climbing, and alpinism, start/end/pass-through points, and GPX trace storage.
 - Resolve outdoor route planner schema and climbing topo bridge: keep existing `climbing_*` topo tables separate, add generic `outdoor_routes`, then link them later with an `outdoor_route_climbing_links` bridge.

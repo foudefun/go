@@ -2225,6 +2225,8 @@ OUTDOOR_ROUTE_VARIANT_TYPES = {
     "normal",
     "alternative_start",
     "alternative_descent",
+    "alternative_hut",
+    "alternative_route",
     "descent",
     "bad_weather",
     "hut_strategy",

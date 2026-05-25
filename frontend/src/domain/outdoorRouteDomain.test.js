@@ -22,6 +22,7 @@ test("defines core outdoor route constants", () => {
   assert.equal(OUTDOOR_ROUTE_RELATIONSHIP_TYPES.includes("same_objective"), true);
   assert.equal(OUTDOOR_ROUTE_VARIANT_TYPES.includes("standard"), true);
   assert.equal(OUTDOOR_ROUTE_VARIANT_TYPES.includes("hut_strategy"), true);
+  assert.equal(OUTDOOR_ROUTE_VARIANT_TYPES.includes("alternative_route"), true);
   assert.equal(OUTDOOR_ROUTE_SEGMENT_TYPES.includes("hazard_crossing"), true);
   assert.equal(OUTDOOR_ROUTE_SEGMENT_TYPES.includes("summit_ridge"), true);
   assert.deepEqual(OUTDOOR_ROUTE_VISIBILITIES, ["private", "unlisted", "public"]);
