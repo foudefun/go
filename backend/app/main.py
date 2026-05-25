@@ -2380,6 +2380,12 @@ OUTDOOR_LOCATION_MODEL_BY_TYPE = {
     "other_location": OutdoorOtherLocationModel,
 }
 
+def get_outdoor_library_usernames(username: str) -> list[str]:
+    usernames = [username]
+    if username != "admin":
+        usernames.append("admin")
+    return usernames
+
 def serialize_outdoor_source_reference(row: OutdoorSourceReferenceModel) -> dict:
     return {
         "id": row.id,
@@ -2585,7 +2591,7 @@ def build_outdoor_route_list_item(db, route: OutdoorRouteModel) -> dict:
         "location_role_count": location_role_count,
     }
 
-def get_outdoor_route_ids_matching_location_search(db, username: str, search_text: str) -> set[int]:
+def get_outdoor_route_ids_matching_location_search(db, usernames: list[str], search_text: str) -> set[int]:
     like = f"%{search_text}%"
     route_ids: set[int] = set()
     for location_entity_type, model in OUTDOOR_LOCATION_MODEL_BY_TYPE.items():
@@ -2593,7 +2599,7 @@ def get_outdoor_route_ids_matching_location_search(db, username: str, search_tex
             row.id
             for row in (
                 db.query(model.id)
-                .filter(model.username == username)
+                .filter(model.username.in_(usernames))
                 .filter(or_(model.name.ilike(like), model.aliases_json.ilike(like)))
                 .all()
             )
@@ -2609,7 +2615,7 @@ def get_outdoor_route_ids_matching_location_search(db, username: str, search_tex
         route_ids.update(row.entity_id for row in role_rows)
     return route_ids
 
-def build_outdoor_map_location_item(db, username: str, row, location_entity_type: str) -> dict | None:
+def build_outdoor_map_location_item(db, usernames: list[str], row, location_entity_type: str) -> dict | None:
     if row.latitude is None or row.longitude is None:
         return None
     role_count = (
@@ -2621,7 +2627,7 @@ def build_outdoor_map_location_item(db, username: str, row, location_entity_type
                 OutdoorRouteLocationRoleModel.entity_id == OutdoorRouteModel.id,
             ),
         )
-        .filter(OutdoorRouteModel.username == username)
+        .filter(OutdoorRouteModel.username.in_(usernames))
         .filter(
             OutdoorRouteLocationRoleModel.location_entity_type == location_entity_type,
             OutdoorRouteLocationRoleModel.location_entity_id == row.id,
@@ -2634,24 +2640,25 @@ def build_outdoor_map_location_item(db, username: str, row, location_entity_type
     }
 
 def build_outdoor_map_payload(db, username: str) -> dict:
+    usernames = get_outdoor_library_usernames(username)
     locations = []
     for location_entity_type, model in OUTDOOR_LOCATION_MODEL_BY_TYPE.items():
         rows = (
             db.query(model)
-            .filter(model.username == username)
+            .filter(model.username.in_(usernames))
             .filter(model.latitude.isnot(None), model.longitude.isnot(None))
             .order_by(model.name)
             .all()
         )
         for row in rows:
-            item = build_outdoor_map_location_item(db, username, row, location_entity_type)
+            item = build_outdoor_map_location_item(db, usernames, row, location_entity_type)
             if item:
                 locations.append(item)
     routes = [
         item
         for item in (
             build_outdoor_route_list_item(db, route)
-            for route in db.query(OutdoorRouteModel).filter_by(username=username).order_by(OutdoorRouteModel.name).all()
+            for route in db.query(OutdoorRouteModel).filter(OutdoorRouteModel.username.in_(usernames)).order_by(OutdoorRouteModel.name).all()
         )
         if item.get("main_objective", {}).get("latitude") is not None
         and item.get("main_objective", {}).get("longitude") is not None
@@ -6754,14 +6761,15 @@ def list_outdoor_routes(
 ):
     db = get_db()
     try:
-        query = db.query(OutdoorRouteModel).filter_by(username=current_user.username)
+        usernames = get_outdoor_library_usernames(current_user.username)
+        query = db.query(OutdoorRouteModel).filter(OutdoorRouteModel.username.in_(usernames))
         normalized_activity = normalize_outdoor_route_activity_type(activity_type)
         if normalized_activity:
             query = query.filter(OutdoorRouteModel.activity_type == normalized_activity)
         search_text = str(search or "").strip()
         if search_text:
             like = f"%{search_text}%"
-            location_route_ids = get_outdoor_route_ids_matching_location_search(db, current_user.username, search_text)
+            location_route_ids = get_outdoor_route_ids_matching_location_search(db, usernames, search_text)
             query = query.filter(
                 or_(
                     OutdoorRouteModel.name.ilike(like),
@@ -6791,7 +6799,11 @@ def get_outdoor_map(current_user: UserModel = Depends(get_current_user)):
 def get_outdoor_route_details(route_id: int, current_user: UserModel = Depends(get_current_user)):
     db = get_db()
     try:
-        row = db.query(OutdoorRouteModel).filter_by(id=route_id, username=current_user.username).first()
+        row = (
+            db.query(OutdoorRouteModel)
+            .filter(OutdoorRouteModel.id == route_id, OutdoorRouteModel.username.in_(get_outdoor_library_usernames(current_user.username)))
+            .first()
+        )
         if not row:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Outdoor route not found")
         return build_outdoor_route_details(db, row)

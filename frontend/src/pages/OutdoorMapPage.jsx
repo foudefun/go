@@ -175,7 +175,6 @@ export default function OutdoorMapPage() {
         <div>
           <p className="eyebrow">{t("Outdoor map")}</p>
           <h1>{t("Summits and routes")}</h1>
-          <p className="lede">{t("Filter imported summits, places, and route objectives by activity and difficulty.")}</p>
         </div>
       </section>
 

@@ -76,3 +76,15 @@ def test_get_outdoor_map_returns_locations_and_route_points(client):
     assert payload["routes"][0]["route"]["id"] == route_id
     assert payload["routes"][0]["main_objective"]["name"] == "Mont Blanc"
     assert payload["bounds"]["min_latitude"] == 45.8326
+
+
+def test_get_outdoor_map_includes_admin_library_for_members(non_admin_client):
+    route_id = seed_map_data()
+
+    response = non_admin_client.get("/api/outdoor-map")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["totals"]["locations"] == 2
+    assert payload["totals"]["routes"] == 1
+    assert payload["routes"][0]["route"]["id"] == route_id
