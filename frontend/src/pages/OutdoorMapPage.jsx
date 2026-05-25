@@ -17,28 +17,7 @@ const LOCATION_FILTERS = [
   "other_location",
 ];
 const ACTIVITY_FILTERS = ["", "alpinism", "ski_touring", "hiking", "outdoor_climbing"];
-const MAP_STYLE = {
-  version: 8,
-  sources: {
-    osm: {
-      type: "raster",
-      tiles: [
-        "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
-        "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
-        "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
-      ],
-      tileSize: 256,
-      attribution: "(c) OpenStreetMap contributors (c) CARTO",
-    },
-  },
-  layers: [
-    {
-      id: "osm",
-      type: "raster",
-      source: "osm",
-    },
-  ],
-};
+const MAP_STYLE_URL = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
 
 function formatCode(value) {
   return String(value || "").replaceAll("_", " ");
@@ -57,14 +36,15 @@ function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
+  const [mapError, setMapError] = useState("");
   const points = useMemo(() => {
     const routePoints = routes.map((item) => ({
-    id: `route-${item.route.id}`,
-    kind: "route",
-    label: item.route.name,
-    activityType: item.route.activity_type,
-    difficulty: item.route.difficulty_label,
-    routeId: item.route.id,
+      id: `route-${item.route.id}`,
+      kind: "route",
+      label: item.route.name,
+      activityType: item.route.activity_type,
+      difficulty: item.route.difficulty_label,
+      routeId: item.route.id,
       latitude: item.main_objective.latitude,
       longitude: item.main_objective.longitude,
     }));
@@ -84,12 +64,15 @@ function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
     if (!containerRef.current || mapRef.current) return;
     mapRef.current = new maplibregl.Map({
       container: containerRef.current,
-      style: MAP_STYLE,
+      style: MAP_STYLE_URL,
       center: [7.55, 46.05],
       zoom: 6.3,
       attributionControl: { compact: true },
     });
     mapRef.current.once("load", () => mapRef.current?.resize());
+    mapRef.current.on("error", (event) => {
+      setMapError(event?.error?.message || "Map tiles could not be loaded.");
+    });
     mapRef.current.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
     return () => {
       markersRef.current.forEach((marker) => marker.remove());
@@ -134,7 +117,12 @@ function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
     });
   }, [selectedId]);
 
-  return <div ref={containerRef} className="outdoor-map-canvas" role="region" aria-label="Outdoor route map" />;
+  return (
+    <div className="outdoor-map-frame">
+      <div ref={containerRef} className="outdoor-map-canvas" role="region" aria-label="Outdoor route map" />
+      {mapError ? <div className="outdoor-map-error">{mapError}</div> : null}
+    </div>
+  );
 }
 
 export default function OutdoorMapPage() {

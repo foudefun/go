@@ -1539,12 +1539,31 @@ select[multiple] {
   padding: 14px;
 }
 
+.outdoor-map-frame {
+  position: relative;
+}
+
 .outdoor-map-canvas {
   width: 100%;
   min-height: 520px;
   overflow: hidden;
   border-radius: 8px;
   background: #eef4f8;
+}
+
+.outdoor-map-error {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: rgba(255, 241, 242, 0.94);
+  color: #991b1b;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 10px 12px;
+  pointer-events: none;
 }
 
 .outdoor-map-marker {
