@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { getOutdoorMap } from "../api/outdoorRoutesApi.js";
@@ -45,7 +44,6 @@ function isStructuredRoute(item) {
 }
 
 function getMarkerClass(point) {
-  if (point.kind === "route") return `outdoor-map-marker route ${point.activityType || ""}`;
   return `outdoor-map-marker location ${point.kind || ""}`;
 }
 
@@ -55,33 +53,28 @@ function getMarkerText(point) {
   return "";
 }
 
-function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
+function formatCoordinate(value) {
+  return Number(value).toFixed(5);
+}
+
+function OutdoorMapCanvas({ locations, selectedId, onSelect }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
   const [mapError, setMapError] = useState("");
   const points = useMemo(() => {
-    const routePoints = routes.map((item) => ({
-      id: `route-${item.route.id}`,
-      kind: "route",
-      label: item.route.name,
-      activityType: item.route.activity_type,
-      difficulty: item.route.difficulty_label,
-      routeId: item.route.id,
-      latitude: item.main_objective.latitude,
-      longitude: item.main_objective.longitude,
-    }));
     const locationPoints = locations.map((item) => ({
       id: `location-${item.location.location_entity_type}-${item.location.id}`,
       kind: item.location.location_entity_type,
       label: item.location.name,
       elevation: item.location.elevation_meters,
+      coordinateStatus: item.location.coordinate_status,
       routeRoleCount: item.route_role_count,
       latitude: item.location.latitude,
       longitude: item.location.longitude,
     }));
-    return [...routePoints, ...locationPoints].filter((point) => point.latitude != null && point.longitude != null);
-  }, [locations, routes]);
+    return locationPoints.filter((point) => point.latitude != null && point.longitude != null);
+  }, [locations]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -117,8 +110,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, onSelect }) {
       markerElement.title = point.label;
       markerElement.setAttribute("aria-label", point.label);
       markerElement.dataset.pointId = point.id;
-      markerElement.style.zIndex = point.kind === "route" ? "1" : "2";
-      if (point.kind === "summit") markerElement.style.zIndex = "3";
+      markerElement.style.zIndex = point.kind === "summit" ? "3" : "2";
       markerElement.addEventListener("click", () => onSelect(point));
       return new maplibregl.Marker({ element: markerElement, anchor: "center" })
         .setLngLat([Number(point.longitude), Number(point.latitude)])
@@ -277,7 +269,6 @@ export default function OutdoorMapPage() {
           <div className="app-panel outdoor-map-panel">
             <OutdoorMapCanvas
               locations={filteredLocations}
-              routes={filteredRoutes}
               selectedId={selectedPoint?.id}
               onSelect={setSelectedPoint}
             />
@@ -289,8 +280,11 @@ export default function OutdoorMapPage() {
                 <h2>{selectedPoint.label}</h2>
                 <span>{formatCode(selectedPoint.kind)}</span>
                 {selectedPoint.elevation ? <small>{selectedPoint.elevation} m</small> : null}
+                {selectedPoint.latitude != null && selectedPoint.longitude != null ? (
+                  <small>{formatCoordinate(selectedPoint.latitude)}, {formatCoordinate(selectedPoint.longitude)}</small>
+                ) : null}
+                {selectedPoint.coordinateStatus ? <small>{formatCode(selectedPoint.coordinateStatus)} coordinates</small> : null}
                 {selectedPoint.routeRoleCount ? <small>{selectedPoint.routeRoleCount} {t("route links")}</small> : null}
-                {selectedPoint.routeId ? <Link className="button-link" to={`/outdoor-routes/${selectedPoint.routeId}`}>{t("Open route")}</Link> : null}
               </>
             ) : (
               <p>{t("Select a point on the map.")}</p>
