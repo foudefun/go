@@ -208,6 +208,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
+  const hasFitInitialBoundsRef = useRef(false);
   const [mapError, setMapError] = useState("");
   const points = useMemo(() => {
     const locationPoints = locations.map((item) => ({
@@ -308,6 +309,8 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
       return;
     }
     const selectedRouteLine = routeLines.find((line) => line.routeId === selectedRouteId);
+    const shouldFitMap = Boolean(selectedRouteLine) || !hasFitInitialBoundsRef.current;
+    if (!shouldFitMap) return;
     const routeLineCoordinates = selectedRouteLine?.coordinates || routeLines.flatMap((line) => line.coordinates);
     const boundsCoordinates = [
       ...(selectedRouteLine ? [] : points.map((point) => [Number(point.longitude), Number(point.latitude)])),
@@ -322,6 +325,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
         ),
       );
       map.fitBounds(bounds, { padding: 48, maxZoom: 9, duration: 0 });
+      hasFitInitialBoundsRef.current = true;
     }
   }, [focusPoint, onSelect, points, routeLines, selectedRouteId]);
 
@@ -352,6 +356,7 @@ export default function OutdoorMapPage() {
   const [difficulty, setDifficulty] = useState("");
   const [structuredOnly, setStructuredOnly] = useState(false);
   const [altitudeRange, setAltitudeRange] = useState([ALTITUDE_MIN, ALTITUDE_MAX]);
+  const [pendingAltitudeRange, setPendingAltitudeRange] = useState([ALTITUDE_MIN, ALTITUDE_MAX]);
   const [coordinateQuality, setCoordinateQuality] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [routeLinkFilter, setRouteLinkFilter] = useState("");
@@ -386,6 +391,7 @@ export default function OutdoorMapPage() {
     () => Array.from(new Set(allRoutes.map((item) => item.route.difficulty_label).filter(Boolean))).sort(),
     [allRoutes],
   );
+  const [pendingMinimumElevationValue, pendingMaximumElevationValue] = pendingAltitudeRange;
   const [minimumElevationValue, maximumElevationValue] = altitudeRange;
   const filteredRoutes = useMemo(
     () =>
@@ -453,13 +459,13 @@ export default function OutdoorMapPage() {
   }
 
   function updateMinimumAltitude(value) {
-    const nextMinimum = Math.min(Number(value), altitudeRange[1]);
-    setAltitudeRange([nextMinimum, altitudeRange[1]]);
+    const nextMinimum = Math.min(Number(value), pendingAltitudeRange[1]);
+    setPendingAltitudeRange([nextMinimum, pendingAltitudeRange[1]]);
   }
 
   function updateMaximumAltitude(value) {
-    const nextMaximum = Math.max(Number(value), altitudeRange[0]);
-    setAltitudeRange([altitudeRange[0], nextMaximum]);
+    const nextMaximum = Math.max(Number(value), pendingAltitudeRange[0]);
+    setPendingAltitudeRange([pendingAltitudeRange[0], nextMaximum]);
   }
 
   function exportSelectedPoint(format) {
@@ -473,6 +479,13 @@ export default function OutdoorMapPage() {
   }
 
   useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setAltitudeRange(pendingAltitudeRange);
+    }, 160);
+    return () => window.clearTimeout(timeoutId);
+  }, [pendingAltitudeRange]);
+
+  useEffect(() => {
     if (!targetLocationItem) return;
     setLocationTypes((current) => {
       if (current.has(targetLocationItem.location.location_entity_type)) return current;
@@ -483,6 +496,10 @@ export default function OutdoorMapPage() {
     const elevation = Number(targetLocationItem.location.elevation_meters);
     if (Number.isFinite(elevation)) {
       setAltitudeRange(([minimum, maximum]) => [
+        Math.min(minimum, Math.max(ALTITUDE_MIN, Math.floor(elevation / 50) * 50)),
+        Math.max(maximum, Math.min(ALTITUDE_MAX, Math.ceil(elevation / 50) * 50)),
+      ]);
+      setPendingAltitudeRange(([minimum, maximum]) => [
         Math.min(minimum, Math.max(ALTITUDE_MIN, Math.floor(elevation / 50) * 50)),
         Math.max(maximum, Math.min(ALTITUDE_MAX, Math.ceil(elevation / 50) * 50)),
       ]);
@@ -505,8 +522,8 @@ export default function OutdoorMapPage() {
     setSelectedRouteId(null);
   }, [targetLocationItem]);
 
-  const altitudeMinPercent = (minimumElevationValue / ALTITUDE_MAX) * 100;
-  const altitudeMaxPercent = (maximumElevationValue / ALTITUDE_MAX) * 100;
+  const altitudeMinPercent = (pendingMinimumElevationValue / ALTITUDE_MAX) * 100;
+  const altitudeMaxPercent = (pendingMaximumElevationValue / ALTITUDE_MAX) * 100;
 
   return (
     <main className="page-shell outdoor-map-page">
@@ -538,7 +555,7 @@ export default function OutdoorMapPage() {
         <div className="altitude-range-filter">
           <div className="altitude-range-header">
             <span>{t("Altitude")}</span>
-            <strong>{minimumElevationValue} m - {maximumElevationValue} m</strong>
+            <strong>{pendingMinimumElevationValue} m - {pendingMaximumElevationValue} m</strong>
           </div>
           <div
             className="altitude-range-slider"
@@ -552,7 +569,7 @@ export default function OutdoorMapPage() {
               min={ALTITUDE_MIN}
               max={ALTITUDE_MAX}
               step="50"
-              value={minimumElevationValue}
+              value={pendingMinimumElevationValue}
               aria-label={t("Min altitude")}
               onChange={(event) => updateMinimumAltitude(event.target.value)}
             />
@@ -561,7 +578,7 @@ export default function OutdoorMapPage() {
               min={ALTITUDE_MIN}
               max={ALTITUDE_MAX}
               step="50"
-              value={maximumElevationValue}
+              value={pendingMaximumElevationValue}
               aria-label={t("Max altitude")}
               onChange={(event) => updateMaximumAltitude(event.target.value)}
             />
