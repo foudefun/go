@@ -57,6 +57,22 @@ def test_phase_3_location_tables_share_common_columns_and_user_foreign_key():
         assert ("username", "users", "username", "CASCADE") in sqlite_foreign_keys(table_name)
 
 
+def test_hut_table_has_sac_metadata_columns():
+    assert {
+        "external_source_id",
+        "source_catalog",
+        "association_id",
+        "is_private",
+        "is_cas_owned",
+        "services_json",
+        "opening_json",
+        "catering_json",
+        "suitable_json",
+        "photos_json",
+        "raw_payload_json",
+    }.issubset(sqlite_columns("outdoor_huts"))
+
+
 def test_locations_allow_missing_coordinates(client):
     db = main.SessionLocal()
     try:

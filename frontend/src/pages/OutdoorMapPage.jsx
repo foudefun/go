@@ -232,6 +232,9 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
       sourceReferences: item.source_references || [],
       description: item.location.description,
       accessNotes: item.location.access_notes,
+      isCasOwned: item.location.is_cas_owned,
+      isPrivate: item.location.is_private,
+      sourceCatalog: item.location.source_catalog,
       linkedRoutes: item.linked_routes || [],
       latitude: item.location.latitude,
       longitude: item.location.longitude,
@@ -531,6 +534,9 @@ export default function OutdoorMapPage() {
       sourceReferences: targetLocationItem.source_references || [],
       description: targetLocationItem.location.description,
       accessNotes: targetLocationItem.location.access_notes,
+      isCasOwned: targetLocationItem.location.is_cas_owned,
+      isPrivate: targetLocationItem.location.is_private,
+      sourceCatalog: targetLocationItem.location.source_catalog,
       linkedRoutes: targetLocationItem.linked_routes || [],
       latitude: targetLocationItem.location.latitude,
       longitude: targetLocationItem.location.longitude,
@@ -686,6 +692,11 @@ export default function OutdoorMapPage() {
                 ) : null}
                 <h2>{selectedPoint.label}</h2>
                 <span>{formatCode(selectedPoint.kind)}</span>
+                {selectedPoint.kind === "hut" && selectedPoint.sourceCatalog === "sac_route_portal" ? (
+                  <span className={selectedPoint.isCasOwned ? "outdoor-map-ownership owned" : "outdoor-map-ownership other"}>
+                    {selectedPoint.isCasOwned ? "CAS-owned hut" : "Other hut POI"}
+                  </span>
+                ) : null}
                 {selectedPoint.elevation ? <small>{selectedPoint.elevation} m</small> : null}
                 {selectedPoint.latitude != null && selectedPoint.longitude != null ? (
                   <small>{formatCoordinate(selectedPoint.latitude)}, {formatCoordinate(selectedPoint.longitude)}</small>

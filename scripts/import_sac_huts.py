@@ -111,6 +111,26 @@ def true_keys(value: dict) -> list[str]:
     return [key for key, enabled in sorted(value.items()) if enabled]
 
 
+def compact_photos(detail: dict) -> list[dict]:
+    photos = []
+    for item in detail.get("photos") or []:
+        if not isinstance(item, dict):
+            continue
+        photo = item.get("photo") if isinstance(item.get("photo"), dict) else {}
+        photos.append(
+            {
+                "caption": pick_text(item.get("caption")),
+                "url": str(photo.get("url") or ""),
+                "thumbnails": photo.get("thumbnails") or {},
+                "copyright": str(photo.get("copyright") or "").strip(),
+                "season": str(photo.get("season") or "").strip(),
+                "currentness": str(photo.get("currentness") or "").strip(),
+                "upload_time": str(photo.get("upload_time") or "").strip(),
+            }
+        )
+    return photos
+
+
 def first_photo_url(detail: dict) -> str:
     for item in detail.get("photos") or []:
         photo = item.get("photo") if isinstance(item, dict) else None
@@ -222,8 +242,16 @@ def build_hut_preview(detail: dict, now: str) -> dict:
         "sac_id": int(detail["id"]),
         "association_id": detail.get("association_id"),
         "is_private": bool(detail.get("is_private")),
+        "is_cas_owned": detail.get("association_id") == SAC_ASSOCIATION_ID and detail.get("is_private") is False,
+        "source_catalog": "sac_route_portal",
         "name": name,
         "aliases_json": json.dumps(aliases, ensure_ascii=False),
+        "services_json": json.dumps(detail.get("services") or {}, ensure_ascii=False, sort_keys=True),
+        "opening_json": json.dumps(detail.get("opening") or {}, ensure_ascii=False, sort_keys=True),
+        "catering_json": json.dumps(detail.get("catering") or {}, ensure_ascii=False, sort_keys=True),
+        "suitable_json": json.dumps(detail.get("suitable") or {}, ensure_ascii=False, sort_keys=True),
+        "photos_json": json.dumps(compact_photos(detail), ensure_ascii=False),
+        "raw_payload_json": json.dumps(detail, ensure_ascii=False, sort_keys=True),
         "latitude": latitude,
         "longitude": longitude,
         "elevation_meters": detail.get("altitude"),
@@ -296,6 +324,17 @@ def upsert_hut(db, username: str, preview: dict, now: str) -> str:
         db.add(row)
         db.flush()
     row.aliases_json = preview["aliases_json"]
+    row.external_source_id = str(preview["sac_id"])
+    row.source_catalog = preview["source_catalog"]
+    row.association_id = preview["association_id"]
+    row.is_private = preview["is_private"]
+    row.is_cas_owned = preview["is_cas_owned"]
+    row.services_json = preview["services_json"]
+    row.opening_json = preview["opening_json"]
+    row.catering_json = preview["catering_json"]
+    row.suitable_json = preview["suitable_json"]
+    row.photos_json = preview["photos_json"]
+    row.raw_payload_json = preview["raw_payload_json"]
     row.latitude = preview["latitude"]
     row.longitude = preview["longitude"]
     row.elevation_meters = preview["elevation_meters"]

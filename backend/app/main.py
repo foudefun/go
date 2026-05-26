@@ -576,6 +576,17 @@ class OutdoorHutModel(Base):
     username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
     name = Column(String, nullable=False)
     aliases_json = Column(Text)
+    external_source_id = Column(String)
+    source_catalog = Column(String)
+    association_id = Column(Integer)
+    is_private = Column(Boolean)
+    is_cas_owned = Column(Boolean)
+    services_json = Column(Text)
+    opening_json = Column(Text)
+    catering_json = Column(Text)
+    suitable_json = Column(Text)
+    photos_json = Column(Text)
+    raw_payload_json = Column(Text)
     latitude = Column(Float)
     longitude = Column(Float)
     elevation_meters = Column(Float)
@@ -1118,6 +1129,23 @@ def ensure_columns():
         route_variant_columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(outdoor_route_variants)").fetchall()}
         if route_variant_columns and "geometry_json" not in route_variant_columns:
             conn.exec_driver_sql("ALTER TABLE outdoor_route_variants ADD COLUMN geometry_json TEXT")
+        hut_columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(outdoor_huts)").fetchall()}
+        hut_column_definitions = {
+            "external_source_id": "TEXT",
+            "source_catalog": "TEXT",
+            "association_id": "INTEGER",
+            "is_private": "BOOLEAN",
+            "is_cas_owned": "BOOLEAN",
+            "services_json": "TEXT",
+            "opening_json": "TEXT",
+            "catering_json": "TEXT",
+            "suitable_json": "TEXT",
+            "photos_json": "TEXT",
+            "raw_payload_json": "TEXT",
+        }
+        for column_name, column_type in hut_column_definitions.items():
+            if hut_columns and column_name not in hut_columns:
+                conn.exec_driver_sql(f"ALTER TABLE outdoor_huts ADD COLUMN {column_name} {column_type}")
 
 SQLITE_FOREIGN_KEY_TABLES = {
     "equipment_brands": {
@@ -1723,7 +1751,7 @@ SQLITE_FOREIGN_KEY_TABLES = {
         """,
     },
     "outdoor_huts": {
-        "columns": "id, username, name, aliases_json, latitude, longitude, elevation_meters, coordinate_status, description, access_notes, created_at, updated_at",
+        "columns": "id, username, name, aliases_json, external_source_id, source_catalog, association_id, is_private, is_cas_owned, services_json, opening_json, catering_json, suitable_json, photos_json, raw_payload_json, latitude, longitude, elevation_meters, coordinate_status, description, access_notes, created_at, updated_at",
         "foreign_keys": {("username", "users", "username", "CASCADE")},
         "create_sql": """
             CREATE TABLE {table} (
@@ -1731,6 +1759,17 @@ SQLITE_FOREIGN_KEY_TABLES = {
                 username VARCHAR NOT NULL,
                 name VARCHAR NOT NULL,
                 aliases_json TEXT,
+                external_source_id TEXT,
+                source_catalog TEXT,
+                association_id INTEGER,
+                is_private BOOLEAN,
+                is_cas_owned BOOLEAN,
+                services_json TEXT,
+                opening_json TEXT,
+                catering_json TEXT,
+                suitable_json TEXT,
+                photos_json TEXT,
+                raw_payload_json TEXT,
                 latitude FLOAT,
                 longitude FLOAT,
                 elevation_meters FLOAT,
@@ -2411,7 +2450,7 @@ def serialize_outdoor_source_reference(row: OutdoorSourceReferenceModel) -> dict
 def serialize_outdoor_location(row, location_entity_type: str) -> dict:
     if not row:
         return {}
-    return {
+    payload = {
         "id": row.id,
         "location_entity_type": location_entity_type,
         "name": row.name,
@@ -2423,6 +2462,22 @@ def serialize_outdoor_location(row, location_entity_type: str) -> dict:
         "description": row.description or "",
         "access_notes": row.access_notes or "",
     }
+    if location_entity_type == "hut":
+        payload.update(
+            {
+                "external_source_id": getattr(row, "external_source_id", "") or "",
+                "source_catalog": getattr(row, "source_catalog", "") or "",
+                "association_id": getattr(row, "association_id", None),
+                "is_private": getattr(row, "is_private", None),
+                "is_cas_owned": getattr(row, "is_cas_owned", None),
+                "services": parse_json_field(getattr(row, "services_json", "") or "", {}),
+                "opening": parse_json_field(getattr(row, "opening_json", "") or "", {}),
+                "catering": parse_json_field(getattr(row, "catering_json", "") or "", {}),
+                "suitable": parse_json_field(getattr(row, "suitable_json", "") or "", {}),
+                "photos": parse_json_field(getattr(row, "photos_json", "") or "", []),
+            }
+        )
+    return payload
 
 def serialize_outdoor_route(row: OutdoorRouteModel) -> dict:
     return {

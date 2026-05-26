@@ -1812,6 +1812,24 @@ select[multiple] {
   color: #667085;
 }
 
+.outdoor-map-ownership {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.outdoor-map-ownership.owned {
+  background: #e8f5f1;
+  color: #0f766e;
+}
+
+.outdoor-map-ownership.other {
+  background: #eef2f7;
+  color: #344054;
+}
+
 .outdoor-map-selection-photo {
   width: 100%;
   max-height: 180px;
