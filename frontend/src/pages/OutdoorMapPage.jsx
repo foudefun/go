@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { getOutdoorMap } from "../api/outdoorRoutesApi.js";
@@ -204,7 +204,7 @@ function syncRouteLines(map, routeLines) {
   return true;
 }
 
-function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSelect }) {
+function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSelect, focusPoint }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -299,6 +299,14 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
         .setLngLat([Number(point.longitude), Number(point.latitude)])
         .addTo(map);
     });
+    if (focusPoint) {
+      map.flyTo({
+        center: [Number(focusPoint.longitude), Number(focusPoint.latitude)],
+        zoom: Math.max(map.getZoom(), 10),
+        duration: 0,
+      });
+      return;
+    }
     const selectedRouteLine = routeLines.find((line) => line.routeId === selectedRouteId);
     const routeLineCoordinates = selectedRouteLine?.coordinates || routeLines.flatMap((line) => line.coordinates);
     const boundsCoordinates = [
@@ -315,7 +323,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
       );
       map.fitBounds(bounds, { padding: 48, maxZoom: 9, duration: 0 });
     }
-  }, [onSelect, points, routeLines, selectedRouteId]);
+  }, [focusPoint, onSelect, points, routeLines, selectedRouteId]);
 
   useEffect(() => {
     markersRef.current.forEach((marker) => {
@@ -334,6 +342,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
 
 export default function OutdoorMapPage() {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
   const [payload, setPayload] = useState(null);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
@@ -371,6 +380,8 @@ export default function OutdoorMapPage() {
 
   const allRoutes = payload?.routes || [];
   const allLocations = payload?.locations || [];
+  const targetKind = searchParams.get("kind") || "";
+  const targetId = searchParams.get("id") || "";
   const difficultyOptions = useMemo(
     () => Array.from(new Set(allRoutes.map((item) => item.route.difficulty_label).filter(Boolean))).sort(),
     [allRoutes],
@@ -409,6 +420,14 @@ export default function OutdoorMapPage() {
       routeLinkFilter,
       sourceFilter,
     ],
+  );
+  const targetLocationItem = useMemo(
+    () =>
+      allLocations.find((item) => (
+        item.location.location_entity_type === targetKind
+        && String(item.location.id) === String(targetId)
+      )),
+    [allLocations, targetId, targetKind],
   );
 
   function toggleLocationType(type) {
@@ -452,6 +471,39 @@ export default function OutdoorMapPage() {
       downloadTextFile(`${slug}.gpx`, "application/gpx+xml;charset=utf-8", buildPointGpx(selectedPoint));
     }
   }
+
+  useEffect(() => {
+    if (!targetLocationItem) return;
+    setLocationTypes((current) => {
+      if (current.has(targetLocationItem.location.location_entity_type)) return current;
+      const next = new Set(current);
+      next.add(targetLocationItem.location.location_entity_type);
+      return next;
+    });
+    const elevation = Number(targetLocationItem.location.elevation_meters);
+    if (Number.isFinite(elevation)) {
+      setAltitudeRange(([minimum, maximum]) => [
+        Math.min(minimum, Math.max(ALTITUDE_MIN, Math.floor(elevation / 50) * 50)),
+        Math.max(maximum, Math.min(ALTITUDE_MAX, Math.ceil(elevation / 50) * 50)),
+      ]);
+    }
+    setCoordinateQuality("");
+    setSourceFilter("");
+    setRouteLinkFilter("");
+    setSelectedPoint({
+      id: `location-${targetLocationItem.location.location_entity_type}-${targetLocationItem.location.id}`,
+      kind: targetLocationItem.location.location_entity_type,
+      label: targetLocationItem.location.name,
+      elevation: targetLocationItem.location.elevation_meters,
+      coordinateStatus: targetLocationItem.location.coordinate_status,
+      routeRoleCount: targetLocationItem.route_role_count,
+      sourceReferenceCount: targetLocationItem.source_reference_count,
+      linkedRoutes: targetLocationItem.linked_routes || [],
+      latitude: targetLocationItem.location.latitude,
+      longitude: targetLocationItem.location.longitude,
+    });
+    setSelectedRouteId(null);
+  }, [targetLocationItem]);
 
   const altitudeMinPercent = (minimumElevationValue / ALTITUDE_MAX) * 100;
   const altitudeMaxPercent = (maximumElevationValue / ALTITUDE_MAX) * 100;
@@ -584,6 +636,7 @@ export default function OutdoorMapPage() {
               routes={filteredRoutes}
               selectedId={selectedPoint?.id}
               selectedRouteId={selectedRouteId}
+              focusPoint={selectedPoint}
               onSelect={selectPoint}
             />
           </div>

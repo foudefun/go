@@ -1903,7 +1903,7 @@ select[multiple] {
 
 .table-scroll table {
   width: 100%;
-  min-width: 760px;
+  min-width: 860px;
   border-collapse: collapse;
 }
 
@@ -1924,6 +1924,17 @@ select[multiple] {
 
 .table-scroll td {
   color: #172033;
+}
+
+.table-action-link {
+  color: #0f766e;
+  font-weight: 850;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.table-action-link:hover {
+  text-decoration: underline;
 }
 
 .empty-state-inline {

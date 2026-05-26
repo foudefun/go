@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { getOutdoorDataAudit } from "../api/outdoorRoutesApi.js";
 import { useTranslation } from "../i18n/translations.js";
 
@@ -71,6 +72,14 @@ function downloadCsv(filename, rows) {
   URL.revokeObjectURL(url);
 }
 
+function buildMapLink(row) {
+  const params = new URLSearchParams({
+    kind: row.location_entity_type,
+    id: String(row.id),
+  });
+  return `/outdoor-map?${params.toString()}`;
+}
+
 function AuditRow({ row }) {
   return (
     <tr>
@@ -81,6 +90,13 @@ function AuditRow({ row }) {
       <td>{formatCoordinate(row.longitude)}</td>
       <td>{formatCode(row.coordinate_status)}</td>
       <td>{row.source_reference_count}</td>
+      <td>
+        {row.latitude != null && row.longitude != null ? (
+          <Link className="table-action-link" to={buildMapLink(row)}>
+            {t("View on map")}
+          </Link>
+        ) : null}
+      </td>
     </tr>
   );
 }
@@ -180,6 +196,7 @@ export default function OutdoorDataAuditPage() {
                             <th>{t("Longitude")}</th>
                             <th>{t("Coordinates")}</th>
                             <th>{t("Sources")}</th>
+                            <th>{t("Action")}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -202,6 +219,7 @@ export default function OutdoorDataAuditPage() {
                       <th>{t("Longitude")}</th>
                       <th>{t("Coordinates")}</th>
                       <th>{t("Sources")}</th>
+                      <th>{t("Action")}</th>
                     </tr>
                   </thead>
                   <tbody>

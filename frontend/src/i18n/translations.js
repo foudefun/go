@@ -365,6 +365,8 @@ const FR = {
   Name: "Nom",
   Latitude: "Latitude",
   Longitude: "Longitude",
+  Action: "Action",
+  "View on map": "Voir sur la carte",
   "No records in this audit section.": "Aucun enregistrement dans cette section d'audit.",
   "Summits and routes": "Sommets et itineraires",
   "Filter imported summits, places, and route objectives by activity and difficulty.": "Filtrez les sommets, lieux et objectifs d'itineraire importes par activite et difficulte.",
