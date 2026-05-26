@@ -46,6 +46,15 @@ def seed_map_data():
         db.add_all([route, summit, hut, hidden_waypoint])
         db.flush()
         db.add_all([
+            main.OutdoorSourceReferenceModel(
+                entity_type="summit",
+                entity_id=summit.id,
+                source_type="map",
+                title="Topo reference",
+                url="https://example.com/mont-blanc",
+                created_at=now,
+                updated_at=now,
+            ),
             main.OutdoorRouteLocationRoleModel(
                 entity_type="route",
                 entity_id=route.id,
@@ -90,8 +99,11 @@ def test_get_outdoor_map_returns_locations_and_route_points(client):
     assert payload["bounds"]["min_latitude"] == 45.8326
     summit_item = next(item for item in payload["locations"] if item["location"]["name"] == "Mont Blanc")
     assert summit_item["route_role_count"] == 1
+    assert summit_item["source_reference_count"] == 1
     assert summit_item["linked_routes"][0]["route"]["id"] == route_id
     assert summit_item["linked_routes"][0]["role"] == "main_objective"
+    hut_item = next(item for item in payload["locations"] if item["location"]["name"] == "Gouter Hut")
+    assert hut_item["source_reference_count"] == 0
 
 
 def test_get_outdoor_map_includes_admin_library_for_members(non_admin_client):

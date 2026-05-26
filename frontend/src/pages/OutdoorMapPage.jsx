@@ -19,6 +19,9 @@ const LOCATION_FILTERS = [
 const ACTIVITY_FILTERS = ["", "alpinism", "ski_touring", "hiking", "outdoor_climbing"];
 const ALTITUDE_MIN = 0;
 const ALTITUDE_MAX = 5000;
+const COORDINATE_QUALITY_FILTERS = ["", "exact", "approximate", "unknown"];
+const SOURCE_FILTERS = ["", "with_source", "missing_source"];
+const ROUTE_LINK_FILTERS = ["", "with_route_links", "without_route_links"];
 const MAP_STYLE = {
   version: 8,
   sources: {
@@ -65,6 +68,20 @@ function formatCoordinate(value) {
 function formatElevationRange(minimum, maximum, t) {
   if (minimum === ALTITUDE_MIN && maximum === ALTITUDE_MAX) return t("All altitudes");
   return `${minimum}-${maximum} m`;
+}
+
+function getDataQualityLabel(value, t) {
+  if (!value) return t("All data quality");
+  const labels = {
+    exact: t("Exact coordinates"),
+    approximate: t("Approximate coordinates"),
+    unknown: t("Unknown coordinates"),
+    with_source: t("Has source"),
+    missing_source: t("Missing source"),
+    with_route_links: t("Has route links"),
+    without_route_links: t("No route links"),
+  };
+  return labels[value] || formatCode(value);
 }
 
 function escapeXml(value) {
@@ -200,6 +217,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
       elevation: item.location.elevation_meters,
       coordinateStatus: item.location.coordinate_status,
       routeRoleCount: item.route_role_count,
+      sourceReferenceCount: item.source_reference_count,
       linkedRoutes: item.linked_routes || [],
       latitude: item.location.latitude,
       longitude: item.location.longitude,
@@ -325,6 +343,9 @@ export default function OutdoorMapPage() {
   const [difficulty, setDifficulty] = useState("");
   const [structuredOnly, setStructuredOnly] = useState(false);
   const [altitudeRange, setAltitudeRange] = useState([ALTITUDE_MIN, ALTITUDE_MAX]);
+  const [coordinateQuality, setCoordinateQuality] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("");
+  const [routeLinkFilter, setRouteLinkFilter] = useState("");
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [selectedRouteId, setSelectedRouteId] = useState(null);
 
@@ -372,9 +393,22 @@ export default function OutdoorMapPage() {
       const elevation = Number(item.location.elevation_meters);
       if (!Number.isFinite(elevation)) return false;
       if (elevation < minimumElevationValue || elevation > maximumElevationValue) return false;
+      if (coordinateQuality && item.location.coordinate_status !== coordinateQuality) return false;
+      if (sourceFilter === "with_source" && Number(item.source_reference_count || 0) === 0) return false;
+      if (sourceFilter === "missing_source" && Number(item.source_reference_count || 0) > 0) return false;
+      if (routeLinkFilter === "with_route_links" && Number(item.route_role_count || 0) === 0) return false;
+      if (routeLinkFilter === "without_route_links" && Number(item.route_role_count || 0) > 0) return false;
       return true;
     }),
-    [allLocations, locationTypes, maximumElevationValue, minimumElevationValue],
+    [
+      allLocations,
+      coordinateQuality,
+      locationTypes,
+      maximumElevationValue,
+      minimumElevationValue,
+      routeLinkFilter,
+      sourceFilter,
+    ],
   );
 
   function toggleLocationType(type) {
@@ -493,6 +527,30 @@ export default function OutdoorMapPage() {
           <input type="checkbox" checked={structuredOnly} onChange={(event) => setStructuredOnly(event.target.checked)} />
           {t("Structured only")}
         </label>
+        <label>
+          {t("Coordinates")}
+          <select value={coordinateQuality} onChange={(event) => setCoordinateQuality(event.target.value)}>
+            {COORDINATE_QUALITY_FILTERS.map((value) => (
+              <option key={value || "all"} value={value}>{getDataQualityLabel(value, t)}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("Sources")}
+          <select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}>
+            {SOURCE_FILTERS.map((value) => (
+              <option key={value || "all"} value={value}>{getDataQualityLabel(value, t)}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("Route links")}
+          <select value={routeLinkFilter} onChange={(event) => setRouteLinkFilter(event.target.value)}>
+            {ROUTE_LINK_FILTERS.map((value) => (
+              <option key={value || "all"} value={value}>{getDataQualityLabel(value, t)}</option>
+            ))}
+          </select>
+        </label>
         <div className="location-filter-set">
           {LOCATION_FILTERS.map((type) => (
             <button
@@ -513,6 +571,7 @@ export default function OutdoorMapPage() {
         <span><strong>{payload?.totals?.locations || 0}</strong>{t("Mapped points")}</span>
         <span><strong>{difficulty || t("All grades")}</strong>{t("Difficulty")}</span>
         <span><strong>{formatElevationRange(minimumElevationValue, maximumElevationValue, t)}</strong>{t("Altitude")}</span>
+        <span><strong>{getDataQualityLabel(coordinateQuality || sourceFilter || routeLinkFilter, t)}</strong>{t("Data quality")}</span>
       </section>
 
       {status === "loading" ? <div className="app-panel empty-state">{t("Loading map...")}</div> : null}
@@ -540,6 +599,7 @@ export default function OutdoorMapPage() {
                 ) : null}
                 {selectedPoint.coordinateStatus ? <small>{formatCode(selectedPoint.coordinateStatus)} coordinates</small> : null}
                 {selectedPoint.routeRoleCount ? <small>{selectedPoint.routeRoleCount} {t("route links")}</small> : null}
+                <small>{selectedPoint.sourceReferenceCount || 0} {t("sources")}</small>
                 {selectedPoint.latitude != null && selectedPoint.longitude != null ? (
                   <div className="outdoor-map-export-actions">
                     <button type="button" onClick={() => exportSelectedPoint("geojson")}>{t("Export GeoJSON")}</button>

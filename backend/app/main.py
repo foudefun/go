@@ -2710,6 +2710,11 @@ def get_outdoor_route_ids_matching_location_search(db, usernames: list[str], sea
 def build_outdoor_map_location_item(db, usernames: list[str], row, location_entity_type: str) -> dict | None:
     if row.latitude is None or row.longitude is None:
         return None
+    source_reference_count = (
+        db.query(OutdoorSourceReferenceModel)
+        .filter_by(entity_type=location_entity_type, entity_id=row.id)
+        .count()
+    )
     role_rows = (
         db.query(OutdoorRouteLocationRoleModel, OutdoorRouteModel)
         .join(
@@ -2742,6 +2747,7 @@ def build_outdoor_map_location_item(db, usernames: list[str], row, location_enti
     return {
         "location": serialize_outdoor_location(row, location_entity_type),
         "route_role_count": len(role_rows),
+        "source_reference_count": source_reference_count,
         "linked_routes": linked_routes,
     }
 

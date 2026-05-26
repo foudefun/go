@@ -1351,7 +1351,7 @@ select[multiple] {
 }
 
 .outdoor-map-summary-grid {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1508,10 +1508,14 @@ select[multiple] {
 
 .outdoor-map-filters {
   display: grid;
-  grid-template-columns: minmax(150px, 220px) minmax(130px, 180px) minmax(240px, 320px) auto auto minmax(260px, 1fr);
+  grid-template-columns: minmax(150px, 220px) minmax(130px, 180px) minmax(240px, 320px) auto auto repeat(3, minmax(145px, 1fr));
   gap: 12px;
   align-items: end;
   padding: 16px;
+}
+
+.location-filter-set {
+  grid-column: 1 / -1;
 }
 
 .altitude-range-filter {
