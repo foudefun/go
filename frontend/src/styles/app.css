@@ -1759,12 +1759,19 @@ select[multiple] {
 }
 
 .outdoor-map-marker.location.hut {
-  width: 28px;
-  height: 18px;
-  border-radius: 5px;
-  font-size: 9px;
-  letter-spacing: 0;
-  text-transform: uppercase;
+  width: 22px;
+  height: 22px;
+  background: #fff;
+  border-color: #0f766e;
+  border-radius: 999px;
+}
+
+.outdoor-map-marker.location.hut img {
+  display: block;
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  pointer-events: none;
 }
 
 .outdoor-map-marker.location.pass,

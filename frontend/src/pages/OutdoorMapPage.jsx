@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { getOutdoorMap } from "../api/outdoorRoutesApi.js";
+import hutMarkerIcon from "../../assets/hut.png";
 import { getOutdoorRouteActivityTypeLabel } from "../domain/outdoorRouteDomain.js";
 import { useTranslation } from "../i18n/translations.js";
 
@@ -67,7 +68,6 @@ function getMarkerClass(point) {
 
 function getMarkerText(point) {
   if (point.kind === "parking") return "P";
-  if (point.kind === "hut") return "hut";
   return "";
 }
 
@@ -307,6 +307,13 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
       markerElement.type = "button";
       markerElement.className = getMarkerClass(point);
       markerElement.textContent = getMarkerText(point);
+      if (point.kind === "hut") {
+        const image = document.createElement("img");
+        image.src = hutMarkerIcon;
+        image.alt = "";
+        image.decoding = "async";
+        markerElement.appendChild(image);
+      }
       markerElement.title = point.label;
       markerElement.setAttribute("aria-label", point.label);
       markerElement.dataset.pointId = point.id;
