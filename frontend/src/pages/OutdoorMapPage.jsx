@@ -47,6 +47,16 @@ function formatCode(value) {
   return String(value || "").replaceAll("_", " ");
 }
 
+function getPhotoReference(sourceReferences = []) {
+  return sourceReferences.find((reference) => (
+    reference.url
+    && (
+      reference.source_type === "photo"
+      || String(reference.title || "").toLowerCase().includes("photo")
+    )
+  ));
+}
+
 function isStructuredRoute(item) {
   return Number(item.variant_count || 0) > 0 && Number(item.segment_count || 0) > 0;
 }
@@ -219,6 +229,9 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
       coordinateStatus: item.location.coordinate_status,
       routeRoleCount: item.route_role_count,
       sourceReferenceCount: item.source_reference_count,
+      sourceReferences: item.source_references || [],
+      description: item.location.description,
+      accessNotes: item.location.access_notes,
       linkedRoutes: item.linked_routes || [],
       latitude: item.location.latitude,
       longitude: item.location.longitude,
@@ -515,6 +528,9 @@ export default function OutdoorMapPage() {
       coordinateStatus: targetLocationItem.location.coordinate_status,
       routeRoleCount: targetLocationItem.route_role_count,
       sourceReferenceCount: targetLocationItem.source_reference_count,
+      sourceReferences: targetLocationItem.source_references || [],
+      description: targetLocationItem.location.description,
+      accessNotes: targetLocationItem.location.access_notes,
       linkedRoutes: targetLocationItem.linked_routes || [],
       latitude: targetLocationItem.location.latitude,
       longitude: targetLocationItem.location.longitude,
@@ -661,6 +677,13 @@ export default function OutdoorMapPage() {
             <p className="eyebrow">{t("Selection")}</p>
             {selectedPoint ? (
               <>
+                {getPhotoReference(selectedPoint.sourceReferences) ? (
+                  <img
+                    className="outdoor-map-selection-photo"
+                    src={getPhotoReference(selectedPoint.sourceReferences).url}
+                    alt=""
+                  />
+                ) : null}
                 <h2>{selectedPoint.label}</h2>
                 <span>{formatCode(selectedPoint.kind)}</span>
                 {selectedPoint.elevation ? <small>{selectedPoint.elevation} m</small> : null}
@@ -670,6 +693,20 @@ export default function OutdoorMapPage() {
                 {selectedPoint.coordinateStatus ? <small>{formatCode(selectedPoint.coordinateStatus)} coordinates</small> : null}
                 {selectedPoint.routeRoleCount ? <small>{selectedPoint.routeRoleCount} {t("route links")}</small> : null}
                 <small>{selectedPoint.sourceReferenceCount || 0} {t("sources")}</small>
+                {selectedPoint.description ? <p className="outdoor-map-selection-text">{selectedPoint.description}</p> : null}
+                {selectedPoint.accessNotes ? <p className="outdoor-map-selection-text preserve-lines">{selectedPoint.accessNotes}</p> : null}
+                {selectedPoint.sourceReferences?.length ? (
+                  <div className="outdoor-map-source-links">
+                    {selectedPoint.sourceReferences
+                      .filter((reference) => reference.url && reference.source_type !== "photo")
+                      .slice(0, 4)
+                      .map((reference) => (
+                        <a key={`${reference.source_type}-${reference.url}`} href={reference.url} target="_blank" rel="noreferrer">
+                          {reference.title || reference.publisher || reference.url}
+                        </a>
+                      ))}
+                  </div>
+                ) : null}
                 {selectedPoint.latitude != null && selectedPoint.longitude != null ? (
                   <div className="outdoor-map-export-actions">
                     <button type="button" onClick={() => exportSelectedPoint("geojson")}>{t("Export GeoJSON")}</button>
