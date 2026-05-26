@@ -38,6 +38,10 @@ MODEL_BY_TABLE = {
 }
 
 
+COORDINATE_CONFLICT_DEGREES = 0.001
+ELEVATION_CONFLICT_METERS = 10
+
+
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
@@ -45,6 +49,32 @@ def utc_now_iso() -> str:
 def ensure_user_exists(db, username: str) -> None:
     if not db.query(backend.UserModel).filter_by(username=username).first():
         raise ValueError(f"User '{username}' does not exist")
+
+
+def values_conflict(existing: float | None, incoming: float | None, tolerance: float) -> bool:
+    if existing is None or incoming is None:
+        return existing != incoming
+    return abs(float(existing) - float(incoming)) > tolerance
+
+
+def find_location_conflicts(db, username: str, location_previews: list[dict]) -> list[str]:
+    conflicts = []
+    for preview in location_previews:
+        model = MODEL_BY_TABLE[preview["table"]]
+        row = db.query(model).filter_by(username=username, name=preview["name"]).first()
+        if not row:
+            continue
+        has_conflict = (
+            values_conflict(row.latitude, preview["latitude"], COORDINATE_CONFLICT_DEGREES)
+            or values_conflict(row.longitude, preview["longitude"], COORDINATE_CONFLICT_DEGREES)
+            or values_conflict(row.elevation_meters, preview["elevation_meters"], ELEVATION_CONFLICT_METERS)
+        )
+        if has_conflict:
+            conflicts.append(
+                f"{preview['name']} already exists in {preview['table']} with different "
+                "coordinates/elevation; rename or merge explicitly before importing"
+            )
+    return conflicts
 
 
 def upsert_location(db, username: str, preview: dict, now: str) -> str:
@@ -97,6 +127,13 @@ def import_inventory(path: Path, username: str, apply: bool = False) -> int:
     db = backend.SessionLocal()
     try:
         ensure_user_exists(db, username)
+        conflicts = find_location_conflicts(db, username, location_previews)
+        if conflicts:
+            print("\nConflicts:")
+            for conflict in conflicts:
+                print(f"- {conflict}")
+            print("\nNo rows written.")
+            return 1
         now = utc_now_iso()
         created = 0
         updated = 0

@@ -82,6 +82,30 @@ def test_import_inventory_apply_upserts_locations(tmp_path, client):
         db.close()
 
 
+def test_import_inventory_rejects_conflicting_same_name_location(tmp_path, client):
+    path = tmp_path / "inventory.json"
+    write_inventory(path)
+
+    assert import_inventory(path, "admin", apply=True) == 0
+
+    conflicting_path = tmp_path / "conflicting_inventory.json"
+    write_inventory(conflicting_path)
+    content = conflicting_path.read_text(encoding="utf-8")
+    content = content.replace('"latitude": 46.44495', '"latitude": 47.44495')
+    content = content.replace('"elevation_meters": 1874', '"elevation_meters": 2874')
+    conflicting_path.write_text(content, encoding="utf-8")
+
+    assert import_inventory(conflicting_path, "admin", apply=True) == 1
+
+    db = main.SessionLocal()
+    try:
+        row = db.query(main.OutdoorSummitModel).filter_by(name="Dent de Jaman").one()
+        assert row.latitude == 46.44495
+        assert row.elevation_meters == 1874
+    finally:
+        db.close()
+
+
 def test_import_inventory_rejects_unknown_user(tmp_path, client):
     path = tmp_path / "inventory.json"
     write_inventory(path)
