@@ -15,3 +15,7 @@ export function getOutdoorRouteDetails(routeId) {
 export function getOutdoorMap() {
   return api("/outdoor-map");
 }
+
+export function getOutdoorDataAudit() {
+  return api("/outdoor-data-audit");
+}

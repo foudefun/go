@@ -2799,6 +2799,102 @@ def build_outdoor_map_payload(db, username: str) -> dict:
         },
     }
 
+def build_outdoor_data_audit_record(db, row, location_entity_type: str) -> dict:
+    source_reference_count = (
+        db.query(OutdoorSourceReferenceModel)
+        .filter_by(entity_type=location_entity_type, entity_id=row.id)
+        .count()
+    )
+    return {
+        "id": row.id,
+        "location_entity_type": location_entity_type,
+        "name": row.name,
+        "latitude": row.latitude,
+        "longitude": row.longitude,
+        "elevation_meters": row.elevation_meters,
+        "coordinate_status": row.coordinate_status,
+        "source_reference_count": source_reference_count,
+    }
+
+def build_outdoor_data_audit_payload(db, username: str) -> dict:
+    usernames = get_outdoor_library_usernames(username)
+    records = []
+    for location_entity_type, model in OUTDOOR_LOCATION_MODEL_BY_TYPE.items():
+        rows = (
+            db.query(model)
+            .filter(model.username.in_(usernames))
+            .order_by(model.name, model.id)
+            .all()
+        )
+        records.extend(build_outdoor_data_audit_record(db, row, location_entity_type) for row in rows)
+
+    duplicate_groups_by_key = {}
+    for record in records:
+        key = (record["location_entity_type"], str(record["name"] or "").strip().casefold())
+        duplicate_groups_by_key.setdefault(key, []).append(record)
+    duplicate_groups = [
+        {
+            "location_entity_type": key[0],
+            "name": group[0]["name"],
+            "count": len(group),
+            "records": group,
+        }
+        for key, group in duplicate_groups_by_key.items()
+        if key[1] and len(group) > 1
+    ]
+    duplicate_groups.sort(key=lambda item: (item["location_entity_type"], str(item["name"]).casefold()))
+
+    missing_sources = [record for record in records if record["source_reference_count"] == 0]
+    missing_coordinates = [
+        record
+        for record in records
+        if record["latitude"] is None or record["longitude"] is None
+    ]
+    approximate_coordinates = [
+        record
+        for record in records
+        if record["coordinate_status"] == "approximate"
+    ]
+    unknown_coordinates = [
+        record
+        for record in records
+        if record["coordinate_status"] == "unknown"
+    ]
+    suspicious_elevations = [
+        record
+        for record in records
+        if record["elevation_meters"] is not None
+        and (record["elevation_meters"] < 0 or record["elevation_meters"] > 5000)
+    ]
+    summit_4000_count = sum(
+        1
+        for record in records
+        if record["location_entity_type"] == "summit"
+        and record["elevation_meters"] is not None
+        and record["elevation_meters"] >= 4000
+    )
+    return {
+        "summary": {
+            "total_locations": len(records),
+            "total_summits": sum(1 for record in records if record["location_entity_type"] == "summit"),
+            "summits_4000": summit_4000_count,
+            "duplicate_name_groups": len(duplicate_groups),
+            "missing_sources": len(missing_sources),
+            "missing_coordinates": len(missing_coordinates),
+            "approximate_coordinates": len(approximate_coordinates),
+            "unknown_coordinates": len(unknown_coordinates),
+            "suspicious_elevations": len(suspicious_elevations),
+        },
+        "sections": {
+            "duplicate_names": duplicate_groups,
+            "missing_sources": missing_sources,
+            "missing_coordinates": missing_coordinates,
+            "approximate_coordinates": approximate_coordinates,
+            "unknown_coordinates": unknown_coordinates,
+            "suspicious_elevations": suspicious_elevations,
+        },
+    }
+
 class NormalizedCoordinate(BaseModel):
     x: float = Field(ge=0, le=1)
     y: float = Field(ge=0, le=1)
@@ -6936,6 +7032,14 @@ def get_outdoor_map(current_user: UserModel = Depends(get_current_user)):
     db = get_db()
     try:
         return build_outdoor_map_payload(db, current_user.username)
+    finally:
+        db.close()
+
+@app.get("/api/outdoor-data-audit")
+def get_outdoor_data_audit(current_user: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        return build_outdoor_data_audit_payload(db, current_user.username)
     finally:
         db.close()
 
