@@ -43,18 +43,18 @@ def fetch_json(url: str) -> dict:
     return data
 
 
-def sac_search_url(limit: int) -> str:
-    query = urlencode(
-        {
-            "mode": "per_discipline",
-            "lang": "en",
-            "type": "hut",
-            "association_id": SAC_ASSOCIATION_ID,
-            "is_private": "false",
-            "sortField": "display_name",
-            "limit": limit,
-        }
-    )
+def sac_search_url(limit: int, scope: str) -> str:
+    params = {
+        "mode": "per_discipline",
+        "lang": "en",
+        "type": "hut",
+        "sortField": "display_name",
+        "limit": limit,
+    }
+    if scope == "sac":
+        params["association_id"] = SAC_ASSOCIATION_ID
+        params["is_private"] = "false"
+    query = urlencode(params)
     return f"{SAC_API_BASE}/poi/search?{query}"
 
 
@@ -154,6 +154,9 @@ def build_access_notes(detail: dict) -> str:
             contact.append(f"{label}: {value}")
     if contact:
         lines.append("Contact: " + " | ".join(contact))
+    association_id = detail.get("association_id")
+    if association_id != SAC_ASSOCIATION_ID or detail.get("is_private") is not False:
+        lines.append("Catalog: non-CAS hut POI from the SAC route portal.")
     return "\n".join(lines)
 
 
@@ -217,6 +220,8 @@ def build_hut_preview(detail: dict, now: str) -> dict:
 
     return {
         "sac_id": int(detail["id"]),
+        "association_id": detail.get("association_id"),
+        "is_private": bool(detail.get("is_private")),
         "name": name,
         "aliases_json": json.dumps(aliases, ensure_ascii=False),
         "latitude": latitude,
@@ -229,8 +234,17 @@ def build_hut_preview(detail: dict, now: str) -> dict:
     }
 
 
-def fetch_sac_huts(limit: int) -> list[dict]:
-    search = fetch_json(sac_search_url(limit))
+def include_detail_for_scope(detail: dict, scope: str) -> bool:
+    is_sac_hut = detail.get("association_id") == SAC_ASSOCIATION_ID and detail.get("is_private") is False
+    if scope == "sac":
+        return is_sac_hut
+    if scope == "other":
+        return not is_sac_hut
+    return True
+
+
+def fetch_sac_huts(limit: int, scope: str) -> list[dict]:
+    search = fetch_json(sac_search_url(limit, scope))
     results = search.get("results") or []
     if not isinstance(results, list):
         raise ValueError("SAC hut search response did not include a results list")
@@ -241,7 +255,9 @@ def fetch_sac_huts(limit: int) -> list[dict]:
         sac_id = row.get("id")
         if sac_id is None:
             continue
-        details.append(fetch_json(sac_detail_url(int(sac_id))))
+        detail = fetch_json(sac_detail_url(int(sac_id)))
+        if include_detail_for_scope(detail, scope):
+            details.append(detail)
     return details
 
 
@@ -291,15 +307,16 @@ def upsert_hut(db, username: str, preview: dict, now: str) -> str:
     return action
 
 
-def import_sac_huts(username: str, apply: bool, limit: int) -> int:
+def import_sac_huts(username: str, apply: bool, limit: int, scope: str) -> int:
     now = utc_now_iso()
-    details = fetch_sac_huts(limit)
+    details = fetch_sac_huts(limit, scope)
     previews = [build_hut_preview(detail, now) for detail in details]
     previews.sort(key=lambda item: item["name"].casefold())
 
     missing_coordinates = sum(1 for item in previews if item["latitude"] is None or item["longitude"] is None)
     print("SAC hut import")
     print(f"mode={'apply' if apply else 'preview'}")
+    print(f"scope={scope}")
     print(f"username={username}")
     print(f"huts_ready={len(previews)}")
     print(f"missing_coordinates={missing_coordinates}")
@@ -338,9 +355,15 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--username", default=backend.DEFAULT_USERNAME, help="Existing users.username owner for imported rows")
     parser.add_argument("--apply", action="store_true", help="Write SAC huts to the database")
-    parser.add_argument("--limit", type=int, default=300, help="Maximum hut rows to request from SAC")
+    parser.add_argument(
+        "--scope",
+        choices=["sac", "other", "all"],
+        default="sac",
+        help="Hut scope: sac imports CAS/SAC-associated huts, other imports the remaining hut POIs from the SAC route portal, all imports both.",
+    )
+    parser.add_argument("--limit", type=int, default=1000, help="Maximum hut rows to request from SAC")
     args = parser.parse_args()
-    return import_sac_huts(args.username, args.apply, args.limit)
+    return import_sac_huts(args.username, args.apply, args.limit, args.scope)
 
 
 if __name__ == "__main__":
