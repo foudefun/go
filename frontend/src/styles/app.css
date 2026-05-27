@@ -163,6 +163,10 @@ label {
   flex-wrap: nowrap;
 }
 
+.account-menu {
+  position: relative;
+}
+
 .session-pill {
   display: inline-flex;
   align-items: center;
@@ -173,6 +177,35 @@ label {
   color: #eef4ff;
   font-size: 13px;
   font-weight: 700;
+}
+
+.account-menu summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.account-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.account-menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  min-width: 170px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: #172033;
+  box-shadow: 0 16px 32px rgba(17, 24, 39, 0.28);
+  padding: 6px;
+}
+
+.account-menu-panel a,
+.account-menu-panel button {
+  justify-content: flex-start;
+  width: 100%;
 }
 
 .page-shell {
@@ -2590,6 +2623,24 @@ select[multiple] {
   align-items: start;
 }
 
+.admin-shortcuts {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+}
+
+.admin-shortcuts h2,
+.admin-shortcuts p {
+  margin: 0;
+}
+
+.admin-shortcuts p {
+  margin-top: 6px;
+  color: #445066;
+}
+
 .admin-layout > *,
 .admin-panel,
 .admin-recent-panel,
@@ -4168,6 +4219,11 @@ select[multiple] {
     justify-content: flex-start;
   }
 
+  .account-menu-panel {
+    left: 0;
+    right: auto;
+  }
+
   .summary-grid {
     grid-template-columns: 1fr;
   }
@@ -4293,8 +4349,14 @@ select[multiple] {
   .settings-field-grid,
   .settings-preview-row,
   .admin-create-user,
+  .admin-shortcuts,
   .admin-audit-filters,
   .admin-user-row {
     grid-template-columns: 1fr;
+  }
+
+  .admin-shortcuts {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

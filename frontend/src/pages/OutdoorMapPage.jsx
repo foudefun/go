@@ -101,6 +101,10 @@ function getPhotoReference(sourceReferences = []) {
   ));
 }
 
+function shouldShowSourceDetails(point) {
+  return point.kind !== "summit";
+}
+
 function isStructuredRoute(item) {
   return Number(item.variant_count || 0) > 0 && Number(item.segment_count || 0) > 0;
 }
@@ -836,10 +840,12 @@ export default function OutdoorMapPage() {
                 ) : null}
                 {selectedPoint.coordinateStatus ? <small>{formatCode(selectedPoint.coordinateStatus)} coordinates</small> : null}
                 {selectedPoint.routeRoleCount ? <small>{selectedPoint.routeRoleCount} {t("route links")}</small> : null}
-                <small>{selectedPoint.sourceReferenceCount || 0} {t("sources")}</small>
+                {shouldShowSourceDetails(selectedPoint) ? (
+                  <small>{selectedPoint.sourceReferenceCount || 0} {t("sources")}</small>
+                ) : null}
                 {selectedPoint.description ? <p className="outdoor-map-selection-text">{selectedPoint.description}</p> : null}
                 {selectedPoint.accessNotes ? <p className="outdoor-map-selection-text preserve-lines">{selectedPoint.accessNotes}</p> : null}
-                {selectedPoint.sourceReferences?.length ? (
+                {shouldShowSourceDetails(selectedPoint) && selectedPoint.sourceReferences?.length ? (
                   <div className="outdoor-map-source-links">
                     {selectedPoint.sourceReferences
                       .filter((reference) => reference.url && reference.source_type !== "photo")

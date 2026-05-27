@@ -346,6 +346,8 @@ const FR = {
   "Outdoor routes": "Itineraires outdoor",
   "Outdoor map": "Carte outdoor",
   "Outdoor audit": "Audit outdoor",
+  "Open audit": "Ouvrir l'audit",
+  "Review imported outdoor locations, duplicates, coordinates, and source quality.": "Verifier les lieux outdoor importes, les doublons, les coordonnees et la qualite des sources.",
   "Outdoor data": "Donnees outdoor",
   "Data audit": "Audit des donnees",
   "Loading audit...": "Chargement de l'audit...",

@@ -28,9 +28,7 @@ const tabs = [
   { to: "/equipment", labelKey: "Equipment" },
   { to: "/climbing", labelKey: "Climbing" },
   { to: "/outdoor-map", labelKey: "Outdoor map" },
-  { to: "/outdoor-audit", labelKey: "Outdoor audit" },
   { to: "/outdoor-routes", labelKey: "Outdoor routes" },
-  { to: "/account", labelKey: "Account" },
 ];
 
 function AppLayout() {
@@ -53,13 +51,18 @@ function AppLayout() {
           ))}
         </nav>
         <div className="nav-cluster account-cluster">
-          <span className="session-pill">
-            {user?.username}
-            {user?.isAdmin ? " - admin" : ""}
-          </span>
-          <button type="button" onClick={logout}>
-            {t("Logout")}
-          </button>
+          <details className="account-menu">
+            <summary className="session-pill">
+              {user?.username}
+              {user?.isAdmin ? " - admin" : ""}
+            </summary>
+            <div className="account-menu-panel">
+              <NavLink to="/account">{t("Account")}</NavLink>
+              <button type="button" onClick={logout}>
+                {t("Logout")}
+              </button>
+            </div>
+          </details>
         </div>
       </header>
       <Routes>
@@ -79,7 +82,10 @@ function AppLayout() {
             </Suspense>
           }
         />
-        <Route path="/outdoor-audit" element={<OutdoorDataAuditPage />} />
+        <Route
+          path="/outdoor-audit"
+          element={user?.isAdmin ? <OutdoorDataAuditPage /> : <Navigate to="/account" replace />}
+        />
         <Route path="/outdoor-routes" element={<OutdoorRoutesPage />} />
         <Route path="/outdoor-routes/:routeId" element={<OutdoorRouteDetailPage />} />
         <Route path="/hangboard" element={<HangboardPage />} />

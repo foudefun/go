@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   createAdminUser,
   deleteAdminUser,
@@ -257,6 +258,17 @@ export default function AdminPage() {
         {summaryMetrics.map(([label, value]) => (
           <MetricCard label={label} value={value} key={label} />
         ))}
+      </section>
+
+      <section className="app-panel admin-shortcuts">
+        <div>
+          <p className="eyebrow">{t("Outdoor data")}</p>
+          <h2>{t("Outdoor audit")}</h2>
+          <p>{t("Review imported outdoor locations, duplicates, coordinates, and source quality.")}</p>
+        </div>
+        <Link className="primary-action" to="/outdoor-audit">
+          {t("Open audit")}
+        </Link>
       </section>
 
       <section className="admin-layout">
