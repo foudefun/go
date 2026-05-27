@@ -1508,14 +1508,57 @@ select[multiple] {
 
 .outdoor-map-filters {
   display: grid;
-  grid-template-columns: minmax(150px, 220px) minmax(130px, 180px) minmax(240px, 320px) auto auto repeat(3, minmax(145px, 1fr));
+  grid-template-columns: minmax(220px, 1.5fr) minmax(150px, 220px) minmax(130px, 180px) minmax(240px, 320px) auto auto repeat(3, minmax(145px, 1fr));
   gap: 12px;
   align-items: end;
   padding: 16px;
 }
 
+.outdoor-map-search-field {
+  min-width: 220px;
+}
+
 .location-filter-set {
   grid-column: 1 / -1;
+}
+
+.outdoor-map-search-results {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.outdoor-map-search-results button,
+.outdoor-map-search-results > span {
+  min-height: 34px;
+  border: 1px solid #d8e1ef;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  padding: 7px 10px;
+}
+
+.outdoor-map-search-results button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.outdoor-map-search-results button:hover {
+  border-color: #0f766e;
+}
+
+.outdoor-map-search-results strong {
+  font-size: 14px;
+}
+
+.outdoor-map-search-results span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .altitude-range-filter {
@@ -1877,10 +1920,19 @@ select[multiple] {
   gap: 8px;
 }
 
-.outdoor-map-export-actions button {
+.outdoor-map-export-actions button,
+.outdoor-map-export-actions a {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: #0f766e;
+  color: #fff;
   min-height: 32px;
   padding: 6px 10px;
   font-size: 13px;
+  font-weight: 850;
+  text-decoration: none;
 }
 
 .outdoor-map-linked-routes {

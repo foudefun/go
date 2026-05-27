@@ -48,6 +48,49 @@ function formatCode(value) {
   return String(value || "").replaceAll("_", " ");
 }
 
+function normalizeSearchValue(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function itemMatchesSearch(values, query) {
+  const normalizedQuery = normalizeSearchValue(query);
+  if (!normalizedQuery) return true;
+  return values.some((value) => normalizeSearchValue(value).includes(normalizedQuery));
+}
+
+function getLocationSearchValues(item) {
+  const location = item.location || {};
+  return [
+    location.name,
+    location.location_entity_type,
+    location.description,
+    location.access_notes,
+    ...(location.aliases || []),
+    ...(location.services ? Object.values(location.services) : []),
+    ...(item.linked_routes || []).map((linkedRoute) => linkedRoute.route?.name),
+  ].flat();
+}
+
+function getRouteSearchValues(item) {
+  const route = item.route || {};
+  const mainObjective = item.main_objective || {};
+  return [
+    route.name,
+    route.activity_type,
+    route.route_category,
+    route.summary,
+    route.description,
+    route.difficulty_label,
+    mainObjective.name,
+    mainObjective.location_entity_type,
+    ...(mainObjective.aliases || []),
+  ].flat();
+}
+
 function getPhotoReference(sourceReferences = []) {
   return sourceReferences.find((reference) => (
     reference.url
@@ -373,6 +416,7 @@ export default function OutdoorMapPage() {
   const [payload, setPayload] = useState(null);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [locationTypes, setLocationTypes] = useState(new Set(["summit", "hut", "trailhead", "station", "pass", "waypoint"]));
   const [showRoutes, setShowRoutes] = useState(true);
   const [activityType, setActivityType] = useState("");
@@ -416,6 +460,7 @@ export default function OutdoorMapPage() {
   );
   const [pendingMinimumElevationValue, pendingMaximumElevationValue] = pendingAltitudeRange;
   const [minimumElevationValue, maximumElevationValue] = altitudeRange;
+  const normalizedSearchQuery = normalizeSearchValue(searchQuery);
   const filteredRoutes = useMemo(
     () =>
       allRoutes.filter((item) => {
@@ -423,13 +468,15 @@ export default function OutdoorMapPage() {
         if (activityType && item.route.activity_type !== activityType) return false;
         if (difficulty && item.route.difficulty_label !== difficulty) return false;
         if (structuredOnly && !isStructuredRoute(item)) return false;
+        if (normalizedSearchQuery && !itemMatchesSearch(getRouteSearchValues(item), normalizedSearchQuery)) return false;
         return true;
       }),
-    [activityType, allRoutes, difficulty, showRoutes, structuredOnly],
+    [activityType, allRoutes, difficulty, normalizedSearchQuery, showRoutes, structuredOnly],
   );
   const filteredLocations = useMemo(
     () => allLocations.filter((item) => {
       if (!locationTypes.has(item.location.location_entity_type)) return false;
+      if (normalizedSearchQuery && !itemMatchesSearch(getLocationSearchValues(item), normalizedSearchQuery)) return false;
       const elevation = Number(item.location.elevation_meters);
       if (!Number.isFinite(elevation)) return false;
       if (elevation < minimumElevationValue || elevation > maximumElevationValue) return false;
@@ -446,10 +493,29 @@ export default function OutdoorMapPage() {
       locationTypes,
       maximumElevationValue,
       minimumElevationValue,
+      normalizedSearchQuery,
       routeLinkFilter,
       sourceFilter,
     ],
   );
+  const searchResults = useMemo(() => {
+    if (!normalizedSearchQuery) return [];
+    const locationResults = filteredLocations.slice(0, 6).map((item) => ({
+      id: `location-${item.location.location_entity_type}-${item.location.id}`,
+      type: "location",
+      label: item.location.name,
+      meta: `${formatCode(item.location.location_entity_type)}${item.location.elevation_meters ? ` · ${item.location.elevation_meters} m` : ""}`,
+      item,
+    }));
+    const routeResults = filteredRoutes.slice(0, 6).map((item) => ({
+      id: `route-${item.route.id}`,
+      type: "route",
+      label: item.route.name,
+      meta: `${formatCode(item.route.activity_type)}${item.route.difficulty_label ? ` · ${item.route.difficulty_label}` : ""}`,
+      item,
+    }));
+    return [...locationResults, ...routeResults].slice(0, 8);
+  }, [filteredLocations, filteredRoutes, normalizedSearchQuery]);
   const targetLocationItem = useMemo(
     () =>
       allLocations.find((item) => (
@@ -471,6 +537,34 @@ export default function OutdoorMapPage() {
   function selectPoint(point) {
     setSelectedPoint(point);
     setSelectedRouteId(null);
+  }
+
+  function selectLocationItem(item) {
+    setSelectedPoint({
+      id: `location-${item.location.location_entity_type}-${item.location.id}`,
+      kind: item.location.location_entity_type,
+      label: item.location.name,
+      elevation: item.location.elevation_meters,
+      coordinateStatus: item.location.coordinate_status,
+      routeRoleCount: item.route_role_count,
+      sourceReferenceCount: item.source_reference_count,
+      sourceReferences: item.source_references || [],
+      description: item.location.description,
+      accessNotes: item.location.access_notes,
+      isCasOwned: item.location.is_cas_owned,
+      isPrivate: item.location.is_private,
+      sourceCatalog: item.location.source_catalog,
+      linkedRoutes: item.linked_routes || [],
+      latitude: item.location.latitude,
+      longitude: item.location.longitude,
+    });
+    setSelectedRouteId(null);
+  }
+
+  function selectRouteItem(item) {
+    setSelectedPoint(null);
+    setSelectedRouteId(item.route.id);
+    setShowRoutes(true);
   }
 
   function showLinkedRoute(routeId) {
@@ -553,6 +647,9 @@ export default function OutdoorMapPage() {
 
   const altitudeMinPercent = (pendingMinimumElevationValue / ALTITUDE_MAX) * 100;
   const altitudeMaxPercent = (pendingMaximumElevationValue / ALTITUDE_MAX) * 100;
+  const selectedRouteItem = selectedRouteId
+    ? allRoutes.find((item) => item.route.id === selectedRouteId)
+    : null;
 
   return (
     <main className="page-shell outdoor-map-page">
@@ -564,6 +661,14 @@ export default function OutdoorMapPage() {
       </section>
 
       <section className="app-panel outdoor-map-filters">
+        <label className="outdoor-map-search-field">
+          {t("Search")}
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={t("Search huts, routes, summits...")}
+          />
+        </label>
         <label>
           {t("Activity")}
           <select value={activityType} onChange={(event) => setActivityType(event.target.value)}>
@@ -661,6 +766,27 @@ export default function OutdoorMapPage() {
             </button>
           ))}
         </div>
+        {normalizedSearchQuery ? (
+          <div className="outdoor-map-search-results">
+            {searchResults.length ? (
+              searchResults.map((result) => (
+                <button
+                  type="button"
+                  key={result.id}
+                  onClick={() => {
+                    if (result.type === "route") selectRouteItem(result.item);
+                    else selectLocationItem(result.item);
+                  }}
+                >
+                  <strong>{result.label}</strong>
+                  <span>{result.meta}</span>
+                </button>
+              ))
+            ) : (
+              <span>{t("No outdoor result matches this search.")}</span>
+            )}
+          </div>
+        ) : null}
       </section>
 
       <section className="stats-summary-grid route-summary-grid outdoor-map-summary-grid">
@@ -747,6 +873,21 @@ export default function OutdoorMapPage() {
                     ))}
                   </div>
                 ) : null}
+              </>
+            ) : selectedRouteItem ? (
+              <>
+                <h2>{selectedRouteItem.route.name}</h2>
+                <span>{formatCode(selectedRouteItem.route.activity_type)}</span>
+                {selectedRouteItem.route.difficulty_label ? <small>{selectedRouteItem.route.difficulty_label}</small> : null}
+                {selectedRouteItem.main_objective?.name ? (
+                  <small>{t("Main objective")}: {selectedRouteItem.main_objective.name}</small>
+                ) : null}
+                {selectedRouteItem.route.summary ? (
+                  <p className="outdoor-map-selection-text">{selectedRouteItem.route.summary}</p>
+                ) : null}
+                <div className="outdoor-map-export-actions">
+                  <Link to={`/outdoor-routes/${selectedRouteItem.route.id}`}>{t("Open route")}</Link>
+                </div>
               </>
             ) : (
               <p>{t("Select a point on the map.")}</p>
