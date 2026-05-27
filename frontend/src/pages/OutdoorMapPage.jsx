@@ -105,6 +105,29 @@ function shouldShowSourceDetails(point) {
   return point.kind !== "summit";
 }
 
+function cleanSummitDescription(description) {
+  return String(description || "")
+    .replace(/^Prominent Alpine mountain imported from [^.]+\.?\s*/i, "")
+    .replace(/Raw classification\/details:.*$/i, "")
+    .trim();
+}
+
+function getSummitFacts(description) {
+  return cleanSummitDescription(description)
+    .split(/\.\s+/)
+    .map((part) => part.replace(/\.$/, "").trim())
+    .filter(Boolean)
+    .map((part) => {
+      const separatorIndex = part.indexOf(":");
+      if (separatorIndex === -1) return null;
+      return {
+        label: part.slice(0, separatorIndex).trim(),
+        value: part.slice(separatorIndex + 1).trim(),
+      };
+    })
+    .filter((fact) => fact && fact.label && fact.value);
+}
+
 function isStructuredRoute(item) {
   return Number(item.variant_count || 0) > 0 && Number(item.segment_count || 0) > 0;
 }
@@ -654,6 +677,12 @@ export default function OutdoorMapPage() {
   const selectedRouteItem = selectedRouteId
     ? allRoutes.find((item) => item.route.id === selectedRouteId)
     : null;
+  const selectedSummitFacts = selectedPoint?.kind === "summit"
+    ? getSummitFacts(selectedPoint.description)
+    : [];
+  const selectedDescription = selectedPoint?.kind === "summit"
+    ? cleanSummitDescription(selectedPoint.description)
+    : selectedPoint?.description;
 
   return (
     <main className="page-shell outdoor-map-page">
@@ -843,8 +872,21 @@ export default function OutdoorMapPage() {
                 {shouldShowSourceDetails(selectedPoint) ? (
                   <small>{selectedPoint.sourceReferenceCount || 0} {t("sources")}</small>
                 ) : null}
-                {selectedPoint.description ? <p className="outdoor-map-selection-text">{selectedPoint.description}</p> : null}
-                {selectedPoint.accessNotes ? <p className="outdoor-map-selection-text preserve-lines">{selectedPoint.accessNotes}</p> : null}
+                {selectedSummitFacts.length ? (
+                  <dl className="outdoor-map-fact-list">
+                    {selectedSummitFacts.map((fact) => (
+                      <div key={`${fact.label}-${fact.value}`}>
+                        <dt>{fact.label}</dt>
+                        <dd>{fact.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : selectedDescription ? (
+                  <p className="outdoor-map-selection-text">{selectedDescription}</p>
+                ) : null}
+                {selectedPoint.kind !== "summit" && selectedPoint.accessNotes ? (
+                  <p className="outdoor-map-selection-text preserve-lines">{selectedPoint.accessNotes}</p>
+                ) : null}
                 {shouldShowSourceDetails(selectedPoint) && selectedPoint.sourceReferences?.length ? (
                   <div className="outdoor-map-source-links">
                     {selectedPoint.sourceReferences

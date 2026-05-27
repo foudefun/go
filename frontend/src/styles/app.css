@@ -1748,7 +1748,7 @@ select[multiple] {
 
 .outdoor-map-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
   gap: 18px;
   align-items: start;
 }
@@ -1909,6 +1909,8 @@ select[multiple] {
 .outdoor-map-selection {
   display: grid;
   gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .outdoor-map-selection h2,
@@ -1916,9 +1918,45 @@ select[multiple] {
   margin: 0;
 }
 
+.outdoor-map-selection h2 {
+  font-size: 28px;
+  line-height: 1.12;
+}
+
 .outdoor-map-selection span,
 .outdoor-map-selection small {
   color: #667085;
+}
+
+.outdoor-map-fact-list {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.outdoor-map-fact-list div {
+  display: grid;
+  grid-template-columns: minmax(88px, 0.42fr) minmax(0, 1fr);
+  gap: 10px;
+  border-top: 1px solid #eef2f7;
+  padding-top: 6px;
+}
+
+.outdoor-map-fact-list dt,
+.outdoor-map-fact-list dd {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.outdoor-map-fact-list dt {
+  color: #667085;
+  font-weight: 800;
+}
+
+.outdoor-map-fact-list dd {
+  color: #0f172a;
+  font-weight: 700;
 }
 
 .outdoor-map-ownership {
