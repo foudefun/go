@@ -1471,6 +1471,11 @@ select[multiple] {
   background: #0f766e;
 }
 
+.route-location-list li > div:last-child {
+  display: grid;
+  gap: 4px;
+}
+
 .route-segment-heading {
   display: flex;
   align-items: baseline;

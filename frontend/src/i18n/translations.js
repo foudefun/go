@@ -407,6 +407,7 @@ const FR = {
   "Browse imported alpine routes, variants, and structured segments.": "Parcourez les itineraires alpins importes, les variantes et les segments structures.",
   "Route, summit, grade...": "Itineraire, sommet, cotation...",
   Routes: "Itineraires",
+  "Linked places": "Lieux lies",
   Variants: "Variantes",
   Segments: "Segments",
   "Loading routes...": "Chargement des itineraires...",

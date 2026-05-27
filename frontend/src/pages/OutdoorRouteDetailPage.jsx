@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { getOutdoorRouteDetails } from "../api/outdoorRoutesApi.js";
 import { getOutdoorRouteActivityTypeLabel } from "../domain/outdoorRouteDomain.js";
 import { useTranslation } from "../i18n/translations.js";
@@ -22,6 +22,14 @@ function formatCode(value) {
   return String(value || "").replaceAll("_", " ");
 }
 
+function buildMapLink(location) {
+  const params = new URLSearchParams({
+    kind: location.location_entity_type,
+    id: String(location.id),
+  });
+  return `/outdoor-map?${params.toString()}`;
+}
+
 function DetailMetric({ label, value }) {
   if (!value) return null;
   return (
@@ -32,24 +40,36 @@ function DetailMetric({ label, value }) {
   );
 }
 
-function LocationRoleList({ roles }) {
-  const orderedRoles = roles.filter((role) => role.role !== "main_objective");
+function LocationRoleList({ roles, t }) {
+  const orderedRoles = [...roles].sort((left, right) => {
+    if (left.role === "main_objective" && right.role !== "main_objective") return -1;
+    if (right.role === "main_objective" && left.role !== "main_objective") return 1;
+    if (left.order_index == null && right.order_index != null) return 1;
+    if (right.order_index == null && left.order_index != null) return -1;
+    return Number(left.order_index || 0) - Number(right.order_index || 0);
+  });
   if (!orderedRoles.length) return null;
   return (
     <section className="app-panel route-locations-panel">
       <div className="section-heading-row">
         <div>
-          <p className="eyebrow">Locations</p>
-          <h2>Route points</h2>
+          <p className="eyebrow">{t("Locations")}</p>
+          <h2>{t("Linked places")}</h2>
         </div>
       </div>
       <ol className="route-location-list">
         {orderedRoles.map((role) => (
           <li key={role.id}>
-            <div className="route-location-index">{role.order_index || ""}</div>
+            <div className="route-location-index">{role.role === "main_objective" ? "★" : role.order_index || ""}</div>
             <div>
               <strong>{role.location?.name || "Unknown location"}</strong>
               <span>{formatCode(role.role)} | {formatCode(role.location_entity_type)}</span>
+              {role.location?.elevation_meters ? <small>{role.location.elevation_meters} m</small> : null}
+              {role.location?.latitude != null && role.location?.longitude != null ? (
+                <Link className="table-action-link" to={buildMapLink(role.location)}>
+                  {t("View on map")}
+                </Link>
+              ) : null}
               {role.notes ? <small>{role.notes}</small> : null}
             </div>
           </li>
@@ -190,7 +210,7 @@ export default function OutdoorRouteDetailPage() {
             <VariantCard key={item.variant.id} item={item} />
           ))}
         </div>
-        <LocationRoleList roles={details.location_roles || []} />
+        <LocationRoleList roles={details.location_roles || []} t={t} />
       </div>
     </main>
   );
