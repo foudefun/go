@@ -1999,6 +1999,31 @@ select[multiple] {
   gap: 6px;
 }
 
+.outdoor-map-contact-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.outdoor-map-contact-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 4px 8px;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+.outdoor-map-contact-links a:hover {
+  border-color: #0f766e;
+  color: #0f766e;
+}
+
 .outdoor-map-source-links a {
   color: #0f766e;
   font-size: 13px;

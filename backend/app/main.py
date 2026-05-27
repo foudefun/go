@@ -2447,6 +2447,70 @@ def serialize_outdoor_source_reference(row: OutdoorSourceReferenceModel) -> dict
         "notes": row.notes or "",
     }
 
+HUT_MONTH_LABELS = {
+    "month_01": "Jan",
+    "month_02": "Feb",
+    "month_03": "Mar",
+    "month_04": "Apr",
+    "month_05": "May",
+    "month_06": "Jun",
+    "month_07": "Jul",
+    "month_08": "Aug",
+    "month_09": "Sep",
+    "month_10": "Oct",
+    "month_11": "Nov",
+    "month_12": "Dec",
+}
+
+SUMMER_MONTH_KEYS = {"month_06", "month_07", "month_08", "month_09"}
+WINTER_MONTH_KEYS = {"month_12", "month_01", "month_02", "month_03", "month_04"}
+
+def month_labels(month_flags: dict, keys: set[str] | None = None, active_values: set[int] | None = None) -> list[str]:
+    if not isinstance(month_flags, dict):
+        return []
+    active_values = active_values or {1, 2}
+    labels = []
+    for key, label in HUT_MONTH_LABELS.items():
+        if keys is not None and key not in keys:
+            continue
+        value = month_flags.get(key)
+        if value in active_values:
+            labels.append(label)
+    return labels
+
+def normalize_hut_services(value: dict) -> list[str]:
+    if not isinstance(value, dict):
+        return []
+    return [
+        str(key).replace("_", " ")
+        for key, enabled in sorted(value.items())
+        if enabled
+    ]
+
+def build_hut_details(row: OutdoorHutModel) -> dict:
+    raw_payload = parse_json_field(getattr(row, "raw_payload_json", "") or "", {})
+    opening = parse_json_field(getattr(row, "opening_json", "") or "", {})
+    catering = parse_json_field(getattr(row, "catering_json", "") or "", {})
+    services = parse_json_field(getattr(row, "services_json", "") or "", {})
+    suitable = parse_json_field(getattr(row, "suitable_json", "") or "", {})
+    website = str(raw_payload.get("url") or "").strip()
+    phone = str(raw_payload.get("tel") or "").strip()
+    email = str(raw_payload.get("email") or "").strip()
+    owner = str(raw_payload.get("owner") or "").strip()
+    return {
+        "owner": owner,
+        "places": raw_payload.get("sleeps"),
+        "phone": phone,
+        "email": email,
+        "website": website,
+        "summer_open_months": month_labels(opening, SUMMER_MONTH_KEYS),
+        "winter_open_months": month_labels(opening, WINTER_MONTH_KEYS),
+        "open_months": month_labels(opening),
+        "guarded_months": month_labels(catering),
+        "services": normalize_hut_services(services),
+        "suitable_for": normalize_hut_services(suitable),
+    }
+
 def serialize_outdoor_location(row, location_entity_type: str) -> dict:
     if not row:
         return {}
@@ -2475,6 +2539,7 @@ def serialize_outdoor_location(row, location_entity_type: str) -> dict:
                 "catering": parse_json_field(getattr(row, "catering_json", "") or "", {}),
                 "suitable": parse_json_field(getattr(row, "suitable_json", "") or "", {}),
                 "photos": parse_json_field(getattr(row, "photos_json", "") or "", []),
+                "hut_details": build_hut_details(row),
             }
         )
     return payload

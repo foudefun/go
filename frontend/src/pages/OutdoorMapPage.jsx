@@ -164,6 +164,18 @@ function getDataQualityLabel(value, t) {
   return labels[value] || formatCode(value);
 }
 
+function formatMonthList(months) {
+  return Array.isArray(months) && months.length ? months.join(", ") : "";
+}
+
+function compactList(values, limit = 4) {
+  if (!Array.isArray(values)) return "";
+  const visible = values.filter(Boolean).slice(0, limit);
+  if (!visible.length) return "";
+  const suffix = values.length > limit ? ` +${values.length - limit}` : "";
+  return `${visible.join(", ")}${suffix}`;
+}
+
 function escapeXml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -305,6 +317,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
       isCasOwned: item.location.is_cas_owned,
       isPrivate: item.location.is_private,
       sourceCatalog: item.location.source_catalog,
+      hutDetails: item.location.hut_details || {},
       linkedRoutes: item.linked_routes || [],
       latitude: item.location.latitude,
       longitude: item.location.longitude,
@@ -581,6 +594,7 @@ export default function OutdoorMapPage() {
       isCasOwned: item.location.is_cas_owned,
       isPrivate: item.location.is_private,
       sourceCatalog: item.location.source_catalog,
+      hutDetails: item.location.hut_details || {},
       linkedRoutes: item.linked_routes || [],
       latitude: item.location.latitude,
       longitude: item.location.longitude,
@@ -665,6 +679,7 @@ export default function OutdoorMapPage() {
       isCasOwned: targetLocationItem.location.is_cas_owned,
       isPrivate: targetLocationItem.location.is_private,
       sourceCatalog: targetLocationItem.location.source_catalog,
+      hutDetails: targetLocationItem.location.hut_details || {},
       linkedRoutes: targetLocationItem.linked_routes || [],
       latitude: targetLocationItem.location.latitude,
       longitude: targetLocationItem.location.longitude,
@@ -683,6 +698,18 @@ export default function OutdoorMapPage() {
   const selectedDescription = selectedPoint?.kind === "summit"
     ? cleanSummitDescription(selectedPoint.description)
     : selectedPoint?.description;
+  const selectedHutDetails = selectedPoint?.kind === "hut" ? (selectedPoint.hutDetails || {}) : {};
+  const selectedHutFacts = selectedPoint?.kind === "hut"
+    ? [
+        selectedHutDetails.places ? { label: t("Places"), value: selectedHutDetails.places } : null,
+        selectedHutDetails.owner ? { label: t("Owner"), value: selectedHutDetails.owner } : null,
+        formatMonthList(selectedHutDetails.summer_open_months) ? { label: t("Summer"), value: formatMonthList(selectedHutDetails.summer_open_months) } : null,
+        formatMonthList(selectedHutDetails.winter_open_months) ? { label: t("Winter"), value: formatMonthList(selectedHutDetails.winter_open_months) } : null,
+        formatMonthList(selectedHutDetails.guarded_months) ? { label: t("Guarded"), value: formatMonthList(selectedHutDetails.guarded_months) } : null,
+        compactList(selectedHutDetails.services) ? { label: t("Services"), value: compactList(selectedHutDetails.services) } : null,
+        compactList(selectedHutDetails.suitable_for) ? { label: t("Suitable for"), value: compactList(selectedHutDetails.suitable_for) } : null,
+      ].filter(Boolean)
+    : [];
 
   return (
     <main className="page-shell outdoor-map-page">
@@ -881,10 +908,26 @@ export default function OutdoorMapPage() {
                       </div>
                     ))}
                   </dl>
+                ) : selectedHutFacts.length ? (
+                  <dl className="outdoor-map-fact-list">
+                    {selectedHutFacts.map((fact) => (
+                      <div key={`${fact.label}-${fact.value}`}>
+                        <dt>{fact.label}</dt>
+                        <dd>{fact.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
                 ) : selectedDescription ? (
                   <p className="outdoor-map-selection-text">{selectedDescription}</p>
                 ) : null}
-                {selectedPoint.kind !== "summit" && selectedPoint.accessNotes ? (
+                {selectedPoint.kind === "hut" && (selectedHutDetails.phone || selectedHutDetails.email || selectedHutDetails.website) ? (
+                  <div className="outdoor-map-contact-links">
+                    {selectedHutDetails.phone ? <a href={`tel:${selectedHutDetails.phone}`}>{selectedHutDetails.phone}</a> : null}
+                    {selectedHutDetails.email ? <a href={`mailto:${selectedHutDetails.email}`}>{selectedHutDetails.email}</a> : null}
+                    {selectedHutDetails.website ? <a href={selectedHutDetails.website} target="_blank" rel="noreferrer">{t("Website")}</a> : null}
+                  </div>
+                ) : null}
+                {selectedPoint.kind !== "summit" && selectedPoint.kind !== "hut" && selectedPoint.accessNotes ? (
                   <p className="outdoor-map-selection-text preserve-lines">{selectedPoint.accessNotes}</p>
                 ) : null}
                 {shouldShowSourceDetails(selectedPoint) && selectedPoint.sourceReferences?.length ? (

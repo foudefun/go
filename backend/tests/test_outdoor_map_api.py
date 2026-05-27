@@ -29,6 +29,14 @@ def seed_map_data():
         hut = main.OutdoorHutModel(
             username="admin",
             name="Gouter Hut",
+            source_catalog="sac_route_portal",
+            is_cas_owned=True,
+            is_private=False,
+            opening_json='{"month_01": 1, "month_02": 0, "month_06": 1, "month_07": 2, "month_12": 1}',
+            catering_json='{"month_01": 1, "month_06": 1, "month_07": 2, "month_12": 1}',
+            services_json='{"half_board": true, "internet": false, "drinks": true}',
+            suitable_json='{"mountain_hiking": true, "ski_snowboard_tour": true}',
+            raw_payload_json='{"sleeps": 120, "tel": "+33 1 23 45", "email": "hut@example.com", "url": "https://example.com/hut", "owner": "SAC Test"}',
             latitude=45.852,
             longitude=6.829,
             elevation_meters=3835,
@@ -104,6 +112,15 @@ def test_get_outdoor_map_returns_locations_and_route_points(client):
     assert summit_item["linked_routes"][0]["role"] == "main_objective"
     hut_item = next(item for item in payload["locations"] if item["location"]["name"] == "Gouter Hut")
     assert hut_item["source_reference_count"] == 0
+    hut_details = hut_item["location"]["hut_details"]
+    assert hut_details["owner"] == "SAC Test"
+    assert hut_details["places"] == 120
+    assert hut_details["phone"] == "+33 1 23 45"
+    assert hut_details["website"] == "https://example.com/hut"
+    assert hut_details["summer_open_months"] == ["Jun", "Jul"]
+    assert hut_details["winter_open_months"] == ["Jan", "Dec"]
+    assert hut_details["guarded_months"] == ["Jan", "Jun", "Jul", "Dec"]
+    assert hut_details["services"] == ["drinks", "half board"]
 
 
 def test_get_outdoor_map_includes_admin_library_for_members(non_admin_client):
