@@ -107,7 +107,7 @@ function shouldShowSourceDetails(point) {
 
 function cleanSummitDescription(description) {
   return String(description || "")
-    .replace(/^Prominent Alpine mountain imported from [^.]+\.?\s*/i, "")
+    .replace(/^Prominent Alpine mountain imported from .*?\.csv\.\s*/i, "")
     .replace(/Raw classification\/details:.*$/i, "")
     .trim();
 }
