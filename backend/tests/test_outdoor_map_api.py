@@ -145,3 +145,26 @@ def test_swisstopo_trail_tile_proxy_rejects_unknown_layer(client):
     response = client.get("/api/map-tiles/swisstopo-trails/unknown/10/536/363.png")
 
     assert response.status_code == 404
+
+
+def test_swisstopo_ski_tile_proxy_accepts_known_layer(monkeypatch, client):
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return b"png"
+
+    def fake_urlopen(request, timeout):
+        assert "ch.swisstopo-karto.skitouren" in request.full_url
+        return FakeResponse()
+
+    monkeypatch.setattr("app.main.urlopen", fake_urlopen)
+
+    response = client.get("/api/map-tiles/swisstopo-trails/ski/10/536/363.png")
+
+    assert response.status_code == 200
+    assert response.content == b"png"

@@ -4263,6 +4263,7 @@ def proxy_carto_voyager_tile(z: int, x: int, y: int) -> Response:
 
 SWISSTOPO_TRAIL_TILE_LAYERS = {
     "hiking": "ch.swisstopo.swisstlm3d-wanderwege",
+    "ski": "ch.swisstopo-karto.skitouren",
     "winter-hiking": "ch.astra.winterwanderwege",
     "snowshoe": "ch.astra.schneeschuhwanderwege",
 }

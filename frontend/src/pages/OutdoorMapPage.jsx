@@ -25,6 +25,7 @@ const SOURCE_FILTERS = ["", "with_source", "missing_source"];
 const ROUTE_LINK_FILTERS = ["", "with_route_links", "without_route_links"];
 const TRAIL_OVERLAYS = [
   { key: "hiking", label: "Hiking trails" },
+  { key: "ski", label: "Ski routes" },
   { key: "winter-hiking", label: "Winter hiking" },
   { key: "snowshoe", label: "Snowshoe trails" },
 ];
@@ -46,6 +47,12 @@ const MAP_STYLE = {
     swisstopoWinterHikingTrails: {
       type: "raster",
       tiles: ["/api/map-tiles/swisstopo-trails/winter-hiking/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "(c) swisstopo",
+    },
+    swisstopoSkiRoutes: {
+      type: "raster",
+      tiles: ["/api/map-tiles/swisstopo-trails/ski/{z}/{x}/{y}.png"],
       tileSize: 256,
       attribution: "(c) swisstopo",
     },
@@ -77,6 +84,13 @@ const MAP_STYLE = {
       paint: { "raster-opacity": 0.9 },
     },
     {
+      id: "swisstopoSkiRoutes",
+      type: "raster",
+      source: "swisstopoSkiRoutes",
+      layout: { visibility: "none" },
+      paint: { "raster-opacity": 0.9 },
+    },
+    {
       id: "swisstopoSnowshoeTrails",
       type: "raster",
       source: "swisstopoSnowshoeTrails",
@@ -89,6 +103,7 @@ const ROUTE_LINE_SOURCE_ID = "outdoor-route-lines";
 const ROUTE_LINE_LAYER_ID = "outdoor-route-lines";
 const TRAIL_LAYER_IDS = {
   hiking: "swisstopoHikingTrails",
+  ski: "swisstopoSkiRoutes",
   "winter-hiking": "swisstopoWinterHikingTrails",
   snowshoe: "swisstopoSnowshoeTrails",
 };
