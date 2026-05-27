@@ -2,6 +2,13 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   min-width: 320px;
@@ -91,9 +98,15 @@ label {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
+  max-width: 100%;
+  min-width: 0;
   padding: 10px 16px;
   background: #172033;
   color: #fff;
+}
+
+.topbar > * {
+  min-width: 0;
 }
 
 .brand-lockup {
@@ -121,8 +134,8 @@ label {
 
 .app-tabs {
   min-width: 0;
-  flex-wrap: nowrap;
-  overflow-x: auto;
+  flex-wrap: wrap;
+  overflow-x: hidden;
   padding-bottom: 2px;
 }
 
@@ -164,12 +177,15 @@ label {
 
 .page-shell {
   width: min(1180px, 100%);
+  max-width: 100%;
+  min-width: 0;
   margin: 0 auto;
   padding: 22px;
 }
 
 .app-panel,
 .auth-card {
+  min-width: 0;
   border: 1px solid #dce4f0;
   border-radius: 8px;
   background: #fff;
@@ -1508,18 +1524,20 @@ select[multiple] {
 
 .outdoor-map-filters {
   display: grid;
-  grid-template-columns: minmax(220px, 1.5fr) minmax(150px, 220px) minmax(130px, 180px) minmax(240px, 320px) auto auto repeat(3, minmax(145px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
   align-items: end;
   padding: 16px;
 }
 
 .outdoor-map-search-field {
-  min-width: 220px;
+  grid-column: span 2;
+  min-width: 0;
 }
 
 .location-filter-set {
   grid-column: 1 / -1;
+  min-width: 0;
 }
 
 .outdoor-map-search-results {
@@ -1527,6 +1545,7 @@ select[multiple] {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
   padding-top: 2px;
 }
 
@@ -1564,6 +1583,8 @@ select[multiple] {
 .altitude-range-filter {
   display: grid;
   gap: 8px;
+  grid-column: span 2;
+  min-width: 0;
 }
 
 .altitude-range-header,
@@ -4131,6 +4152,11 @@ select[multiple] {
   .topbar {
     position: static;
     grid-template-columns: 1fr;
+  }
+
+  .outdoor-map-search-field,
+  .altitude-range-filter {
+    grid-column: 1;
   }
 
   .account-cluster {
