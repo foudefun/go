@@ -161,8 +161,18 @@ def route_duration_minutes(detail: dict, row: dict) -> int | None:
     return int(sum(values)) if values else None
 
 
+def merged_destination(detail: dict, row: dict) -> dict:
+    row_destination = row.get("destination_poi") if isinstance(row.get("destination_poi"), dict) else {}
+    detail_destination = detail.get("destination_poi") if isinstance(detail.get("destination_poi"), dict) else {}
+    merged = dict(row_destination)
+    for key, value in detail_destination.items():
+        if value not in (None, "", [], {}):
+            merged[key] = value
+    return merged
+
+
 def build_summary(detail: dict, row: dict, discipline: str) -> str:
-    destination = detail.get("destination_poi") or row.get("destination_poi") or {}
+    destination = merged_destination(detail, row)
     parts = []
     destination_name = pick_text(destination.get("display_name") or destination.get("geographical_name"))
     if destination_name:
@@ -188,7 +198,7 @@ def build_summary(detail: dict, row: dict, discipline: str) -> str:
 
 def normalize_route(row: dict, detail: dict, discipline: str, now: str) -> dict:
     route_id = int(row.get("id") or detail.get("id"))
-    destination = detail.get("destination_poi") or row.get("destination_poi") or {}
+    destination = merged_destination(detail, row)
     title = pick_text(detail.get("title")) or pick_text(row.get("title")) or f"SAC route {route_id}"
     difficulty = detail.get("main_difficulty") or row.get("main_difficulty") or ""
     photos = compact_photos(detail.get("photos") or row.get("photos"))
@@ -309,6 +319,21 @@ def get_location_by_type_and_name(db, username: str, location_type: str, name: s
     return None
 
 
+def get_location_by_any_type_and_name(db, username: str, name: str):
+    matches = []
+    for location_type in LOCATION_MODEL_BY_TYPE:
+        location = get_location_by_type_and_name(db, username, location_type, name)
+        if location:
+            matches.append((location_type, location))
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        ranked = sorted(matches, key=lambda item: (float(item[1].elevation_meters or 0), -int(item[1].id or 0)), reverse=True)
+        if len(ranked) < 2 or (ranked[0][1].elevation_meters or 0) != (ranked[1][1].elevation_meters or 0):
+            return ranked[0]
+    return None, None
+
+
 def replace_source_references(db, route_id: int, references: list[dict], now: str) -> None:
     db.query(backend.OutdoorSourceReferenceModel).filter_by(entity_type="route", entity_id=route_id).delete()
     for reference in references:
@@ -361,6 +386,8 @@ def upsert_destination_role(db, username: str, route_id: int, preview: dict, now
     location_type = preview["destination_type"]
     location_name = preview["destination_name"]
     location = get_location_by_type_and_name(db, username, location_type, location_name)
+    if not location and not location_type:
+        location_type, location = get_location_by_any_type_and_name(db, username, location_name)
     if not location:
         return False
     role = (

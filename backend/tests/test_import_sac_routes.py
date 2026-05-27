@@ -134,3 +134,14 @@ def test_import_sac_routes_links_destination_by_alias(monkeypatch, client):
         assert summit.name == "Matterhorn / Cervino / Cervin"
     finally:
         db.close()
+
+
+def test_import_sac_routes_keeps_search_destination_type_when_detail_omits_it():
+    row = sac_row(1032)
+    row["destination_poi"] = {"display_name": "Matterhorn", "type": "summit"}
+    detail = {"id": 1032, "destination_poi": {"display_name": "Matterhorn"}}
+
+    preview = import_sac_routes.normalize_route(row, detail, "alpine_tour", "2026-05-27T00:00:00+00:00")
+
+    assert preview["destination_name"] == "Matterhorn"
+    assert preview["destination_type"] == "summit"
