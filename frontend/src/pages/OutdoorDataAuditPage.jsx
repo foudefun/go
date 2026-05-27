@@ -80,7 +80,7 @@ function buildMapLink(row) {
   return `/outdoor-map?${params.toString()}`;
 }
 
-function AuditRow({ row }) {
+function AuditRow({ row, t }) {
   return (
     <tr>
       <td>{formatCode(row.location_entity_type)}</td>
@@ -200,7 +200,7 @@ export default function OutdoorDataAuditPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {group.records.map((row) => <AuditRow key={`${row.location_entity_type}-${row.id}`} row={row} />)}
+                          {group.records.map((row) => <AuditRow key={`${row.location_entity_type}-${row.id}`} row={row} t={t} />)}
                         </tbody>
                       </table>
                     </div>
@@ -223,7 +223,7 @@ export default function OutdoorDataAuditPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((row) => <AuditRow key={`${row.issue}-${row.location_entity_type}-${row.id}`} row={row} />)}
+                    {rows.map((row) => <AuditRow key={`${row.issue}-${row.location_entity_type}-${row.id}`} row={row} t={t} />)}
                   </tbody>
                 </table>
               </div>
