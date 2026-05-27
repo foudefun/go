@@ -1573,7 +1573,8 @@ select[multiple] {
   min-width: 0;
 }
 
-.location-filter-set {
+.location-filter-set,
+.trail-overlay-filter-set {
   grid-column: 1 / -1;
   min-width: 0;
 }
@@ -1729,13 +1730,15 @@ select[multiple] {
   min-height: 0;
 }
 
-.location-filter-set {
+.location-filter-set,
+.trail-overlay-filter-set {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.location-filter-set button {
+.location-filter-set button,
+.trail-overlay-filter-set button {
   min-height: 36px;
   padding: 7px 10px;
 }
@@ -1744,6 +1747,12 @@ select[multiple] {
   border-color: #0f766e;
   background: #0f766e;
   color: #fff;
+}
+
+.trail-overlay-filter-set button.active {
+  border-color: #0f766e;
+  background: #e8f5f1;
+  color: #0f766e;
 }
 
 .outdoor-map-layout {

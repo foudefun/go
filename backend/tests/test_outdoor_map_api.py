@@ -139,3 +139,9 @@ def test_map_tile_proxy_rejects_invalid_tile(client):
     response = client.get("/api/map-tiles/cartovoyager/19/0/0.png")
 
     assert response.status_code == 404
+
+
+def test_swisstopo_trail_tile_proxy_rejects_unknown_layer(client):
+    response = client.get("/api/map-tiles/swisstopo-trails/unknown/10/536/363.png")
+
+    assert response.status_code == 404

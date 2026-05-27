@@ -4235,14 +4235,44 @@ def uploaded_file_response(
     )
 
 
-def proxy_carto_voyager_tile(z: int, x: int, y: int) -> Response:
+def validate_xyz_tile(z: int, x: int, y: int, max_zoom: int = 18) -> None:
     if z < 0 or z > 18:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Map tile not found")
     max_index = 2 ** z
     if x < 0 or y < 0 or x >= max_index or y >= max_index:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Map tile not found")
+
+def proxy_carto_voyager_tile(z: int, x: int, y: int) -> Response:
+    validate_xyz_tile(z, x, y)
     subdomain = ("a", "b", "c")[(x + y) % 3]
     url = f"https://{subdomain}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
+    request = Request(url, headers={"User-Agent": "RehabTracker/1.0"})
+    try:
+        with urlopen(request, timeout=12) as response:
+            tile_bytes = response.read()
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Map tile could not be loaded") from exc
+    return Response(
+        content=tile_bytes,
+        media_type="image/png",
+        headers={
+            "Cache-Control": "public, max-age=86400",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+SWISSTOPO_TRAIL_TILE_LAYERS = {
+    "hiking": "ch.swisstopo.swisstlm3d-wanderwege",
+    "winter-hiking": "ch.astra.winterwanderwege",
+    "snowshoe": "ch.astra.schneeschuhwanderwege",
+}
+
+def proxy_swisstopo_trail_tile(layer_key: str, z: int, x: int, y: int) -> Response:
+    validate_xyz_tile(z, x, y)
+    layer_id = SWISSTOPO_TRAIL_TILE_LAYERS.get(layer_key)
+    if not layer_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Map tile not found")
+    url = f"https://wmts.geo.admin.ch/1.0.0/{layer_id}/default/current/3857/{z}/{x}/{y}.png"
     request = Request(url, headers={"User-Agent": "RehabTracker/1.0"})
     try:
         with urlopen(request, timeout=12) as response:
@@ -7100,6 +7130,15 @@ def get_carto_voyager_tile(
     y: int,
 ):
     return proxy_carto_voyager_tile(z, x, y)
+
+@app.get("/api/map-tiles/swisstopo-trails/{layer_key}/{z}/{x}/{y}.png")
+def get_swisstopo_trail_tile(
+    layer_key: str,
+    z: int,
+    x: int,
+    y: int,
+):
+    return proxy_swisstopo_trail_tile(layer_key, z, x, y)
 
 @app.put("/api/config")
 def update_config(payload: dict, _: UserModel = Depends(get_current_user)):

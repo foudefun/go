@@ -23,6 +23,11 @@ const ALTITUDE_MAX = 5000;
 const COORDINATE_QUALITY_FILTERS = ["", "exact", "approximate", "unknown"];
 const SOURCE_FILTERS = ["", "with_source", "missing_source"];
 const ROUTE_LINK_FILTERS = ["", "with_route_links", "without_route_links"];
+const TRAIL_OVERLAYS = [
+  { key: "hiking", label: "Hiking trails" },
+  { key: "winter-hiking", label: "Winter hiking" },
+  { key: "snowshoe", label: "Snowshoe trails" },
+];
 const MAP_STYLE = {
   version: 8,
   sources: {
@@ -32,6 +37,24 @@ const MAP_STYLE = {
       tileSize: 256,
       attribution: "(c) OpenStreetMap contributors (c) CARTO",
     },
+    swisstopoHikingTrails: {
+      type: "raster",
+      tiles: ["/api/map-tiles/swisstopo-trails/hiking/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "(c) swisstopo",
+    },
+    swisstopoWinterHikingTrails: {
+      type: "raster",
+      tiles: ["/api/map-tiles/swisstopo-trails/winter-hiking/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "(c) swisstopo",
+    },
+    swisstopoSnowshoeTrails: {
+      type: "raster",
+      tiles: ["/api/map-tiles/swisstopo-trails/snowshoe/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "(c) swisstopo",
+    },
   },
   layers: [
     {
@@ -39,10 +62,36 @@ const MAP_STYLE = {
       type: "raster",
       source: "cartoVoyager",
     },
+    {
+      id: "swisstopoHikingTrails",
+      type: "raster",
+      source: "swisstopoHikingTrails",
+      layout: { visibility: "none" },
+      paint: { "raster-opacity": 0.88 },
+    },
+    {
+      id: "swisstopoWinterHikingTrails",
+      type: "raster",
+      source: "swisstopoWinterHikingTrails",
+      layout: { visibility: "none" },
+      paint: { "raster-opacity": 0.9 },
+    },
+    {
+      id: "swisstopoSnowshoeTrails",
+      type: "raster",
+      source: "swisstopoSnowshoeTrails",
+      layout: { visibility: "none" },
+      paint: { "raster-opacity": 0.9 },
+    },
   ],
 };
 const ROUTE_LINE_SOURCE_ID = "outdoor-route-lines";
 const ROUTE_LINE_LAYER_ID = "outdoor-route-lines";
+const TRAIL_LAYER_IDS = {
+  hiking: "swisstopoHikingTrails",
+  "winter-hiking": "swisstopoWinterHikingTrails",
+  snowshoe: "swisstopoSnowshoeTrails",
+};
 
 function formatCode(value) {
   return String(value || "").replaceAll("_", " ");
@@ -296,7 +345,7 @@ function syncRouteLines(map, routeLines) {
   return true;
 }
 
-function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSelect, focusPoint }) {
+function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSelect, focusPoint, activeTrailOverlays }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -380,6 +429,25 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
     }
     return undefined;
   }, [routeLines]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return undefined;
+    const applyTrailLayerVisibility = () => {
+      if (!map.isStyleLoaded()) return false;
+      Object.entries(TRAIL_LAYER_IDS).forEach(([key, layerId]) => {
+        if (map.getLayer(layerId)) {
+          map.setLayoutProperty(layerId, "visibility", activeTrailOverlays.has(key) ? "visible" : "none");
+        }
+      });
+      return true;
+    };
+    if (!applyTrailLayerVisibility()) {
+      map.once("load", applyTrailLayerVisibility);
+      return () => map.off("load", applyTrailLayerVisibility);
+    }
+    return undefined;
+  }, [activeTrailOverlays]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -467,6 +535,7 @@ export default function OutdoorMapPage() {
   const [coordinateQuality, setCoordinateQuality] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [routeLinkFilter, setRouteLinkFilter] = useState("");
+  const [activeTrailOverlays, setActiveTrailOverlays] = useState(new Set());
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [selectedRouteId, setSelectedRouteId] = useState(null);
 
@@ -567,6 +636,15 @@ export default function OutdoorMapPage() {
 
   function toggleLocationType(type) {
     setLocationTypes((current) => {
+      const next = new Set(current);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  }
+
+  function toggleTrailOverlay(type) {
+    setActiveTrailOverlays((current) => {
       const next = new Set(current);
       if (next.has(type)) next.delete(type);
       else next.add(type);
@@ -826,6 +904,18 @@ export default function OutdoorMapPage() {
             </button>
           ))}
         </div>
+        <div className="trail-overlay-filter-set">
+          {TRAIL_OVERLAYS.map((overlay) => (
+            <button
+              type="button"
+              key={overlay.key}
+              className={activeTrailOverlays.has(overlay.key) ? "active" : ""}
+              onClick={() => toggleTrailOverlay(overlay.key)}
+            >
+              {t(overlay.label)}
+            </button>
+          ))}
+        </div>
         {normalizedSearchQuery ? (
           <div className="outdoor-map-search-results">
             {searchResults.length ? (
@@ -869,6 +959,7 @@ export default function OutdoorMapPage() {
               selectedId={selectedPoint?.id}
               selectedRouteId={selectedRouteId}
               focusPoint={selectedPoint}
+              activeTrailOverlays={activeTrailOverlays}
               onSelect={selectPoint}
             />
           </div>
