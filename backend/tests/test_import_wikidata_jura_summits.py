@@ -70,9 +70,16 @@ def test_import_jura_summits_apply_upserts_summit_and_source(monkeypatch, client
         db.close()
 
 
-def test_import_jura_summits_rejects_conflicting_same_name(monkeypatch, client):
+def test_import_jura_summits_disambiguates_conflicting_same_name(monkeypatch, client):
     monkeypatch.setattr(importer, "fetch_wikidata_rows", lambda limit: [wikidata_row()])
     assert importer.import_jura_summits(username="admin", limit=10, apply=True) == 0
 
     monkeypatch.setattr(importer, "fetch_wikidata_rows", lambda limit: [wikidata_row(coord="Point(7.0 47.0)")])
-    assert importer.import_jura_summits(username="admin", limit=10, apply=True) == 1
+    assert importer.import_jura_summits(username="admin", limit=10, apply=True) == 0
+
+    db = main.SessionLocal()
+    try:
+        disambiguated = db.query(main.OutdoorSummitModel).filter_by(name="Cret de la Neige (Jura, 1718 m)").one()
+        assert disambiguated.latitude == 47.0
+    finally:
+        db.close()

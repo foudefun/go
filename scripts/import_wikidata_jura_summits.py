@@ -160,6 +160,25 @@ def existing_source_reference(db, summit_id: int, qid: str):
     )
 
 
+def existing_summit_by_wikidata_id(db, qid: str):
+    reference = (
+        db.query(backend.OutdoorSourceReferenceModel)
+        .filter_by(entity_type="summit", source_type="website")
+        .filter(backend.OutdoorSourceReferenceModel.url == f"https://www.wikidata.org/wiki/{qid}")
+        .first()
+    )
+    if not reference:
+        return None
+    return db.get(backend.OutdoorSummitModel, reference.entity_id)
+
+
+def disambiguated_name(preview: dict) -> str:
+    elevation = preview.get("elevation_meters")
+    if elevation is None:
+        return f"{preview['name']} (Jura)"
+    return f"{preview['name']} (Jura, {elevation:g} m)"
+
+
 def upsert_source_reference(db, summit_id: int, preview: dict, now: str) -> None:
     reference = existing_source_reference(db, summit_id, preview["wikidata_qid"])
     if not reference:
@@ -181,14 +200,26 @@ def upsert_source_reference(db, summit_id: int, preview: dict, now: str) -> None
 
 
 def upsert_summit(db, username: str, preview: dict, now: str) -> str:
-    row = db.query(backend.OutdoorSummitModel).filter_by(username=username, name=preview["name"]).first()
+    row = existing_summit_by_wikidata_id(db, preview["wikidata_qid"])
+    if row and row.username != username:
+        row = None
+    if not row:
+        row = db.query(backend.OutdoorSummitModel).filter_by(username=username, name=preview["name"]).first()
     action = "updated" if row else "created"
     if row and (
         values_conflict(row.latitude, preview["latitude"], 0.001)
         or values_conflict(row.longitude, preview["longitude"], 0.001)
         or values_conflict(row.elevation_meters, preview["elevation_meters"], 10)
     ):
-        return "conflict"
+        preview = {**preview, "name": disambiguated_name(preview)}
+        row = db.query(backend.OutdoorSummitModel).filter_by(username=username, name=preview["name"]).first()
+        action = "updated" if row else "created"
+        if row and (
+            values_conflict(row.latitude, preview["latitude"], 0.001)
+            or values_conflict(row.longitude, preview["longitude"], 0.001)
+            or values_conflict(row.elevation_meters, preview["elevation_meters"], 10)
+        ):
+            return "conflict"
     if not row:
         row = backend.OutdoorSummitModel(username=username, name=preview["name"], created_at=now, updated_at=now)
         db.add(row)
