@@ -1,3 +1,5 @@
+import json
+
 from app import main
 from scripts import import_sac_routes
 
@@ -29,13 +31,17 @@ def sac_row(route_id=2672):
     }
 
 
-def seed_destination_summit():
+def seed_destination_summit(
+    name="Steinhüshoren / Steinhüshorn",
+    aliases=None,
+):
     db = main.SessionLocal()
     try:
         db.add(
             main.OutdoorSummitModel(
                 username="admin",
-                name="Steinhüshoren / Steinhüshorn",
+                name=name,
+                aliases_json=json.dumps(aliases or [], ensure_ascii=False),
                 coordinate_status="unknown",
                 created_at="2026-05-27T00:00:00",
                 updated_at="2026-05-27T00:00:00",
@@ -102,5 +108,29 @@ def test_import_sac_routes_apply_upserts_and_links_existing_destination(monkeypa
         role = db.query(main.OutdoorRouteLocationRoleModel).filter_by(entity_type="route", entity_id=route.id).one()
         assert role.location_entity_type == "summit"
         assert role.role == "main_objective"
+    finally:
+        db.close()
+
+
+def test_import_sac_routes_links_destination_by_alias(monkeypatch, client):
+    seed_destination_summit(name="Matterhorn / Cervino / Cervin", aliases=["Matterhorn", "Cervino"])
+    row = sac_row(1032)
+    row["title"] = "Abstieg vom Matterhorn über den Südwestgrat (Liongrat)"
+    row["destination_poi"] = {"display_name": "Matterhorn", "type": "summit"}
+    preview = import_sac_routes.normalize_route(row, {}, "alpine_tour", "2026-05-27T00:00:00+00:00")
+    monkeypatch.setattr(
+        import_sac_routes,
+        "fetch_sac_route_previews",
+        lambda discipline, limit, include_details=True: (837, [preview], []),
+    )
+
+    assert import_sac_routes.import_sac_routes("admin", True, "alpine_tour", 1) == 0
+
+    db = main.SessionLocal()
+    try:
+        route = db.query(main.OutdoorRouteModel).filter_by(slug="sac-alpine-tour-1032").one()
+        role = db.query(main.OutdoorRouteLocationRoleModel).filter_by(entity_type="route", entity_id=route.id).one()
+        summit = db.get(main.OutdoorSummitModel, role.location_entity_id)
+        assert summit.name == "Matterhorn / Cervino / Cervin"
     finally:
         db.close()

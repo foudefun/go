@@ -13,6 +13,7 @@ import argparse
 import json
 import re
 import sys
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlencode
@@ -110,6 +111,22 @@ def route_detail_url(route_id: int) -> str:
 def slugify(value: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", str(value or "").lower()).strip("-")
     return slug or "route"
+
+
+def normalize_location_key(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", str(value or "").casefold())
+    ascii_text = "".join(character for character in normalized if not unicodedata.combining(character))
+    ascii_text = ascii_text.replace("ß", "ss")
+    ascii_text = re.sub(r"[^a-z0-9]+", " ", ascii_text)
+    return " ".join(ascii_text.split())
+
+
+def location_name_parts(value: str) -> set[str]:
+    parts = {str(value or "")}
+    for part in re.split(r"\s*/\s*|\s+or\s+|\s+oder\s+|\s+ou\s+", str(value or ""), flags=re.IGNORECASE):
+        if part.strip():
+            parts.add(part.strip())
+    return {normalize_location_key(part) for part in parts if normalize_location_key(part)}
 
 
 def compact_photos(value) -> list[dict]:
@@ -262,11 +279,34 @@ def ensure_user_exists(db, username: str) -> None:
         raise ValueError(f"User '{username}' does not exist")
 
 
+def row_location_keys(row) -> set[str]:
+    keys = set()
+    for key in location_name_parts(row.name):
+        keys.add(key)
+    try:
+        aliases = json.loads(row.aliases_json or "[]")
+    except (TypeError, json.JSONDecodeError):
+        aliases = []
+    for alias in aliases:
+        if isinstance(alias, str):
+            keys.update(location_name_parts(alias))
+    return keys
+
+
 def get_location_by_type_and_name(db, username: str, location_type: str, name: str):
     model = LOCATION_MODEL_BY_TYPE.get(location_type)
     if not model or not name:
         return None
-    return db.query(model).filter_by(username=username, name=name).first()
+    rows = db.query(model).filter_by(username=username).all()
+    target_keys = location_name_parts(name)
+    matches = [row for row in rows if target_keys & row_location_keys(row)]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        ranked = sorted(matches, key=lambda row: (float(row.elevation_meters or 0), -int(row.id or 0)), reverse=True)
+        if len(ranked) < 2 or (ranked[0].elevation_meters or 0) != (ranked[1].elevation_meters or 0):
+            return ranked[0]
+    return None
 
 
 def replace_source_references(db, route_id: int, references: list[dict], now: str) -> None:
