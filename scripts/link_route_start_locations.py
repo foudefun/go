@@ -70,6 +70,7 @@ class LocationCandidate:
     latitude: float
     longitude: float
     elevation_meters: float | None
+    search_keys: tuple[str, ...] = ()
 
 
 def utc_now_iso() -> str:
@@ -115,15 +116,26 @@ def load_candidates(db, username: str) -> list[LocationCandidate]:
             .all()
         )
         for row in rows:
+            aliases = parse_aliases(row.aliases_json)
+            candidate = LocationCandidate(
+                location_type=location_type,
+                location_id=row.id,
+                name=row.name,
+                aliases=aliases,
+                latitude=float(row.latitude),
+                longitude=float(row.longitude),
+                elevation_meters=row.elevation_meters,
+            )
             candidates.append(
                 LocationCandidate(
-                    location_type=location_type,
-                    location_id=row.id,
-                    name=row.name,
-                    aliases=parse_aliases(row.aliases_json),
-                    latitude=float(row.latitude),
-                    longitude=float(row.longitude),
-                    elevation_meters=row.elevation_meters,
+                    location_type=candidate.location_type,
+                    location_id=candidate.location_id,
+                    name=candidate.name,
+                    aliases=candidate.aliases,
+                    latitude=candidate.latitude,
+                    longitude=candidate.longitude,
+                    elevation_meters=candidate.elevation_meters,
+                    search_keys=tuple(sorted(candidate_names(candidate), key=len, reverse=True)),
                 )
             )
     return candidates
@@ -138,7 +150,7 @@ def title_matches_candidate(title: str, candidate: LocationCandidate) -> bool:
     title_key = normalize_text(title)
     if not title_key:
         return False
-    for name_key in candidate_names(candidate):
+    for name_key in candidate.search_keys:
         if len(name_key) < 4:
             continue
         if any(re.search(pattern, title_key) for pattern in start_cue_patterns(name_key)):
