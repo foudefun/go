@@ -146,14 +146,32 @@ def start_cue_patterns(name_key: str) -> list[str]:
     return [rf"(?:^|\s){re.escape(cue)}\s+{escaped}(?:\s|$)" for cue in START_CUES]
 
 
-def title_matches_candidate(title: str, candidate: LocationCandidate) -> bool:
+def extract_start_phrase(title: str) -> str:
     title_key = normalize_text(title)
     if not title_key:
+        return ""
+    cue_matches = []
+    for cue in START_CUES:
+        match = re.search(rf"(?:^|\s){re.escape(cue)}\s+", title_key)
+        if match:
+            cue_matches.append((match.start(), match.end()))
+    if not cue_matches:
+        return ""
+    _, phrase_start = sorted(cue_matches, key=lambda item: item[0])[-1]
+    phrase = title_key[phrase_start:]
+    stop_match = re.search(r"\s+(?:via|by|par|uber|ueber|over|to|nach|vers|jusqu|and|und|et)\s+", phrase)
+    if stop_match:
+        phrase = phrase[: stop_match.start()]
+    return phrase.strip()
+
+
+def start_phrase_matches_candidate(start_phrase: str, candidate: LocationCandidate) -> bool:
+    if not start_phrase:
         return False
     for name_key in candidate.search_keys:
         if len(name_key) < 4:
             continue
-        if any(re.search(pattern, title_key) for pattern in start_cue_patterns(name_key)):
+        if re.search(rf"(?:^|\s){re.escape(name_key)}(?:\s|$)", start_phrase):
             return True
     return False
 
@@ -169,7 +187,8 @@ def has_existing_start_role(db, route_id: int) -> bool:
 
 
 def find_route_start_match(route, candidates: list[LocationCandidate]) -> LocationCandidate | None:
-    matches = [candidate for candidate in candidates if title_matches_candidate(route.name, candidate)]
+    start_phrase = extract_start_phrase(route.name)
+    matches = [candidate for candidate in candidates if start_phrase_matches_candidate(start_phrase, candidate)]
     if len(matches) == 1:
         return matches[0]
     if len(matches) > 1:
