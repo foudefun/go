@@ -519,7 +519,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
 
   return (
     <div className="outdoor-map-frame">
-      <div ref={containerRef} className="outdoor-map-canvas" role="region" aria-label="Outdoor route map" />
+      <div ref={containerRef} className="outdoor-map-canvas" role="region" aria-label="Map" />
       {mapError ? <div className="outdoor-map-error">{mapError}</div> : null}
     </div>
   );
@@ -558,7 +558,7 @@ export default function OutdoorMapPage() {
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err.message || "Unable to load outdoor map.");
+        setError(err.message || "Unable to load map.");
         setStatus("error");
       });
     return () => {
@@ -800,7 +800,7 @@ export default function OutdoorMapPage() {
     <main className="page-shell outdoor-map-page">
       <section className="module-header outdoor-map-header">
         <div>
-          <p className="eyebrow">{t("Outdoor map")}</p>
+          <p className="eyebrow">{t("Map")}</p>
           <h1>{t("Summits and routes")}</h1>
         </div>
       </section>

@@ -27,7 +27,7 @@ const tabs = [
   { to: "/exercises", labelKey: "Exercises" },
   { to: "/equipment", labelKey: "Equipment" },
   { to: "/climbing", labelKey: "Climbing" },
-  { to: "/outdoor-map", labelKey: "Outdoor map" },
+  { to: "/outdoor-map", labelKey: "Map" },
   { to: "/outdoor-routes", labelKey: "Outdoor routes" },
 ];
 

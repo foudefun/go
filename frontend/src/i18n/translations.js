@@ -342,6 +342,7 @@ const FR = {
   "No owned gear yet.": "Aucun matériel possédé pour le moment.",
   Notes: "Notes",
   "Open Link": "Ouvrir le lien",
+  Map: "Carte",
   "Outdoor Climbing": "Escalade extérieure",
   "Outdoor routes": "Itineraires outdoor",
   "Outdoor map": "Carte outdoor",
