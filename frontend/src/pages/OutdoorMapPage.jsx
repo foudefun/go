@@ -434,19 +434,26 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
     const map = mapRef.current;
     if (!map) return undefined;
     const applyTrailLayerVisibility = () => {
-      if (!map.isStyleLoaded()) return false;
+      let foundAllLayers = true;
       Object.entries(TRAIL_LAYER_IDS).forEach(([key, layerId]) => {
         if (map.getLayer(layerId)) {
           map.setLayoutProperty(layerId, "visibility", activeTrailOverlays.has(key) ? "visible" : "none");
+        } else {
+          foundAllLayers = false;
         }
       });
-      return true;
+      map.triggerRepaint();
+      return foundAllLayers;
     };
-    if (!applyTrailLayerVisibility()) {
-      map.once("load", applyTrailLayerVisibility);
-      return () => map.off("load", applyTrailLayerVisibility);
-    }
-    return undefined;
+    applyTrailLayerVisibility();
+    map.on("load", applyTrailLayerVisibility);
+    map.on("styledata", applyTrailLayerVisibility);
+    map.on("idle", applyTrailLayerVisibility);
+    return () => {
+      map.off("load", applyTrailLayerVisibility);
+      map.off("styledata", applyTrailLayerVisibility);
+      map.off("idle", applyTrailLayerVisibility);
+    };
   }, [activeTrailOverlays]);
 
   useEffect(() => {
