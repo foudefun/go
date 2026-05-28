@@ -1,5 +1,13 @@
-import { useMemo, useRef, useState } from "react";
-import { importActivityFile, importProgram } from "../api/importApi.js";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  createStravaConnectUrl,
+  disconnectStrava,
+  getStravaActivities,
+  getStravaStatus,
+  importActivityFile,
+  importProgram,
+  importStravaActivities,
+} from "../api/importApi.js";
 import { ACTIVITY_TYPES, getActivityTypeLabel } from "../domain/activityTypes.js";
 import {
   IMPORT_FORMATS,
@@ -282,6 +290,202 @@ export function ActivityImportPanel() {
   );
 }
 
+export function StravaImportPanel() {
+  const { t } = useTranslation();
+  const [connection, setConnection] = useState({ configured: false, connected: false });
+  const [activities, setActivities] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [after, setAfter] = useState("");
+  const [before, setBefore] = useState("");
+  const [status, setStatus] = useState("loading");
+  const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
+
+  async function loadStatus() {
+    setStatus("loading");
+    setError("");
+    try {
+      const payload = await getStravaStatus();
+      setConnection(payload);
+      setStatus("idle");
+    } catch (loadError) {
+      setError(loadError.message);
+      setStatus("idle");
+    }
+  }
+
+  useEffect(() => {
+    loadStatus();
+  }, []);
+
+  async function connect() {
+    setStatus("connecting");
+    setError("");
+    try {
+      const payload = await createStravaConnectUrl("/import?strava=connected");
+      window.location.href = payload.authorization_url;
+    } catch (connectError) {
+      setError(connectError.message);
+      setStatus("idle");
+    }
+  }
+
+  async function disconnect() {
+    setStatus("saving");
+    setError("");
+    try {
+      await disconnectStrava();
+      setActivities([]);
+      setSelectedIds([]);
+      setResult(null);
+      await loadStatus();
+    } catch (disconnectError) {
+      setError(disconnectError.message);
+      setStatus("idle");
+    }
+  }
+
+  async function loadActivities() {
+    setStatus("fetching");
+    setError("");
+    setResult(null);
+    try {
+      const payload = await getStravaActivities({ after, before, limit: 30 });
+      setActivities(payload.activities || []);
+      setSelectedIds([]);
+      setStatus("idle");
+    } catch (fetchError) {
+      setError(fetchError.message);
+      setStatus("idle");
+    }
+  }
+
+  function toggleActivity(activityId) {
+    setSelectedIds((current) => (current.includes(activityId) ? current.filter((id) => id !== activityId) : [...current, activityId]));
+  }
+
+  async function handleImport() {
+    if (!selectedIds.length) {
+      setError(t("Select at least one Strava activity to import."));
+      return;
+    }
+    setStatus("importing");
+    setError("");
+    setResult(null);
+    try {
+      const payload = await importStravaActivities(selectedIds);
+      setResult(payload);
+      await loadActivities();
+    } catch (importError) {
+      setError(importError.message);
+      setStatus("idle");
+    }
+  }
+
+  return (
+    <section className="import-layout single">
+      <div className="settings-form-column">
+        <section className="app-panel import-panel">
+          <div>
+            <p className="eyebrow">{t("Strava")}</p>
+            <h2>{t("Import From Strava")}</h2>
+            <p>{t("Connect your Strava account, review recent activities, then import selected items into your calendar.")}</p>
+          </div>
+
+          {!connection.configured ? (
+            <div className="notice-panel">
+              <span>{t("Strava is not configured on the backend.")}</span>
+              <small>{t("Set STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET, and STRAVA_REDIRECT_URI before connecting.")}</small>
+            </div>
+          ) : connection.connected ? (
+            <div className="notice-panel">
+              <span>{t("Connected account")}: {connection.athlete_name || connection.athlete_id}</span>
+              {connection.scopes ? <small>{t("Scopes")}: {connection.scopes}</small> : null}
+            </div>
+          ) : (
+            <div className="notice-panel">
+              <span>{t("No Strava account connected.")}</span>
+            </div>
+          )}
+
+          <div className="day-modal-actions">
+            {connection.connected ? (
+              <button type="button" className="secondary-action" onClick={disconnect} disabled={status === "saving"}>
+                {t("Disconnect")}
+              </button>
+            ) : (
+              <button type="button" className="primary-action" onClick={connect} disabled={!connection.configured || status === "connecting"}>
+                {status === "connecting" ? t("Connecting...") : t("Connect Strava")}
+              </button>
+            )}
+            <button type="button" className="secondary-action" onClick={loadStatus} disabled={status === "loading"}>
+              {t("Refresh Status")}
+            </button>
+          </div>
+
+          {connection.connected ? (
+            <>
+              <div className="form-grid">
+                <label>
+                  {t("After")}
+                  <input type="date" value={after} onChange={(event) => setAfter(event.target.value)} />
+                </label>
+                <label>
+                  {t("Before")}
+                  <input type="date" value={before} onChange={(event) => setBefore(event.target.value)} />
+                </label>
+              </div>
+              <div className="day-modal-actions">
+                <button type="button" className="primary-action" onClick={loadActivities} disabled={status === "fetching"}>
+                  {status === "fetching" ? t("Loading...") : t("Load Strava Activities")}
+                </button>
+                <button type="button" className="secondary-action" onClick={handleImport} disabled={status === "importing" || !selectedIds.length}>
+                  {status === "importing" ? t("Importing...") : t("Import Selected")}
+                </button>
+              </div>
+            </>
+          ) : null}
+        </section>
+
+        {error ? <div className="error-banner">{error}</div> : null}
+        {result ? (
+          <div className="success-banner">
+            {`${result.imported?.length || 0} ${t("imported")}, ${result.skipped?.length || 0} ${t("skipped")}`}
+          </div>
+        ) : null}
+
+        {activities.length ? (
+          <section className="app-panel import-panel">
+            <div>
+              <p className="eyebrow">{t("Preview")}</p>
+              <h2>{t("Strava Activities")}</h2>
+            </div>
+            <div className="strava-activity-list">
+              {activities.map((activity) => (
+                <label className={activity.existing ? "strava-activity-row imported" : "strava-activity-row"} key={activity.id}>
+                  <input
+                    type="checkbox"
+                    disabled={Boolean(activity.existing)}
+                    checked={selectedIds.includes(activity.id)}
+                    onChange={() => toggleActivity(activity.id)}
+                  />
+                  <span>
+                    <strong>{activity.name}</strong>
+                    <small>
+                      {activity.date} - {t(getActivityTypeLabel(activity.activity_type))} - {activity.distance_km ?? "-"} km - {activity.duration || "-"}
+                      {activity.existing ? ` - ${t("Already imported")}` : ""}
+                    </small>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </section>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 export default function ImportPage() {
   const { t } = useTranslation();
   const [mode, setMode] = useState("program");
@@ -303,10 +507,15 @@ export default function ImportPage() {
           <button type="button" className={mode === "activity" ? "active" : ""} onClick={() => setMode("activity")}>
             {t("Activity File")}
           </button>
+          <button type="button" className={mode === "strava" ? "active" : ""} onClick={() => setMode("strava")}>
+            {t("Strava")}
+          </button>
         </div>
       </section>
 
-      {mode === "program" ? <ProgramImportPanel /> : <ActivityImportPanel />}
+      {mode === "program" ? <ProgramImportPanel /> : null}
+      {mode === "activity" ? <ActivityImportPanel /> : null}
+      {mode === "strava" ? <StravaImportPanel /> : null}
     </main>
   );
 }

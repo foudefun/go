@@ -22,3 +22,36 @@ export function importActivityFile({ file, format = "auto", activityTypeOverride
     body: formData,
   });
 }
+
+export function getStravaStatus() {
+  return api("/strava/status");
+}
+
+export function createStravaConnectUrl(frontendRedirectUrl = "") {
+  return api("/strava/connect", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ frontend_redirect_url: frontendRedirectUrl }),
+  });
+}
+
+export function disconnectStrava() {
+  return api("/strava/connection", { method: "DELETE" });
+}
+
+export function getStravaActivities({ after = "", before = "", limit = 20 } = {}) {
+  const params = new URLSearchParams();
+  if (after) params.set("after", after);
+  if (before) params.set("before", before);
+  if (limit) params.set("limit", String(limit));
+  const query = params.toString();
+  return api(`/strava/activities${query ? `?${query}` : ""}`);
+}
+
+export function importStravaActivities(activityIds) {
+  return api("/strava/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ activity_ids: activityIds }),
+  });
+}

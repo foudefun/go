@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { updatePreferences } from "../api/authApi.js";
 import { getConfig, updateConfig } from "../api/configApi.js";
+import { createStravaConnectUrl, disconnectStrava, getStravaStatus } from "../api/importApi.js";
 import { useAuth } from "../auth/AuthProvider.jsx";
 import { normalizeConfigDraft } from "../domain/settingsConfig.js";
 import { useTranslation } from "../i18n/translations.js";
@@ -41,7 +42,10 @@ export default function AccountPage() {
   const [language, setLanguage] = useState(user?.language || "fr");
   const [draft, setDraft] = useState(() => normalizeConfigDraft());
   const [status, setStatus] = useState("loading");
+  const [stravaStatus, setStravaStatus] = useState("loading");
+  const [stravaConnection, setStravaConnection] = useState({ configured: false, connected: false });
   const [error, setError] = useState("");
+  const [stravaError, setStravaError] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
 
   useEffect(() => {
@@ -66,6 +70,23 @@ export default function AccountPage() {
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  async function loadStravaStatus() {
+    setStravaStatus("loading");
+    setStravaError("");
+    try {
+      const payload = await getStravaStatus();
+      setStravaConnection(payload);
+      setStravaStatus("ready");
+    } catch (loadError) {
+      setStravaError(loadError.message);
+      setStravaStatus("ready");
+    }
+  }
+
+  useEffect(() => {
+    loadStravaStatus();
   }, []);
 
   function updateField(key, value) {
@@ -93,6 +114,30 @@ export default function AccountPage() {
     }
   }
 
+  async function handleConnectStrava() {
+    setStravaStatus("connecting");
+    setStravaError("");
+    try {
+      const payload = await createStravaConnectUrl("/account?strava=connected");
+      window.location.href = payload.authorization_url;
+    } catch (connectError) {
+      setStravaError(connectError.message);
+      setStravaStatus("ready");
+    }
+  }
+
+  async function handleDisconnectStrava() {
+    setStravaStatus("saving");
+    setStravaError("");
+    try {
+      await disconnectStrava();
+      await loadStravaStatus();
+    } catch (disconnectError) {
+      setStravaError(disconnectError.message);
+      setStravaStatus("ready");
+    }
+  }
+
   return (
     <main className="page-shell">
       <section className="module-header">
@@ -107,6 +152,7 @@ export default function AccountPage() {
 
       {status === "loading" ? <div className="app-panel empty-state">{t("Loading account settings...")}</div> : null}
       {error ? <div className="error-banner">{error}</div> : null}
+      {stravaError ? <div className="error-banner">{stravaError}</div> : null}
       {savedMessage ? <div className="success-banner">{savedMessage}</div> : null}
 
       <section className="app-panel account-panel">
@@ -143,6 +189,49 @@ export default function AccountPage() {
               </div>
             </section>
           ))}
+
+          <section className="app-panel settings-panel">
+            <div>
+              <p className="eyebrow">{t("Connected Apps")}</p>
+              <h2>{t("Strava")}</h2>
+              <p>{t("Connect your own Strava account. Imported activities are saved only to your user calendar.")}</p>
+            </div>
+
+            {!stravaConnection.configured ? (
+              <div className="notice-panel">
+                <span>{t("Strava is not configured on the backend.")}</span>
+              </div>
+            ) : stravaConnection.connected ? (
+              <div className="notice-panel">
+                <span>{t("Connected account")}: {stravaConnection.athlete_name || stravaConnection.athlete_id}</span>
+                {stravaConnection.scopes ? <small>{t("Scopes")}: {stravaConnection.scopes}</small> : null}
+              </div>
+            ) : (
+              <div className="notice-panel">
+                <span>{t("No Strava account connected.")}</span>
+              </div>
+            )}
+
+            <div className="day-modal-actions">
+              {stravaConnection.connected ? (
+                <button type="button" className="secondary-action" onClick={handleDisconnectStrava} disabled={stravaStatus === "saving"}>
+                  {t("Disconnect Strava")}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="primary-action"
+                  onClick={handleConnectStrava}
+                  disabled={!stravaConnection.configured || stravaStatus === "connecting"}
+                >
+                  {stravaStatus === "connecting" ? t("Connecting...") : t("Connect Strava")}
+                </button>
+              )}
+              <button type="button" className="secondary-action" onClick={loadStravaStatus} disabled={stravaStatus === "loading"}>
+                {t("Refresh Status")}
+              </button>
+            </div>
+          </section>
 
           <div className="day-modal-actions">
             <button type="button" className="primary-action" onClick={handleSave} disabled={status === "saving"}>

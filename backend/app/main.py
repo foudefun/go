@@ -13,13 +13,13 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from io import BytesIO, StringIO
 from pathlib import Path
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, urlencode, urlparse
 from urllib.request import Request, urlopen
 from xml.etree import ElementTree as ET
 
 from fastapi import Cookie, Depends, FastAPI, File, Form, Header, HTTPException, Request as FastAPIRequest, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint, and_, case, create_engine, event, or_
 from sqlalchemy.orm import object_session, sessionmaker, declarative_base
@@ -102,6 +102,13 @@ LOGIN_LOCK_MAX_FAILURES = int(os.getenv("REHAB_LOGIN_LOCK_MAX_FAILURES", "6"))
 LOGIN_LOCK_WINDOW_MINUTES = int(os.getenv("REHAB_LOGIN_LOCK_WINDOW_MINUTES", "10"))
 LOGIN_LOCK_DURATION_MINUTES = int(os.getenv("REHAB_LOGIN_LOCK_DURATION_MINUTES", "15"))
 ALLOW_BEARER_AUTH = parse_env_bool(os.getenv("REHAB_ALLOW_BEARER_AUTH"), True)
+STRAVA_CLIENT_ID = os.getenv("STRAVA_CLIENT_ID", "").strip()
+STRAVA_CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET", "").strip()
+STRAVA_REDIRECT_URI = os.getenv("STRAVA_REDIRECT_URI", "").strip()
+STRAVA_FRONTEND_REDIRECT_URL = os.getenv("STRAVA_FRONTEND_REDIRECT_URL", "/import?strava=connected")
+STRAVA_API_BASE_URL = os.getenv("STRAVA_API_BASE_URL", "https://www.strava.com/api/v3").rstrip("/")
+STRAVA_OAUTH_BASE_URL = os.getenv("STRAVA_OAUTH_BASE_URL", "https://www.strava.com/oauth").rstrip("/")
+STRAVA_DEFAULT_SCOPES = os.getenv("STRAVA_DEFAULT_SCOPES", "activity:read").strip()
 
 def should_secure_auth_cookie(request: FastAPIRequest) -> bool:
     host = str(request.headers.get("host", "") or "").split(":", 1)[0].lower()
@@ -316,6 +323,28 @@ class AuthTokenModel(Base):
     token_hash = Column(String, primary_key=True)
     username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
     expires_at = Column(String, nullable=False)
+
+class StravaConnectionModel(Base):
+    __tablename__ = "strava_connections"
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), primary_key=True)
+    strava_athlete_id = Column(String, nullable=False, unique=True)
+    athlete_name = Column(Text)
+    access_token = Column(Text, nullable=False)
+    refresh_token = Column(Text, nullable=False)
+    expires_at = Column(Integer, nullable=False, default=0)
+    scopes = Column(Text)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+    last_import_at = Column(String)
+
+class StravaOAuthStateModel(Base):
+    __tablename__ = "strava_oauth_states"
+    state = Column(String, primary_key=True)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    redirect_uri = Column(Text, nullable=False)
+    frontend_redirect_url = Column(Text)
+    expires_at = Column(String, nullable=False)
+    created_at = Column(String, nullable=False)
 
 class AppConfigModel(Base):
     __tablename__ = "app_config"
@@ -977,6 +1006,39 @@ def ensure_columns():
             )
             """
         )
+        conn.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS strava_connections (
+                username VARCHAR PRIMARY KEY,
+                strava_athlete_id VARCHAR NOT NULL UNIQUE,
+                athlete_name TEXT,
+                access_token TEXT NOT NULL,
+                refresh_token TEXT NOT NULL,
+                expires_at INTEGER NOT NULL DEFAULT 0,
+                scopes TEXT,
+                created_at VARCHAR NOT NULL,
+                updated_at VARCHAR NOT NULL,
+                last_import_at VARCHAR,
+                FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS strava_oauth_states (
+                state VARCHAR PRIMARY KEY,
+                username VARCHAR NOT NULL,
+                redirect_uri TEXT NOT NULL,
+                frontend_redirect_url TEXT,
+                expires_at VARCHAR NOT NULL,
+                created_at VARCHAR NOT NULL,
+                FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
+            )
+            """
+        )
+        strava_state_columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(strava_oauth_states)").fetchall()}
+        if strava_state_columns and "frontend_redirect_url" not in strava_state_columns:
+            conn.exec_driver_sql("ALTER TABLE strava_oauth_states ADD COLUMN frontend_redirect_url TEXT")
 
         equipment_exists = conn.exec_driver_sql(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='equipment'"
@@ -5471,6 +5533,229 @@ def import_activity_file_into_db(
         "summary": summary,
     }
 
+def is_strava_configured() -> bool:
+    return bool(STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET)
+
+def resolve_strava_redirect_uri(request: FastAPIRequest | None = None) -> str:
+    if STRAVA_REDIRECT_URI:
+        return STRAVA_REDIRECT_URI
+    if request is not None:
+        return str(request.url_for("strava_oauth_callback"))
+    return ""
+
+def strava_epoch_from_date(value: str, *, end_of_day: bool = False) -> int | None:
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        return None
+    try:
+        parsed_date = date.fromisoformat(raw_value)
+    except ValueError:
+        return None
+    if end_of_day:
+        dt = datetime(parsed_date.year, parsed_date.month, parsed_date.day, 23, 59, 59, tzinfo=timezone.utc)
+    else:
+        dt = datetime(parsed_date.year, parsed_date.month, parsed_date.day, tzinfo=timezone.utc)
+    return int(dt.timestamp())
+
+def strava_post_form(url: str, payload: dict) -> dict:
+    request = Request(
+        url,
+        data=urlencode(payload).encode("utf-8"),
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=20) as response:
+            return json.loads(response.read().decode("utf-8") or "{}")
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Strava request failed") from exc
+
+def exchange_strava_code(code: str) -> dict:
+    if not is_strava_configured():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Strava is not configured")
+    return strava_post_form(
+        f"{STRAVA_OAUTH_BASE_URL}/token",
+        {
+            "client_id": STRAVA_CLIENT_ID,
+            "client_secret": STRAVA_CLIENT_SECRET,
+            "code": code,
+            "grant_type": "authorization_code",
+        },
+    )
+
+def refresh_strava_connection(db, connection: StravaConnectionModel) -> str:
+    now_epoch = int(datetime.now(timezone.utc).timestamp())
+    if connection.access_token and int(connection.expires_at or 0) > now_epoch + 60:
+        return connection.access_token
+    if not is_strava_configured():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Strava is not configured")
+    payload = strava_post_form(
+        f"{STRAVA_OAUTH_BASE_URL}/token",
+        {
+            "client_id": STRAVA_CLIENT_ID,
+            "client_secret": STRAVA_CLIENT_SECRET,
+            "grant_type": "refresh_token",
+            "refresh_token": connection.refresh_token,
+        },
+    )
+    connection.access_token = str(payload.get("access_token", "") or "")
+    connection.refresh_token = str(payload.get("refresh_token", "") or connection.refresh_token)
+    connection.expires_at = int(payload.get("expires_at") or 0)
+    connection.updated_at = datetime.now(timezone.utc).isoformat()
+    if not connection.access_token:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Strava token refresh failed")
+    db.commit()
+    return connection.access_token
+
+def strava_api_get(db, connection: StravaConnectionModel, path: str, query: dict | None = None):
+    token = refresh_strava_connection(db, connection)
+    url = f"{STRAVA_API_BASE_URL}{path}"
+    cleaned_query = {key: value for key, value in (query or {}).items() if value not in ("", None)}
+    if cleaned_query:
+        url = f"{url}?{urlencode(cleaned_query)}"
+    request = Request(url, headers={"Authorization": f"Bearer {token}"}, method="GET")
+    try:
+        with urlopen(request, timeout=20) as response:
+            return json.loads(response.read().decode("utf-8") or "{}")
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Strava request failed") from exc
+
+def build_strava_athlete_name(athlete: dict) -> str:
+    firstname = str(athlete.get("firstname", "") or "").strip()
+    lastname = str(athlete.get("lastname", "") or "").strip()
+    full_name = " ".join(part for part in [firstname, lastname] if part).strip()
+    return full_name or str(athlete.get("username", "") or "").strip()
+
+def normalize_strava_activity_type(activity: dict) -> str:
+    sport_type = str(activity.get("sport_type", "") or activity.get("type", "") or "").strip().lower()
+    if sport_type in {"run", "trailrun", "virtualrun"}:
+        return "course_a_pied"
+    if sport_type in {"ride", "virtualride", "gravelride", "ebikeride"}:
+        return "velo"
+    if sport_type in {"mountainbikeride", "emountainbikeride"}:
+        return "vtt"
+    if sport_type in {"hike", "walk"}:
+        return "hiking"
+    if sport_type in {"alpineski", "backcountryski", "nordicski", "snowboard", "snowshoe"}:
+        return "ski_touring"
+    if sport_type in {"rockclimbing"}:
+        return "outdoor_climbing"
+    return infer_activity_type_from_text(sport_type, has_power=activity.get("average_watts") is not None)
+
+def parse_strava_activity_start(activity: dict) -> datetime | None:
+    return parse_activity_datetime(str(activity.get("start_date_local", "") or activity.get("start_date", "") or ""))
+
+def strava_activity_to_parsed(activity: dict) -> dict:
+    start_time = parse_strava_activity_start(activity)
+    distance_m = normalize_optional_float(activity.get("distance"))
+    elapsed_seconds = normalize_optional_int(activity.get("elapsed_time") or activity.get("moving_time"))
+    avg_power = normalize_optional_float(activity.get("average_watts") or activity.get("weighted_average_watts"))
+    max_power = normalize_optional_float(activity.get("max_watts"))
+    avg_hr = normalize_optional_float(activity.get("average_heartrate"))
+    max_hr = normalize_optional_float(activity.get("max_heartrate"))
+    avg_cadence = normalize_optional_float(activity.get("average_cadence"))
+    calories = normalize_optional_float(activity.get("calories") or activity.get("kilojoules"))
+    strava_id = str(activity.get("id", "") or "").strip()
+    return {
+        "date": start_time.date().isoformat() if start_time else "",
+        "started_at": start_time.isoformat() if start_time else "",
+        "sport": str(activity.get("sport_type", "") or activity.get("type", "") or ""),
+        "activity_type": normalize_strava_activity_type(activity),
+        "duration_seconds": elapsed_seconds,
+        "duration": format_duration_hms(elapsed_seconds),
+        "distance_m": distance_m,
+        "distance_km": round(distance_m / 1000, 2) if distance_m is not None else None,
+        "avg_power": avg_power,
+        "max_power": max_power,
+        "avg_hr": avg_hr,
+        "max_hr": max_hr,
+        "avg_cadence": avg_cadence,
+        "calories": calories,
+        "elevation_gain_meters": normalize_optional_float(activity.get("total_elevation_gain")),
+        "source_label": "Import Strava",
+        "source_file": f"strava-{strava_id}",
+        "strava_activity_id": strava_id,
+        "strava_url": f"https://www.strava.com/activities/{strava_id}" if strava_id else "",
+    }
+
+def serialize_strava_activity(activity: dict, existing: dict | None = None) -> dict:
+    parsed = strava_activity_to_parsed(activity)
+    return {
+        "id": parsed.get("strava_activity_id", ""),
+        "name": str(activity.get("name", "") or "").strip() or "Strava activity",
+        "date": parsed.get("date", ""),
+        "started_at": parsed.get("started_at", ""),
+        "sport_type": parsed.get("sport", ""),
+        "activity_type": parsed.get("activity_type", ""),
+        "distance_km": parsed.get("distance_km"),
+        "duration": parsed.get("duration", ""),
+        "elevation_gain_meters": parsed.get("elevation_gain_meters"),
+        "existing": existing or None,
+    }
+
+def find_existing_strava_activity(db, username: str, strava_activity_id: str) -> dict | None:
+    target_id = str(strava_activity_id or "").strip()
+    if not target_id:
+        return None
+    rows = db.query(SessionModel).filter_by(username=username).all()
+    for row in rows:
+        payload = session_payload_from_row(row)
+        for index, activity in enumerate(get_session_activities(payload)):
+            for source in activity.get("source_files", []) if isinstance(activity.get("source_files"), list) else []:
+                parsed = source.get("parsed") if isinstance(source, dict) and isinstance(source.get("parsed"), dict) else {}
+                if str(parsed.get("strava_activity_id", "") or "") == target_id:
+                    return {"date": row.date, "activity_index": index}
+    return None
+
+def import_strava_activity_into_db(db, username: str, activity: dict) -> dict:
+    parsed = strava_activity_to_parsed(activity)
+    strava_activity_id = parsed.get("strava_activity_id", "")
+    if find_existing_strava_activity(db, username, strava_activity_id):
+        return {"imported": False, "skipped": True, "strava_activity_id": strava_activity_id}
+
+    target_date = parsed.get("date")
+    if not target_date:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Strava activity has no usable date")
+    row = get_session_obj(db, username, target_date)
+    existing_payload = session_payload_from_row(row) if row else normalize_session_payload({})
+    existing_activities = [normalize_activity_entry(item) for item in get_session_activities(existing_payload)]
+
+    source_id = f"strava-{strava_activity_id}" if strava_activity_id else uuid.uuid4().hex
+    source_record = build_activity_source_file_record(
+        source_id=source_id,
+        provider="Strava",
+        label=str(activity.get("name", "") or "").strip() or "Strava activity",
+        filename=f"strava-{strava_activity_id}",
+        file_format="strava",
+        file_url=parsed.get("strava_url", ""),
+        parsed_activity=parsed,
+    )
+    imported_activity = normalize_activity_entry({
+        "title": str(activity.get("name", "") or "").strip(),
+        "activity_type": parsed.get("activity_type") or "velo",
+        "activity_details": build_fit_activity_summary(parsed, "", parsed.get("strava_url", "")),
+        "source_files": [source_record],
+    })
+    existing_activities.append(imported_activity)
+
+    payload_to_save = dict(existing_payload)
+    payload_to_save["activities"] = existing_activities
+    payload_to_save["draft_active_activity_index"] = len(existing_activities) - 1
+    payload_to_save["draft_updated_at"] = ""
+    normalized_payload = normalize_session_payload(payload_to_save)
+    if row:
+        row.data = json.dumps(normalized_payload, ensure_ascii=False)
+    else:
+        db.add(SessionModel(username=username, date=target_date, data=json.dumps(normalized_payload, ensure_ascii=False)))
+    return {
+        "imported": True,
+        "skipped": False,
+        "date": target_date,
+        "activity_index": len(existing_activities) - 1,
+        "activity_type": imported_activity.get("activity_type", ""),
+        "strava_activity_id": strava_activity_id,
+    }
+
 def parse_json_import_payload(content: str) -> dict:
     try:
         payload = json.loads(content)
@@ -8710,6 +8995,170 @@ def get_hangboard_history(limit: int = 20, current_user: UserModel = Depends(get
             "painFreeSessions": sum(1 for row in completed if int((json.loads(row.log_json or "{}") if row.log_json else {}).get("painScore", 0) or 0) == 0),
         }
         return {"sessions": [serialize_hangboard_session(row) for row in rows], "stats": stats}
+    finally:
+        db.close()
+
+@app.get("/api/strava/status")
+def get_strava_status(current_user: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        connection = db.query(StravaConnectionModel).filter_by(username=current_user.username).first()
+        return {
+            "configured": is_strava_configured(),
+            "connected": bool(connection),
+            "athlete_id": connection.strava_athlete_id if connection else "",
+            "athlete_name": connection.athlete_name if connection else "",
+            "scopes": connection.scopes if connection else "",
+            "last_import_at": connection.last_import_at if connection else "",
+        }
+    finally:
+        db.close()
+
+@app.post("/api/strava/connect")
+def create_strava_connect_url(request: FastAPIRequest, payload: dict | None = None, current_user: UserModel = Depends(get_current_user)):
+    if not is_strava_configured():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Strava is not configured")
+    redirect_uri = resolve_strava_redirect_uri(request)
+    frontend_redirect_url = str((payload or {}).get("frontend_redirect_url", "") or "").strip() or STRAVA_FRONTEND_REDIRECT_URL
+    if not frontend_redirect_url.startswith("/"):
+        frontend_redirect_url = STRAVA_FRONTEND_REDIRECT_URL
+    state_value = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+    db = get_db()
+    try:
+        db.query(StravaOAuthStateModel).filter(StravaOAuthStateModel.expires_at < now.isoformat()).delete()
+        db.add(StravaOAuthStateModel(
+            state=state_value,
+            username=current_user.username,
+            redirect_uri=redirect_uri,
+            frontend_redirect_url=frontend_redirect_url,
+            expires_at=(now + timedelta(minutes=15)).isoformat(),
+            created_at=now.isoformat(),
+        ))
+        db.commit()
+    finally:
+        db.close()
+    authorization_url = f"{STRAVA_OAUTH_BASE_URL}/authorize?" + urlencode({
+        "client_id": STRAVA_CLIENT_ID,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "approval_prompt": "auto",
+        "scope": STRAVA_DEFAULT_SCOPES,
+        "state": state_value,
+    })
+    return {"authorization_url": authorization_url}
+
+@app.get("/api/strava/callback", name="strava_oauth_callback")
+def strava_oauth_callback(code: str = "", state: str = "", error: str = ""):
+    if error:
+        return RedirectResponse(f"{STRAVA_FRONTEND_REDIRECT_URL}&error={quote(error)}")
+    if not code or not state:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing Strava authorization code")
+    now = datetime.now(timezone.utc)
+    db = get_db()
+    try:
+        state_row = db.query(StravaOAuthStateModel).filter_by(state=state).first()
+        if not state_row or state_row.expires_at < now.isoformat():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired Strava authorization state")
+        token_payload = exchange_strava_code(code)
+        athlete = token_payload.get("athlete") if isinstance(token_payload.get("athlete"), dict) else {}
+        athlete_id = str(athlete.get("id", "") or "").strip()
+        if not athlete_id:
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Strava did not return an athlete ID")
+        existing_for_athlete = db.query(StravaConnectionModel).filter_by(strava_athlete_id=athlete_id).first()
+        if existing_for_athlete and existing_for_athlete.username != state_row.username:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This Strava account is already connected to another user")
+        connection = db.query(StravaConnectionModel).filter_by(username=state_row.username).first()
+        timestamp = now.isoformat()
+        if not connection:
+            connection = StravaConnectionModel(username=state_row.username, created_at=timestamp)
+            db.add(connection)
+        connection.strava_athlete_id = athlete_id
+        connection.athlete_name = build_strava_athlete_name(athlete)
+        connection.access_token = str(token_payload.get("access_token", "") or "")
+        connection.refresh_token = str(token_payload.get("refresh_token", "") or "")
+        connection.expires_at = int(token_payload.get("expires_at") or 0)
+        connection.scopes = str(token_payload.get("scope", "") or "")
+        connection.updated_at = timestamp
+        frontend_redirect_url = state_row.frontend_redirect_url or STRAVA_FRONTEND_REDIRECT_URL
+        db.delete(state_row)
+        write_audit_log(db, state_row.username, "connect_strava", "strava", athlete_id, f"Connected Strava account {connection.athlete_name or athlete_id}")
+        db.commit()
+    finally:
+        db.close()
+    return RedirectResponse(frontend_redirect_url)
+
+@app.delete("/api/strava/connection")
+def disconnect_strava(current_user: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        connection = db.query(StravaConnectionModel).filter_by(username=current_user.username).first()
+        if connection:
+            db.delete(connection)
+            write_audit_log(db, current_user.username, "disconnect_strava", "strava", current_user.username, "Disconnected Strava")
+            db.commit()
+        return {"ok": True}
+    finally:
+        db.close()
+
+@app.get("/api/strava/activities")
+def get_strava_activities(after: str = "", before: str = "", limit: int = 20, current_user: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        connection = db.query(StravaConnectionModel).filter_by(username=current_user.username).first()
+        if not connection:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Connect Strava before importing activities")
+        activities = strava_api_get(db, connection, "/athlete/activities", {
+            "per_page": max(1, min(int(limit or 20), 50)),
+            "page": 1,
+            "after": strava_epoch_from_date(after),
+            "before": strava_epoch_from_date(before, end_of_day=True),
+        })
+        if not isinstance(activities, list):
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Unexpected Strava activities response")
+        return {
+            "activities": [
+                serialize_strava_activity(activity, find_existing_strava_activity(db, current_user.username, str(activity.get("id", "") or "")))
+                for activity in activities
+                if isinstance(activity, dict)
+            ]
+        }
+    finally:
+        db.close()
+
+@app.post("/api/strava/import")
+def import_strava_activities(payload: dict, current_user: UserModel = Depends(get_current_user)):
+    activity_ids = payload.get("activity_ids", [])
+    if not isinstance(activity_ids, list) or not activity_ids:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Select at least one Strava activity to import")
+    cleaned_ids = []
+    for activity_id in activity_ids:
+        value = str(activity_id or "").strip()
+        if value and value not in cleaned_ids:
+            cleaned_ids.append(value)
+    db = get_db()
+    try:
+        connection = db.query(StravaConnectionModel).filter_by(username=current_user.username).first()
+        if not connection:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Connect Strava before importing activities")
+        imported = []
+        skipped = []
+        for activity_id in cleaned_ids[:20]:
+            if find_existing_strava_activity(db, current_user.username, activity_id):
+                skipped.append(activity_id)
+                continue
+            activity = strava_api_get(db, connection, f"/activities/{quote(activity_id)}", {"include_all_efforts": "false"})
+            if not isinstance(activity, dict):
+                continue
+            result = import_strava_activity_into_db(db, current_user.username, activity)
+            if result.get("imported"):
+                imported.append(result)
+            else:
+                skipped.append(activity_id)
+        connection.last_import_at = datetime.now(timezone.utc).isoformat()
+        write_audit_log(db, current_user.username, "import_strava_activities", "strava", current_user.username, f"Imported {len(imported)} Strava activities, skipped {len(skipped)}")
+        db.commit()
+        return {"ok": True, "imported": imported, "skipped": skipped}
     finally:
         db.close()
 
