@@ -1,5 +1,6 @@
 
 import csv
+import gzip
 import hashlib
 import hmac
 import json
@@ -109,6 +110,7 @@ STRAVA_FRONTEND_REDIRECT_URL = os.getenv("STRAVA_FRONTEND_REDIRECT_URL", "/impor
 STRAVA_API_BASE_URL = os.getenv("STRAVA_API_BASE_URL", "https://www.strava.com/api/v3").rstrip("/")
 STRAVA_OAUTH_BASE_URL = os.getenv("STRAVA_OAUTH_BASE_URL", "https://www.strava.com/oauth").rstrip("/")
 STRAVA_DEFAULT_SCOPES = os.getenv("STRAVA_DEFAULT_SCOPES", "activity:read").strip()
+STRAVA_EXPORT_DIR = os.getenv("STRAVA_EXPORT_DIR", str(BACKEND_DIR.parent / "strava" / "activities")).strip()
 
 def should_secure_auth_cookie(request: FastAPIRequest) -> bool:
     host = str(request.headers.get("host", "") or "").split(":", 1)[0].lower()
@@ -2215,8 +2217,11 @@ def normalize_activity_type(value) -> str:
         "velo",
         "vtt",
         "ski_touring",
+        "alpine_ski",
+        "snowboarding",
         "hiking",
         "alpinism",
+        "surfing",
         "hockey",
         "escalade",
         "outdoor_climbing",
@@ -2232,9 +2237,12 @@ ACTIVITY_LABELS = {
     "course_a_pied": {"fr": "Course", "en": "Running"},
     "velo": {"fr": "Vélo", "en": "Cycling"},
     "vtt": {"fr": "VTT", "en": "MTB"},
+    "alpine_ski": {"fr": "Ski alpin", "en": "Alpine ski"},
+    "snowboarding": {"fr": "Snowboard", "en": "Snowboarding"},
     "ski_touring": {"fr": "Ski de randonnÃ©e", "en": "Ski touring"},
     "hiking": {"fr": "RandonnÃ©e", "en": "Hiking"},
     "alpinism": {"fr": "Alpinisme", "en": "Alpinism"},
+    "surfing": {"fr": "Surf", "en": "Surfing"},
     "hockey": {"fr": "Hockey", "en": "Hockey"},
     "escalade": {"fr": "Escalade", "en": "Climbing"},
     "outdoor_climbing": {"fr": "Escalade outdoor", "en": "Outdoor Climbing"},
@@ -4996,6 +5004,9 @@ def infer_activity_source_provider(parsed_activity: dict, filename: str = "") ->
 def infer_activity_type_from_fit(sport: str, sub_sport: str) -> str:
     normalized_sport = str(sport or "").strip().lower()
     normalized_sub_sport = str(sub_sport or "").strip().lower()
+    mapped = normalize_strava_activity_type({"sport_type": normalized_sport, "type": normalized_sport})
+    if mapped:
+        return mapped
     if normalized_sport == "running":
         return "course_a_pied"
     if normalized_sport in {"cycling", "biking"}:
@@ -5230,6 +5241,7 @@ def parse_gpx_activity_file(content: bytes, filename: str = "") -> dict:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unable to read this GPX file") from exc
 
     name = first_xml_text(root, "name")
+    sport = first_xml_text(root, "type")
     points = []
     timestamps = []
     hr_values: list[float] = []
@@ -5287,13 +5299,18 @@ def parse_gpx_activity_file(content: bytes, filename: str = "") -> dict:
     if len(timestamps) >= 2:
         duration_seconds = max(0, int((max(timestamps) - min(timestamps)).total_seconds()))
 
-    activity_type = infer_activity_type_from_text(f"{name} {filename}", has_power=bool(power_values), has_cadence=bool(cadence_values))
+    activity_type = normalize_strava_activity_type({"sport_type": sport}) or infer_activity_type_from_text(
+        f"{sport} {name} {filename}",
+        has_power=bool(power_values),
+        has_cadence=bool(cadence_values),
+    )
     return {
         "date": min(timestamps).date().isoformat(),
         "started_at": min(timestamps).isoformat(),
-        "sport": activity_type,
+        "sport": str(sport or "").strip() or activity_type,
         "sub_sport": "",
         "activity_type": activity_type,
+        "title": name,
         "duration_seconds": duration_seconds,
         "duration": format_duration_hms(duration_seconds),
         "distance_m": distance_m,
@@ -5315,20 +5332,35 @@ def detect_activity_file_format(filename: str, selected_format: str = "") -> str
     normalized_format = str(selected_format or "").strip().lower()
     if normalized_format in {"fit", "tcx", "gpx"}:
         return normalized_format
-    suffix = Path(str(filename or "")).suffix.lower()
+    path = Path(str(filename or ""))
+    suffixes = [suffix.lower() for suffix in path.suffixes]
+    if suffixes[-2:] in [[".fit", ".gz"], [".tcx", ".gz"], [".gpx", ".gz"]]:
+        return suffixes[-2][1:]
+    suffix = path.suffix.lower()
     if suffix in {".fit", ".tcx", ".gpx"}:
         return suffix[1:]
     return ""
 
 
+def maybe_decompress_activity_content(content: bytes, filename: str) -> bytes:
+    suffixes = [suffix.lower() for suffix in Path(str(filename or "")).suffixes]
+    if suffixes and suffixes[-1] == ".gz":
+        try:
+            return gzip.decompress(content)
+        except OSError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unable to decompress gzipped activity file") from exc
+    return content
+
+
 def parse_activity_file(content: bytes, filename: str = "", selected_format: str = "") -> dict:
     detected_format = detect_activity_file_format(filename, selected_format)
+    parsed_content = maybe_decompress_activity_content(content, filename)
     if detected_format == "fit":
-        return parse_fit_activity_file(content, filename)
+        return parse_fit_activity_file(parsed_content, filename)
     if detected_format == "tcx":
-        return parse_tcx_activity_file(content, filename)
+        return parse_tcx_activity_file(parsed_content, filename)
     if detected_format == "gpx":
-        return parse_gpx_activity_file(content, filename)
+        return parse_gpx_activity_file(parsed_content, filename)
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please upload a FIT, TCX, or GPX activity file")
 
 
@@ -5466,6 +5498,9 @@ def import_activity_file_into_db(
     date_override: str = "",
     title: str = "",
     note: str = "",
+    source_id_override: str = "",
+    provider_override: str = "",
+    require_activity_type: bool = False,
 ) -> dict:
     target_date = str(date_override or parsed_activity.get("date") or "").strip()
     if not target_date:
@@ -5479,9 +5514,12 @@ def import_activity_file_into_db(
     existing_payload = session_payload_from_row(row) if row else normalize_session_payload({})
     existing_activities = [normalize_activity_entry(item) for item in get_session_activities(existing_payload)]
 
-    activity_type = normalize_activity_type(activity_type_override) or normalize_activity_type(parsed_activity.get("activity_type")) or "velo"
+    activity_type = normalize_activity_type(activity_type_override) or normalize_activity_type(parsed_activity.get("activity_type"))
+    if require_activity_type and not activity_type:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Review activity type before importing this activity")
+    activity_type = activity_type or "velo"
     summary = build_fit_activity_summary(parsed_activity, parsed_activity.get("source_file", ""))
-    source_id = uuid.uuid4().hex
+    source_id = str(source_id_override or "").strip() or uuid.uuid4().hex
     source_filename = str(parsed_activity.get("source_file", "") or "").strip()
     selected_format = detect_activity_file_format(source_filename, source_file_format)
     activity_index = len(existing_activities)
@@ -5497,7 +5535,7 @@ def import_activity_file_into_db(
         )
     source_record = build_activity_source_file_record(
         source_id=source_id,
-        provider=infer_activity_source_provider(parsed_activity, source_filename),
+        provider=str(provider_override or "").strip() or infer_activity_source_provider(parsed_activity, source_filename),
         label=str(title or "").strip() or parsed_activity.get("source_label", ""),
         filename=source_filename,
         file_format=selected_format,
@@ -5634,12 +5672,18 @@ def normalize_strava_activity_type(activity: dict) -> str:
         return "velo"
     if sport_type in {"mountainbikeride", "emountainbikeride"}:
         return "vtt"
-    if sport_type in {"hike", "walk"}:
+    if sport_type in {"hike", "walk", "walking"}:
         return "hiking"
-    if sport_type in {"alpineski", "backcountryski", "nordicski", "snowboard", "snowshoe"}:
+    if sport_type in {"alpineski", "alpine_ski"}:
+        return "alpine_ski"
+    if sport_type in {"snowboard", "snowboarding"}:
+        return "snowboarding"
+    if sport_type in {"backcountryski", "backcountry_skiing", "nordicski", "snowshoe"}:
         return "ski_touring"
     if sport_type in {"rockclimbing"}:
         return "outdoor_climbing"
+    if sport_type in {"surfing", "surf"}:
+        return "surfing"
     return infer_activity_type_from_text(sport_type, has_power=activity.get("average_watts") is not None)
 
 def parse_strava_activity_start(activity: dict) -> datetime | None:
@@ -5687,6 +5731,7 @@ def serialize_strava_activity(activity: dict, existing: dict | None = None) -> d
         "started_at": parsed.get("started_at", ""),
         "sport_type": parsed.get("sport", ""),
         "activity_type": parsed.get("activity_type", ""),
+        "requires_review": not bool(parsed.get("activity_type", "")),
         "distance_km": parsed.get("distance_km"),
         "duration": parsed.get("duration", ""),
         "elevation_gain_meters": parsed.get("elevation_gain_meters"),
@@ -5716,6 +5761,8 @@ def import_strava_activity_into_db(db, username: str, activity: dict) -> dict:
     target_date = parsed.get("date")
     if not target_date:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Strava activity has no usable date")
+    if not parsed.get("activity_type"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Review activity type before importing this Strava activity")
     row = get_session_obj(db, username, target_date)
     existing_payload = session_payload_from_row(row) if row else normalize_session_payload({})
     existing_activities = [normalize_activity_entry(item) for item in get_session_activities(existing_payload)]
@@ -5732,7 +5779,7 @@ def import_strava_activity_into_db(db, username: str, activity: dict) -> dict:
     )
     imported_activity = normalize_activity_entry({
         "title": str(activity.get("name", "") or "").strip(),
-        "activity_type": parsed.get("activity_type") or "velo",
+        "activity_type": parsed.get("activity_type"),
         "activity_details": build_fit_activity_summary(parsed, "", parsed.get("strava_url", "")),
         "source_files": [source_record],
     })
@@ -5754,6 +5801,91 @@ def import_strava_activity_into_db(db, username: str, activity: dict) -> dict:
         "activity_index": len(existing_activities) - 1,
         "activity_type": imported_activity.get("activity_type", ""),
         "strava_activity_id": strava_activity_id,
+    }
+
+SUPPORTED_STRAVA_EXPORT_SUFFIXES = {".fit", ".fit.gz", ".gpx", ".gpx.gz", ".tcx", ".tcx.gz"}
+
+def activity_path_suffix(path: Path) -> str:
+    suffixes = [suffix.lower() for suffix in path.suffixes]
+    if len(suffixes) >= 2 and suffixes[-1] == ".gz":
+        return "".join(suffixes[-2:])
+    return path.suffix.lower()
+
+def is_supported_strava_export_file(path: Path) -> bool:
+    return path.is_file() and activity_path_suffix(path) in SUPPORTED_STRAVA_EXPORT_SUFFIXES
+
+def get_strava_export_activities_dir() -> Path:
+    configured = Path(STRAVA_EXPORT_DIR).expanduser()
+    if configured.is_absolute():
+        return configured
+    return (BACKEND_DIR.parent / configured).resolve()
+
+def list_strava_export_files() -> list[Path]:
+    export_dir = get_strava_export_activities_dir()
+    if not export_dir.is_dir():
+        return []
+    return sorted([path for path in export_dir.iterdir() if is_supported_strava_export_file(path)], key=lambda item: item.name.lower())
+
+def strava_export_activity_id(path: Path) -> str:
+    name = path.name
+    lowered = name.lower()
+    for suffix in [".fit.gz", ".gpx.gz", ".tcx.gz", ".fit", ".gpx", ".tcx"]:
+        if lowered.endswith(suffix):
+            return name[: -len(suffix)]
+    return path.stem
+
+def parse_strava_export_file(path: Path) -> dict:
+    content = path.read_bytes()
+    selected_format = detect_activity_file_format(path.name, "")
+    parsed = parse_activity_file(content, path.name, selected_format)
+    strava_activity_id = strava_export_activity_id(path)
+    parsed["strava_activity_id"] = strava_activity_id
+    parsed["source_file"] = path.name
+    parsed["strava_url"] = f"https://www.strava.com/activities/{strava_activity_id}" if strava_activity_id.isdigit() else ""
+    parsed["source_label"] = f"Import Strava export: {str(parsed.get('sport', '') or selected_format).replace('_', ' ')}".strip()
+    return parsed
+
+def serialize_strava_export_preview(path: Path, parsed: dict, existing: dict | None = None) -> dict:
+    metrics = build_activity_source_metrics(parsed)
+    return {
+        "filename": path.name,
+        "id": parsed.get("strava_activity_id", strava_export_activity_id(path)),
+        "date": parsed.get("date", ""),
+        "started_at": parsed.get("started_at", ""),
+        "title": str(parsed.get("title", "") or "").strip(),
+        "sport": str(parsed.get("sport", "") or "").strip(),
+        "activity_type": normalize_activity_type(parsed.get("activity_type")),
+        "requires_review": not bool(normalize_activity_type(parsed.get("activity_type"))),
+        "distance_km": parsed.get("distance_km"),
+        "duration": parsed.get("duration", ""),
+        "metrics": sorted(metrics.keys()),
+        "record_count": parsed.get("record_count"),
+        "existing": existing or None,
+    }
+
+def import_strava_export_file_into_db(db, username: str, path: Path) -> dict:
+    parsed = parse_strava_export_file(path)
+    strava_activity_id = str(parsed.get("strava_activity_id", "") or "")
+    existing = find_existing_strava_activity(db, username, strava_activity_id)
+    if existing:
+        return {"imported": False, "skipped": True, "filename": path.name, "strava_activity_id": strava_activity_id, **existing}
+    result = import_activity_file_into_db(
+        db,
+        username,
+        parsed_activity=parsed,
+        source_file_content=maybe_decompress_activity_content(path.read_bytes(), path.name),
+        source_file_format=detect_activity_file_format(path.name, ""),
+        title=str(parsed.get("title", "") or "").strip(),
+        source_id_override=f"strava-export-{strava_activity_id}" if strava_activity_id else "",
+        provider_override="Strava Export",
+        require_activity_type=True,
+    )
+    return {
+        "imported": True,
+        "skipped": False,
+        "filename": path.name,
+        "strava_activity_id": strava_activity_id,
+        **result,
     }
 
 def parse_json_import_payload(content: str) -> dict:
@@ -9162,6 +9294,89 @@ def import_strava_activities(payload: dict, current_user: UserModel = Depends(ge
     finally:
         db.close()
 
+@app.get("/api/strava/export/preview")
+def preview_strava_export(
+    offset: int = 0,
+    limit: int = 25,
+    current_user: UserModel = Depends(get_current_user),
+):
+    files = list_strava_export_files()
+    safe_offset = max(0, int(offset or 0))
+    safe_limit = max(1, min(int(limit or 25), 100))
+    page_files = files[safe_offset : safe_offset + safe_limit]
+    db = get_db()
+    activities = []
+    errors = []
+    try:
+        for path in page_files:
+            try:
+                parsed = parse_strava_export_file(path)
+                existing = find_existing_strava_activity(db, current_user.username, str(parsed.get("strava_activity_id", "") or ""))
+                activities.append(serialize_strava_export_preview(path, parsed, existing))
+            except HTTPException as exc:
+                errors.append({"filename": path.name, "detail": exc.detail})
+            except Exception as exc:
+                errors.append({"filename": path.name, "detail": str(exc)})
+        return {
+            "configured_dir": str(get_strava_export_activities_dir()),
+            "total": len(files),
+            "offset": safe_offset,
+            "limit": safe_limit,
+            "activities": activities,
+            "errors": errors,
+        }
+    finally:
+        db.close()
+
+
+@app.post("/api/strava/export/import")
+def import_strava_export(payload: dict, current_user: UserModel = Depends(get_current_user)):
+    filenames = payload.get("filenames", [])
+    if not isinstance(filenames, list) or not filenames:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Select at least one Strava export file to import")
+    requested = []
+    for filename in filenames:
+        safe_name = Path(str(filename or "")).name
+        if safe_name and safe_name not in requested:
+            requested.append(safe_name)
+    if len(requested) > 100:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Import at most 100 Strava export files at a time")
+
+    files_by_name = {path.name: path for path in list_strava_export_files()}
+    missing = [filename for filename in requested if filename not in files_by_name]
+    if missing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Strava export file not found: {missing[0]}")
+
+    db = get_db()
+    imported = []
+    skipped = []
+    errors = []
+    try:
+        for filename in requested:
+            path = files_by_name[filename]
+            try:
+                result = import_strava_export_file_into_db(db, current_user.username, path)
+                if result.get("imported"):
+                    imported.append(result)
+                else:
+                    skipped.append(result)
+            except HTTPException as exc:
+                errors.append({"filename": filename, "detail": exc.detail})
+            except Exception as exc:
+                errors.append({"filename": filename, "detail": str(exc)})
+        write_audit_log(
+            db,
+            current_user.username,
+            "import_strava_export",
+            "strava_export",
+            current_user.username,
+            f"Imported {len(imported)} Strava export files, skipped {len(skipped)}, errors {len(errors)}",
+        )
+        db.commit()
+        return {"ok": True, "imported": imported, "skipped": skipped, "errors": errors}
+    finally:
+        db.close()
+
 @app.post("/api/import/program")
 def import_program(payload: dict, current_user: UserModel = Depends(get_current_user)):
     import_format = str(payload.get("format", "json") or "json").strip().lower()
@@ -9220,6 +9435,7 @@ async def import_activity_file(
         raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="Uploaded file is too large")
 
     parsed_activity = parse_activity_file(content, filename, selected_format)
+    source_file_content = maybe_decompress_activity_content(content, filename)
 
     db = get_db()
     try:
@@ -9227,7 +9443,7 @@ async def import_activity_file(
             db,
             current_user.username,
             parsed_activity=parsed_activity,
-            source_file_content=content,
+            source_file_content=source_file_content,
             source_file_format=selected_format,
             activity_type_override=activity_type_override,
             date_override=date_override,

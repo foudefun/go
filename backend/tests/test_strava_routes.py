@@ -1,7 +1,19 @@
 from datetime import datetime, timedelta, timezone
+import gzip
 from urllib.parse import parse_qs, urlparse
 
 from app import main
+
+
+def test_strava_activity_type_mapping_keeps_new_sports_and_reviews_unknown():
+    assert main.normalize_strava_activity_type({"sport_type": "AlpineSki"}) == "alpine_ski"
+    assert main.normalize_strava_activity_type({"sport_type": "Snowboard"}) == "snowboarding"
+    assert main.normalize_strava_activity_type({"sport_type": "Surfing"}) == "surfing"
+    assert main.normalize_strava_activity_type({"sport_type": "BackcountrySki"}) == "ski_touring"
+    assert main.normalize_strava_activity_type({"sport_type": "MysterySport"}) == ""
+
+    preview = main.serialize_strava_activity({"id": 1, "name": "Mystery", "sport_type": "MysterySport"})
+    assert preview["requires_review"] is True
 
 
 def test_strava_connect_callback_links_account_to_current_user(monkeypatch, client):
@@ -101,3 +113,48 @@ def test_strava_preview_and_import_deduplicates_activities(monkeypatch, client):
     assert duplicate.status_code == 200, duplicate.text
     assert duplicate.json()["imported"] == []
     assert duplicate.json()["skipped"] == ["999"]
+
+
+def test_local_strava_export_preview_and_import(monkeypatch, tmp_path, client):
+    export_dir = tmp_path / "activities"
+    export_dir.mkdir()
+    gpx = b"""<?xml version="1.0" encoding="UTF-8"?>
+<gpx creator="StravaGPX" version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+ <trk>
+  <name>Powder morning</name>
+  <type>AlpineSki</type>
+  <trkseg>
+   <trkpt lat="46.0" lon="6.0"><ele>1200</ele><time>2026-01-02T08:00:00Z</time></trkpt>
+   <trkpt lat="46.001" lon="6.001"><ele>1210</ele><time>2026-01-02T08:10:00Z</time></trkpt>
+  </trkseg>
+ </trk>
+</gpx>"""
+    unknown = gpx.replace(b"AlpineSki", b"MysterySport").replace(b"Powder morning", b"Mystery")
+    (export_dir / "123456.gpx.gz").write_bytes(gzip.compress(gpx))
+    (export_dir / "999999.gpx.gz").write_bytes(gzip.compress(unknown))
+    monkeypatch.setattr(main, "STRAVA_EXPORT_DIR", str(export_dir))
+
+    preview = client.get("/api/strava/export/preview?limit=10")
+    assert preview.status_code == 200, preview.text
+    activities = {activity["filename"]: activity for activity in preview.json()["activities"]}
+    assert activities["123456.gpx.gz"]["activity_type"] == "alpine_ski"
+    assert activities["123456.gpx.gz"]["requires_review"] is False
+    assert activities["999999.gpx.gz"]["requires_review"] is True
+
+    imported = client.post("/api/strava/export/import", json={"filenames": ["123456.gpx.gz", "999999.gpx.gz"]})
+    assert imported.status_code == 200, imported.text
+    payload = imported.json()
+    assert len(payload["imported"]) == 1
+    assert payload["errors"][0]["filename"] == "999999.gpx.gz"
+
+    loaded = client.get("/api/session/2026-01-02")
+    activity = loaded.json()["activities"][0]
+    assert activity["title"] == "Powder morning"
+    assert activity["activity_type"] == "alpine_ski"
+    assert activity["source_files"][0]["provider"] == "Strava Export"
+    assert activity["source_files"][0]["parsed"]["strava_activity_id"] == "123456"
+
+    duplicate = client.post("/api/strava/export/import", json={"filenames": ["123456.gpx.gz"]})
+    assert duplicate.status_code == 200, duplicate.text
+    assert duplicate.json()["imported"] == []
+    assert duplicate.json()["skipped"][0]["strava_activity_id"] == "123456"

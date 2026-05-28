@@ -30,8 +30,12 @@ def test_maps_existing_session_activity_types_back_to_possible_route_activity_ty
 
 def test_outdoor_route_activity_types_are_valid_session_activity_types():
     assert normalize_activity_type("ski_touring") == "ski_touring"
+    assert normalize_activity_type("alpine_ski") == "alpine_ski"
+    assert normalize_activity_type("snowboarding") == "snowboarding"
     assert normalize_activity_type("hiking") == "hiking"
     assert normalize_activity_type("alpinism") == "alpinism"
+    assert normalize_activity_type("surfing") == "surfing"
+    assert normalize_activity_type("yoga") == "yoga"
 
 
 def test_defines_climbing_topo_bridge_link_types():

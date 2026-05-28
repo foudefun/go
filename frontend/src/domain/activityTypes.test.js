@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  ACTIVITY_TYPES,
   OUTDOOR_ROUTE_CLIMBING_LINK_TYPES,
   getRouteActivityTypesForSessionActivity,
   getSessionActivityTypesForRouteActivity,
@@ -26,6 +27,15 @@ test("maps existing session activity types back to possible route activity types
   assert.deepEqual(getRouteActivityTypesForSessionActivity("alpinism"), ["alpinism"]);
   assert.deepEqual(getRouteActivityTypesForSessionActivity("outdoor_climbing"), ["outdoor_climbing"]);
   assert.deepEqual(getRouteActivityTypesForSessionActivity("hangboard"), []);
+});
+
+test("includes app activity types used by Strava imports", () => {
+  const values = ACTIVITY_TYPES.map((item) => item.value);
+  assert.ok(values.includes("alpinism"));
+  assert.ok(values.includes("alpine_ski"));
+  assert.ok(values.includes("snowboarding"));
+  assert.ok(values.includes("surfing"));
+  assert.ok(values.includes("yoga"));
 });
 
 test("defines the climbing topo bridge link types", () => {

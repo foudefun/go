@@ -29,6 +29,7 @@ backend/data/
 
 # Uploaded runtime files
 uploads/
+strava/
 
 # Docker / local env leftovers
 .env

@@ -3,10 +3,12 @@ import {
   createStravaConnectUrl,
   disconnectStrava,
   getStravaActivities,
+  getStravaExportPreview,
   getStravaStatus,
   importActivityFile,
   importProgram,
   importStravaActivities,
+  importStravaExportFiles,
 } from "../api/importApi.js";
 import { ACTIVITY_TYPES, getActivityTypeLabel } from "../domain/activityTypes.js";
 import {
@@ -295,11 +297,16 @@ export function StravaImportPanel() {
   const [connection, setConnection] = useState({ configured: false, connected: false });
   const [activities, setActivities] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [exportPreview, setExportPreview] = useState({ activities: [], errors: [], total: 0, offset: 0, limit: 25 });
+  const [selectedExportFiles, setSelectedExportFiles] = useState([]);
   const [after, setAfter] = useState("");
   const [before, setBefore] = useState("");
   const [status, setStatus] = useState("loading");
+  const [exportStatus, setExportStatus] = useState("idle");
   const [error, setError] = useState("");
+  const [exportError, setExportError] = useState("");
   const [result, setResult] = useState(null);
+  const [exportResult, setExportResult] = useState(null);
 
   async function loadStatus() {
     setStatus("loading");
@@ -379,6 +386,43 @@ export function StravaImportPanel() {
     } catch (importError) {
       setError(importError.message);
       setStatus("idle");
+    }
+  }
+
+  async function loadExportPreview(nextOffset = exportPreview.offset || 0) {
+    setExportStatus("loading");
+    setExportError("");
+    setExportResult(null);
+    try {
+      const payload = await getStravaExportPreview({ offset: nextOffset, limit: exportPreview.limit || 25 });
+      setExportPreview(payload);
+      setSelectedExportFiles([]);
+      setExportStatus("idle");
+    } catch (loadError) {
+      setExportError(loadError.message);
+      setExportStatus("idle");
+    }
+  }
+
+  function toggleExportFile(filename) {
+    setSelectedExportFiles((current) => (current.includes(filename) ? current.filter((item) => item !== filename) : [...current, filename]));
+  }
+
+  async function importSelectedExportFiles() {
+    if (!selectedExportFiles.length) {
+      setExportError(t("Select at least one Strava export file to import."));
+      return;
+    }
+    setExportStatus("importing");
+    setExportError("");
+    setExportResult(null);
+    try {
+      const payload = await importStravaExportFiles(selectedExportFiles);
+      setExportResult(payload);
+      await loadExportPreview(exportPreview.offset || 0);
+    } catch (importError) {
+      setExportError(importError.message);
+      setExportStatus("idle");
     }
   }
 
@@ -465,7 +509,7 @@ export function StravaImportPanel() {
                 <label className={activity.existing ? "strava-activity-row imported" : "strava-activity-row"} key={activity.id}>
                   <input
                     type="checkbox"
-                    disabled={Boolean(activity.existing)}
+                    disabled={Boolean(activity.existing || activity.requires_review)}
                     checked={selectedIds.includes(activity.id)}
                     onChange={() => toggleActivity(activity.id)}
                   />
@@ -474,6 +518,7 @@ export function StravaImportPanel() {
                     <small>
                       {activity.date} - {t(getActivityTypeLabel(activity.activity_type))} - {activity.distance_km ?? "-"} km - {activity.duration || "-"}
                       {activity.existing ? ` - ${t("Already imported")}` : ""}
+                      {activity.requires_review ? ` - ${t("Review activity type before import")}` : ""}
                     </small>
                   </span>
                 </label>
@@ -481,6 +526,83 @@ export function StravaImportPanel() {
             </div>
           </section>
         ) : null}
+
+        <section className="app-panel import-panel">
+          <div>
+            <p className="eyebrow">{t("Local Export")}</p>
+            <h2>{t("Strava Export Folder")}</h2>
+            <p>{t("Preview local files from the configured Strava export folder, then import selected mapped activities.")}</p>
+          </div>
+
+          <div className="day-modal-actions">
+            <button type="button" className="primary-action" onClick={() => loadExportPreview(0)} disabled={exportStatus === "loading"}>
+              {exportStatus === "loading" ? t("Loading...") : t("Load Local Export")}
+            </button>
+            <button type="button" className="secondary-action" onClick={importSelectedExportFiles} disabled={exportStatus === "importing" || !selectedExportFiles.length}>
+              {exportStatus === "importing" ? t("Importing...") : t("Import Selected")}
+            </button>
+          </div>
+
+          {exportPreview.total ? (
+            <div className="notice-panel">
+              <span>
+                {exportPreview.offset + 1}-{Math.min(exportPreview.offset + exportPreview.limit, exportPreview.total)} / {exportPreview.total}
+              </span>
+              <small>{exportPreview.configured_dir}</small>
+            </div>
+          ) : null}
+
+          {exportError ? <div className="error-banner">{exportError}</div> : null}
+          {exportResult ? (
+            <div className="success-banner">
+              {`${exportResult.imported?.length || 0} ${t("imported")}, ${exportResult.skipped?.length || 0} ${t("skipped")}, ${exportResult.errors?.length || 0} ${t("errors")}`}
+            </div>
+          ) : null}
+
+          {exportPreview.activities?.length ? (
+            <>
+              <div className="strava-activity-list">
+                {exportPreview.activities.map((activity) => (
+                  <label className={activity.existing ? "strava-activity-row imported" : "strava-activity-row"} key={activity.filename}>
+                    <input
+                      type="checkbox"
+                      disabled={Boolean(activity.existing || activity.requires_review)}
+                      checked={selectedExportFiles.includes(activity.filename)}
+                      onChange={() => toggleExportFile(activity.filename)}
+                    />
+                    <span>
+                      <strong>{activity.title || activity.filename}</strong>
+                      <small>
+                        {activity.date || "-"} - {activity.sport || "-"} - {t(getActivityTypeLabel(activity.activity_type))} - {activity.distance_km ?? "-"} km - {activity.duration || "-"}
+                        {activity.existing ? ` - ${t("Already imported")}` : ""}
+                        {activity.requires_review ? ` - ${t("Review activity type before import")}` : ""}
+                      </small>
+                      <small>{activity.metrics?.length ? activity.metrics.join(", ") : t("No metrics detected")}</small>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div className="day-modal-actions">
+                <button
+                  type="button"
+                  className="secondary-action"
+                  onClick={() => loadExportPreview(Math.max(0, (exportPreview.offset || 0) - (exportPreview.limit || 25)))}
+                  disabled={(exportPreview.offset || 0) <= 0 || exportStatus === "loading"}
+                >
+                  {t("Previous")}
+                </button>
+                <button
+                  type="button"
+                  className="secondary-action"
+                  onClick={() => loadExportPreview((exportPreview.offset || 0) + (exportPreview.limit || 25))}
+                  disabled={(exportPreview.offset || 0) + (exportPreview.limit || 25) >= (exportPreview.total || 0) || exportStatus === "loading"}
+                >
+                  {t("Next")}
+                </button>
+              </div>
+            </>
+          ) : null}
+        </section>
       </div>
     </section>
   );

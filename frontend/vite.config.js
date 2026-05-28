@@ -69,6 +69,7 @@ function rehabStaticAssetsPlugin() {
 
 export default defineConfig({
   plugins: [react(), rehabStaticAssetsPlugin()],
+  cacheDir: path.resolve(rootDir, "..", "tmp", "vite-cache"),
   server: {
     host: "0.0.0.0",
     port: 5173,

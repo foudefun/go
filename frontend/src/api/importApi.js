@@ -55,3 +55,18 @@ export function importStravaActivities(activityIds) {
     body: JSON.stringify({ activity_ids: activityIds }),
   });
 }
+
+export function getStravaExportPreview({ offset = 0, limit = 25 } = {}) {
+  const params = new URLSearchParams();
+  params.set("offset", String(offset));
+  params.set("limit", String(limit));
+  return api(`/strava/export/preview?${params.toString()}`);
+}
+
+export function importStravaExportFiles(filenames) {
+  return api("/strava/export/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ filenames }),
+  });
+}
