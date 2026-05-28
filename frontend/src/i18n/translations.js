@@ -39,6 +39,7 @@ const FR = {
   "Gym, crag, route...": "Salle, falaise, itineraire...",
   Hypertrophy: "Hypertrophie",
   "Hiking trails": "Sentiers de randonnee",
+  Hiking: "Randonnee",
   "Indicative load": "Charge indicative",
   "Intent, constraints, equipment, route plan...": "Intention, contraintes, materiel, plan de voie...",
   "Item notes": "Notes de l'element",
@@ -599,6 +600,7 @@ const FR = {
   "Work type help resistance": "Volume principal, charge moderee.",
   "Source count": "{count} fichier(s) source",
   "Ski routes": "Itineraires a ski",
+  "Ski touring": "Ski de randonnee",
   "Snowshoe trails": "Raquettes",
   "Standard map": "Carte standard",
   Summer: "Ete",
@@ -606,6 +608,7 @@ const FR = {
   "new user": "nouvel utilisateur",
   Winter: "Hiver",
   "Winter hiking": "Randonnee hivernale",
+  "Clean map": "Carte simple",
   admin: "admin",
 };
 

@@ -1573,6 +1573,27 @@ select[multiple] {
   min-width: 0;
 }
 
+.map-preset-set {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.map-preset-set button {
+  min-height: 34px;
+  padding: 6px 10px;
+  border-color: #cbd5e1;
+  background: #fff;
+  color: #111827;
+}
+
+.map-preset-set button:hover {
+  border-color: #0f766e;
+  color: #0f766e;
+}
+
 .location-filter-set,
 .map-layer-control {
   grid-column: 1 / -1;

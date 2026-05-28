@@ -39,6 +39,40 @@ const TRAIL_LEGEND = [
   { label: "Winter hiking", className: "winter" },
   { label: "Snowshoe trails", className: "snowshoe" },
 ];
+const MAP_PRESETS = [
+  {
+    key: "hiking",
+    label: "Hiking",
+    locationTypes: ["summit", "hut", "trailhead", "parking", "station", "pass", "waypoint"],
+    overlays: ["hiking"],
+    activityType: "hiking",
+    showRoutes: true,
+  },
+  {
+    key: "ski-touring",
+    label: "Ski touring",
+    locationTypes: ["summit", "hut", "trailhead", "parking", "station", "pass", "waypoint"],
+    overlays: ["ski", "snowshoe"],
+    activityType: "ski_touring",
+    showRoutes: true,
+  },
+  {
+    key: "huts",
+    label: "Huts",
+    locationTypes: ["hut", "trailhead", "parking", "station"],
+    overlays: [],
+    activityType: "",
+    showRoutes: false,
+  },
+  {
+    key: "clean",
+    label: "Clean map",
+    locationTypes: ["summit", "hut"],
+    overlays: [],
+    activityType: "",
+    showRoutes: false,
+  },
+];
 const MAP_STYLE = {
   version: 8,
   sources: {
@@ -684,6 +718,22 @@ export default function OutdoorMapPage() {
     });
   }
 
+  function applyMapPreset(preset) {
+    setLocationTypes(new Set(preset.locationTypes));
+    setActiveTrailOverlays(new Set(preset.overlays));
+    setShowRoutes(preset.showRoutes);
+    setActivityType(preset.activityType);
+    setDifficulty("");
+    setStructuredOnly(false);
+    setCoordinateQuality("");
+    setSourceFilter("");
+    setRouteLinkFilter("");
+    setAltitudeRange([ALTITUDE_MIN, ALTITUDE_MAX]);
+    setPendingAltitudeRange([ALTITUDE_MIN, ALTITUDE_MAX]);
+    setSelectedPoint(null);
+    setSelectedRouteId(null);
+  }
+
   function selectPoint(point) {
     setSelectedPoint(point);
     setSelectedRouteId(null);
@@ -839,6 +889,13 @@ export default function OutdoorMapPage() {
             placeholder={t("Search huts, routes, summits...")}
           />
         </label>
+        <div className="map-preset-set">
+          {MAP_PRESETS.map((preset) => (
+            <button type="button" key={preset.key} onClick={() => applyMapPreset(preset)}>
+              {t(preset.label)}
+            </button>
+          ))}
+        </div>
         <label>
           {t("Activity")}
           <select value={activityType} onChange={(event) => setActivityType(event.target.value)}>
