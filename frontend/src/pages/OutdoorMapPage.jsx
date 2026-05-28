@@ -430,7 +430,16 @@ function syncRouteLines(map, routeLines) {
   return true;
 }
 
-function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSelect, focusPoint, activeTrailOverlays }) {
+function OutdoorMapCanvas({
+  locations,
+  routes,
+  selectedId,
+  selectedRouteId,
+  onSelect,
+  onRouteSelect,
+  focusPoint,
+  activeTrailOverlays,
+}) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -468,7 +477,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
           difficultyLabel: item.route.difficulty_label,
           lineType: item.map_line?.type || "",
           coordinates: item.map_line?.coordinates,
-          selected: item.route.id === selectedRouteId,
+          selected: Number(item.route.id) === Number(selectedRouteId),
         }))
         .filter((line) => (
           Array.isArray(line.coordinates)
@@ -481,6 +490,10 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
           ))
         )),
     [routes, selectedRouteId],
+  );
+  const routeItemById = useMemo(
+    () => new Map(routes.map((item) => [Number(item.route.id), item])),
+    [routes],
   );
 
   useEffect(() => {
@@ -515,6 +528,52 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
     }
     return undefined;
   }, [routeLines]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return undefined;
+    const lineLayerIds = [ROUTE_LINE_GEOMETRY_LAYER_ID, ROUTE_LINE_INFERRED_LAYER_ID];
+    let registered = false;
+
+    const handleRouteLineClick = (event) => {
+      event.preventDefault?.();
+      const feature = event.features?.[0];
+      const routeId = Number(feature?.properties?.routeId);
+      const routeItem = routeItemById.get(routeId);
+      if (routeItem) onRouteSelect(routeItem);
+    };
+    const handleMouseEnter = () => {
+      map.getCanvas().style.cursor = "pointer";
+    };
+    const handleMouseLeave = () => {
+      map.getCanvas().style.cursor = "";
+    };
+    const registerHandlers = () => {
+      if (registered) return true;
+      const existingLayerIds = lineLayerIds.filter((layerId) => map.getLayer(layerId));
+      if (!existingLayerIds.length) return false;
+      existingLayerIds.forEach((layerId) => {
+        map.on("click", layerId, handleRouteLineClick);
+        map.on("mouseenter", layerId, handleMouseEnter);
+        map.on("mouseleave", layerId, handleMouseLeave);
+      });
+      registered = true;
+      return true;
+    };
+
+    if (!registerHandlers()) map.once("idle", registerHandlers);
+    return () => {
+      map.off("idle", registerHandlers);
+      if (!registered) return;
+      lineLayerIds.forEach((layerId) => {
+        if (!map.getLayer(layerId)) return;
+        map.off("click", layerId, handleRouteLineClick);
+        map.off("mouseenter", layerId, handleMouseEnter);
+        map.off("mouseleave", layerId, handleMouseLeave);
+      });
+      if (map.getCanvas().style.cursor === "pointer") map.getCanvas().style.cursor = "";
+    };
+  }, [onRouteSelect, routeItemById]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -562,7 +621,12 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
       markerElement.setAttribute("aria-label", point.label);
       markerElement.dataset.pointId = point.id;
       markerElement.style.zIndex = point.kind === "summit" ? "3" : "2";
-      markerElement.addEventListener("click", () => onSelect(point));
+      markerElement.addEventListener("pointerdown", (event) => event.stopPropagation());
+      markerElement.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onSelect(point);
+      });
       return new maplibregl.Marker({ element: markerElement, anchor: "center" })
         .setLngLat([Number(point.longitude), Number(point.latitude)])
         .addTo(map);
@@ -575,7 +639,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
       });
       return;
     }
-    const selectedRouteLine = routeLines.find((line) => line.routeId === selectedRouteId);
+    const selectedRouteLine = routeLines.find((line) => Number(line.routeId) === Number(selectedRouteId));
     const shouldFitMap = Boolean(selectedRouteLine) || !hasFitInitialBoundsRef.current;
     if (!shouldFitMap) return;
     const routeLineCoordinates = selectedRouteLine?.coordinates || routeLines.flatMap((line) => line.coordinates);
@@ -700,6 +764,15 @@ export default function OutdoorMapPage() {
       sourceFilter,
     ],
   );
+
+  useEffect(() => {
+    if (!selectedRouteId) return;
+    const selectedRouteIsVisible = showRoutes && filteredRoutes.some((item) => (
+      Number(item.route.id) === Number(selectedRouteId)
+    ));
+    if (!selectedRouteIsVisible) setSelectedRouteId(null);
+  }, [filteredRoutes, selectedRouteId, showRoutes]);
+
   const searchResults = useMemo(() => {
     if (!normalizedSearchQuery) return [];
     const locationResults = filteredLocations.slice(0, 6).map((item) => ({
@@ -828,6 +901,7 @@ export default function OutdoorMapPage() {
   }
 
   function showLinkedRoute(routeId) {
+    setSelectedPoint(null);
     setSelectedRouteId(routeId);
     setShowRoutes(true);
     setActivityType("");
@@ -909,7 +983,7 @@ export default function OutdoorMapPage() {
   const altitudeMinPercent = (pendingMinimumElevationValue / ALTITUDE_MAX) * 100;
   const altitudeMaxPercent = (pendingMaximumElevationValue / ALTITUDE_MAX) * 100;
   const selectedRouteItem = selectedRouteId
-    ? allRoutes.find((item) => item.route.id === selectedRouteId)
+    ? allRoutes.find((item) => Number(item.route.id) === Number(selectedRouteId))
     : null;
   const visibleRouteLineCounts = useMemo(
     () => filteredRoutes.reduce((counts, item) => {
@@ -1141,6 +1215,7 @@ export default function OutdoorMapPage() {
               focusPoint={selectedPoint}
               activeTrailOverlays={activeTrailOverlays}
               onSelect={selectPoint}
+              onRouteSelect={selectRouteItem}
             />
           </div>
           <aside className="app-panel outdoor-map-selection">
@@ -1222,7 +1297,7 @@ export default function OutdoorMapPage() {
                       {selectedPoint.linkedRoutes.map((item) => (
                         <div
                           key={`${item.route.id}-${item.role}`}
-                          className={selectedRouteId === item.route.id ? "selected" : ""}
+                          className={Number(selectedRouteId) === Number(item.route.id) ? "selected" : ""}
                         >
                           <Link to={`/outdoor-routes/${item.route.id}`}>{item.route.name}</Link>
                           <small>{formatCode(item.role)}{item.route.difficulty_label ? ` - ${item.route.difficulty_label}` : ""}</small>
