@@ -1574,7 +1574,7 @@ select[multiple] {
 }
 
 .location-filter-set,
-.trail-overlay-filter-set {
+.map-layer-control {
   grid-column: 1 / -1;
   min-width: 0;
 }
@@ -1737,6 +1737,39 @@ select[multiple] {
   gap: 8px;
 }
 
+.map-layer-control {
+  display: grid;
+  grid-template-columns: auto repeat(2, minmax(180px, 1fr));
+  gap: 10px 14px;
+  align-items: start;
+  padding: 10px;
+  border: 1px solid #d7e1ee;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.map-layer-base,
+.map-layer-group {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.map-layer-base span,
+.map-layer-group > span {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.map-layer-base strong {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  color: #111827;
+}
+
 .location-filter-set button,
 .trail-overlay-filter-set button {
   min-height: 36px;
@@ -1753,6 +1786,53 @@ select[multiple] {
   border-color: #0f766e;
   background: #e8f5f1;
   color: #0f766e;
+}
+
+.map-layer-legend {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.map-layer-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.map-layer-legend i {
+  width: 24px;
+  height: 4px;
+  border-radius: 999px;
+  background: #ef4444;
+  box-shadow: 0 0 0 1px rgb(15 23 42 / 12%);
+}
+
+.map-layer-legend i.hiking {
+  background: #ef4444;
+}
+
+.map-layer-legend i.ski {
+  background: #0b58ff;
+}
+
+.map-layer-legend i.winter {
+  background: #8b5cf6;
+}
+
+.map-layer-legend i.snowshoe {
+  background: #be185d;
+}
+
+.map-layer-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
 }
 
 .outdoor-map-layout {
@@ -2209,6 +2289,10 @@ select[multiple] {
   .route-detail-layout,
   .route-summary-grid,
   .outdoor-audit-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .map-layer-control {
     grid-template-columns: 1fr;
   }
 

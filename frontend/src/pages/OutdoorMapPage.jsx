@@ -29,6 +29,16 @@ const TRAIL_OVERLAYS = [
   { key: "winter-hiking", label: "Winter hiking" },
   { key: "snowshoe", label: "Snowshoe trails" },
 ];
+const TRAIL_OVERLAY_GROUPS = [
+  { label: "Summer", overlays: TRAIL_OVERLAYS.filter((overlay) => overlay.key === "hiking") },
+  { label: "Winter", overlays: TRAIL_OVERLAYS.filter((overlay) => overlay.key !== "hiking") },
+];
+const TRAIL_LEGEND = [
+  { label: "Hiking trails", className: "hiking" },
+  { label: "Ski routes", className: "ski" },
+  { label: "Winter hiking", className: "winter" },
+  { label: "Snowshoe trails", className: "snowshoe" },
+];
 const MAP_STYLE = {
   version: 8,
   sources: {
@@ -926,17 +936,39 @@ export default function OutdoorMapPage() {
             </button>
           ))}
         </div>
-        <div className="trail-overlay-filter-set">
-          {TRAIL_OVERLAYS.map((overlay) => (
-            <button
-              type="button"
-              key={overlay.key}
-              className={activeTrailOverlays.has(overlay.key) ? "active" : ""}
-              onClick={() => toggleTrailOverlay(overlay.key)}
-            >
-              {t(overlay.label)}
-            </button>
+        <div className="map-layer-control">
+          <div className="map-layer-base">
+            <span>{t("Base map")}</span>
+            <strong>{t("Standard map")}</strong>
+          </div>
+          {TRAIL_OVERLAY_GROUPS.map((group) => (
+            <div className="map-layer-group" key={group.label}>
+              <span>{t(group.label)}</span>
+              <div className="trail-overlay-filter-set">
+                {group.overlays.map((overlay) => (
+                  <button
+                    type="button"
+                    key={overlay.key}
+                    className={activeTrailOverlays.has(overlay.key) ? "active" : ""}
+                    onClick={() => toggleTrailOverlay(overlay.key)}
+                  >
+                    {t(overlay.label)}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
+          <div className="map-layer-legend" aria-label={t("Map legend")}>
+            {TRAIL_LEGEND.map((item) => (
+              <span key={item.label}>
+                <i className={item.className} />
+                {t(item.label)}
+              </span>
+            ))}
+          </div>
+          {activeTrailOverlays.size ? (
+            <p className="map-layer-hint">{t("Trail overlays are most visible when zoomed into Switzerland.")}</p>
+          ) : null}
         </div>
         {normalizedSearchQuery ? (
           <div className="outdoor-map-search-results">
