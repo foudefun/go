@@ -144,7 +144,8 @@ const MAP_STYLE = {
   ],
 };
 const ROUTE_LINE_SOURCE_ID = "outdoor-route-lines";
-const ROUTE_LINE_LAYER_ID = "outdoor-route-lines";
+const ROUTE_LINE_INFERRED_LAYER_ID = "outdoor-route-lines-inferred";
+const ROUTE_LINE_GEOMETRY_LAYER_ID = "outdoor-route-lines-geometry";
 const TRAIL_LAYER_IDS = {
   hiking: "swisstopoHikingTrails",
   ski: "swisstopoSkiRoutes",
@@ -258,6 +259,12 @@ function formatElevationRange(minimum, maximum, t) {
   return `${minimum}-${maximum} m`;
 }
 
+function getRouteLineTypeLabel(type, t) {
+  if (type === "geometry") return t("GPS track");
+  if (type === "straight") return t("Inferred line");
+  return t("No map line");
+}
+
 function getDataQualityLabel(value, t) {
   if (!value) return t("All data quality");
   const labels = {
@@ -362,6 +369,7 @@ function buildRouteLineFeatureCollection(routeLines) {
         name: line.name,
         activityType: line.activityType,
         difficultyLabel: line.difficultyLabel,
+        lineType: line.lineType,
         selected: line.selected,
       },
       geometry: {
@@ -384,11 +392,12 @@ function syncRouteLines(map, routeLines) {
       data,
     });
   }
-  if (!map.getLayer(ROUTE_LINE_LAYER_ID)) {
+  if (!map.getLayer(ROUTE_LINE_INFERRED_LAYER_ID)) {
     map.addLayer({
-      id: ROUTE_LINE_LAYER_ID,
+      id: ROUTE_LINE_INFERRED_LAYER_ID,
       type: "line",
       source: ROUTE_LINE_SOURCE_ID,
+      filter: ["!=", ["get", "lineType"], "geometry"],
       layout: {
         "line-cap": "round",
         "line-join": "round",
@@ -398,6 +407,23 @@ function syncRouteLines(map, routeLines) {
         "line-width": ["case", ["boolean", ["get", "selected"], false], 4.5, 2.5],
         "line-opacity": 0.78,
         "line-dasharray": [1.2, 1.2],
+      },
+    });
+  }
+  if (!map.getLayer(ROUTE_LINE_GEOMETRY_LAYER_ID)) {
+    map.addLayer({
+      id: ROUTE_LINE_GEOMETRY_LAYER_ID,
+      type: "line",
+      source: ROUTE_LINE_SOURCE_ID,
+      filter: ["==", ["get", "lineType"], "geometry"],
+      layout: {
+        "line-cap": "round",
+        "line-join": "round",
+      },
+      paint: {
+        "line-color": ["case", ["boolean", ["get", "selected"], false], "#dc2626", "#0f766e"],
+        "line-width": ["case", ["boolean", ["get", "selected"], false], 4.5, 2.8],
+        "line-opacity": 0.86,
       },
     });
   }
@@ -440,6 +466,7 @@ function OutdoorMapCanvas({ locations, routes, selectedId, selectedRouteId, onSe
           name: item.route.name,
           activityType: item.route.activity_type,
           difficultyLabel: item.route.difficulty_label,
+          lineType: item.map_line?.type || "",
           coordinates: item.map_line?.coordinates,
           selected: item.route.id === selectedRouteId,
         }))
@@ -884,6 +911,14 @@ export default function OutdoorMapPage() {
   const selectedRouteItem = selectedRouteId
     ? allRoutes.find((item) => item.route.id === selectedRouteId)
     : null;
+  const visibleRouteLineCounts = useMemo(
+    () => filteredRoutes.reduce((counts, item) => {
+      if (item.map_line?.type === "geometry") counts.geometry += 1;
+      else if (item.map_line?.type === "straight") counts.inferred += 1;
+      return counts;
+    }, { geometry: 0, inferred: 0 }),
+    [filteredRoutes],
+  );
   const selectedSummitFacts = selectedPoint?.kind === "summit"
     ? getSummitFacts(selectedPoint.description)
     : [];
@@ -1089,6 +1124,8 @@ export default function OutdoorMapPage() {
         <span><strong>{difficulty || t("All grades")}</strong>{t("Difficulty")}</span>
         <span><strong>{formatElevationRange(minimumElevationValue, maximumElevationValue, t)}</strong>{t("Altitude")}</span>
         <span><strong>{getDataQualityLabel(coordinateQuality || sourceFilter || routeLinkFilter, t)}</strong>{t("Data quality")}</span>
+        <span><strong>{visibleRouteLineCounts.geometry}</strong>{t("GPS tracks")}</span>
+        <span><strong>{visibleRouteLineCounts.inferred}</strong>{t("Inferred lines")}</span>
       </section>
 
       {status === "loading" ? <div className="app-panel empty-state">{t("Loading map...")}</div> : null}
@@ -1230,6 +1267,7 @@ export default function OutdoorMapPage() {
                   <div className="outdoor-map-meta-list">
                     <span>{formatCode(selectedRouteItem.route.activity_type)}</span>
                     {selectedRouteItem.route.difficulty_label ? <span>{selectedRouteItem.route.difficulty_label}</span> : null}
+                    <span>{getRouteLineTypeLabel(selectedRouteItem.map_line?.type, t)}</span>
                     {selectedRouteItem.main_objective?.name ? (
                       <span>{t("Main objective")}: {selectedRouteItem.main_objective.name}</span>
                     ) : null}
