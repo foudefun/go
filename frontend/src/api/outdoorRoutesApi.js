@@ -12,6 +12,16 @@ export function getOutdoorRouteDetails(routeId) {
   return api(`/outdoor-routes/${routeId}/details`);
 }
 
+export function importOutdoorRouteGeometry(routeId, { file, variantName = "" }) {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (variantName) formData.append("variant_name", variantName);
+  return api(`/outdoor-routes/${routeId}/geometry-import`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
 export function getOutdoorMap() {
   return api("/outdoor-map");
 }

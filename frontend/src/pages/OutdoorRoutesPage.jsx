@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { listOutdoorRoutes } from "../api/outdoorRoutesApi.js";
+import { importOutdoorRouteGeometry, listOutdoorRoutes } from "../api/outdoorRoutesApi.js";
 import { getOutdoorRouteActivityTypeLabel } from "../domain/outdoorRouteDomain.js";
 import { useTranslation } from "../i18n/translations.js";
 
@@ -52,12 +52,19 @@ function RouteSummaryCard({ item }) {
 
 export default function OutdoorRoutesPage() {
   const { t } = useTranslation();
+  const fileInputRef = useRef(null);
   const [routes, setRoutes] = useState([]);
   const [search, setSearch] = useState("");
   const [activityType, setActivityType] = useState("");
   const [completenessFilter, setCompletenessFilter] = useState("");
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [geometryRouteId, setGeometryRouteId] = useState("");
+  const [geometryFile, setGeometryFile] = useState(null);
+  const [geometryVariantName, setGeometryVariantName] = useState("");
+  const [geometryImportStatus, setGeometryImportStatus] = useState("idle");
+  const [geometryImportMessage, setGeometryImportMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -80,7 +87,7 @@ export default function OutdoorRoutesPage() {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [search, activityType]);
+  }, [search, activityType, refreshToken]);
 
   const totals = useMemo(
     () => ({
@@ -91,6 +98,12 @@ export default function OutdoorRoutesPage() {
     [routes],
   );
 
+  useEffect(() => {
+    if (!geometryRouteId && routes.length) {
+      setGeometryRouteId(String(routes[0].route?.id || ""));
+    }
+  }, [geometryRouteId, routes]);
+
   const filteredRoutes = useMemo(
     () =>
       completenessFilter
@@ -98,6 +111,36 @@ export default function OutdoorRoutesPage() {
         : routes,
     [routes, completenessFilter],
   );
+
+  async function handleImportGeometry() {
+    if (!geometryRouteId || !geometryFile) {
+      setGeometryImportStatus("error");
+      setGeometryImportMessage(t("Choose a route and a GPX, GeoJSON, or KML file."));
+      return;
+    }
+    setGeometryImportStatus("importing");
+    setGeometryImportMessage("");
+    try {
+      const payload = await importOutdoorRouteGeometry(geometryRouteId, {
+        file: geometryFile,
+        variantName: geometryVariantName,
+      });
+      setGeometryImportStatus("ready");
+      setGeometryImportMessage(
+        t("Imported route geometry: {points} points, {distance} km.", {
+          points: payload.point_count || 0,
+          distance: payload.distance_km || "-",
+        }),
+      );
+      setGeometryFile(null);
+      setGeometryVariantName("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      setRefreshToken((value) => value + 1);
+    } catch (err) {
+      setGeometryImportStatus("error");
+      setGeometryImportMessage(err.message || t("Unable to import route geometry."));
+    }
+  }
 
   return (
     <main className="page-shell outdoor-routes-page">
@@ -138,6 +181,44 @@ export default function OutdoorRoutesPage() {
             ))}
           </select>
         </label>
+      </section>
+
+      <section className="app-panel route-geometry-import-panel">
+        <div>
+          <p className="eyebrow">{t("Route geometry")}</p>
+          <h2>{t("Import GPS track")}</h2>
+        </div>
+        <label>
+          {t("Target route")}
+          <select value={geometryRouteId} onChange={(event) => setGeometryRouteId(event.target.value)}>
+            {routes.map((item) => (
+              <option key={item.route.id} value={item.route.id}>
+                {item.route.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("Variant name")}
+          <input
+            value={geometryVariantName}
+            onChange={(event) => setGeometryVariantName(event.target.value)}
+            placeholder={t("Optional track name")}
+          />
+        </label>
+        <label>
+          {t("Track file")}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".gpx,.geojson,.json,.kml,.xml,application/gpx+xml,application/geo+json,application/vnd.google-earth.kml+xml"
+            onChange={(event) => setGeometryFile(event.target.files?.[0] || null)}
+          />
+        </label>
+        <button type="button" className="primary-action" onClick={handleImportGeometry} disabled={geometryImportStatus === "importing" || !routes.length}>
+          {geometryImportStatus === "importing" ? t("Importing...") : t("Import geometry")}
+        </button>
+        {geometryImportMessage ? <span className={`route-import-status ${geometryImportStatus}`}>{geometryImportMessage}</span> : null}
       </section>
 
       <section className="stats-summary-grid route-summary-grid">

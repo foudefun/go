@@ -2598,6 +2598,137 @@ def normalize_line_string_geometry(value) -> dict:
         "coordinates": normalized_coordinates,
     }
 
+def calculate_line_distance_km(coordinates: list[list[float]]) -> float | None:
+    if len(coordinates) < 2:
+        return None
+    radius_km = 6371.0088
+    total = 0.0
+    for previous, current in zip(coordinates, coordinates[1:]):
+        lon1, lat1 = math.radians(previous[0]), math.radians(previous[1])
+        lon2, lat2 = math.radians(current[0]), math.radians(current[1])
+        dlon = lon2 - lon1
+        dlat = lat2 - lat1
+        a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+        total += 2 * radius_km * math.asin(min(1.0, math.sqrt(a)))
+    return round(total, 3)
+
+def normalize_uploaded_route_points(points: list[dict]) -> dict:
+    coordinates = []
+    elevations = []
+    for point in points:
+        try:
+            longitude = float(point["longitude"])
+            latitude = float(point["latitude"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if not (-180 <= longitude <= 180 and -90 <= latitude <= 90):
+            continue
+        coordinates.append([longitude, latitude])
+        try:
+            elevation = float(point.get("elevation"))
+        except (TypeError, ValueError):
+            elevation = None
+        if elevation is not None and math.isfinite(elevation):
+            elevations.append(elevation)
+    geometry = normalize_line_string_geometry({"type": "LineString", "coordinates": coordinates})
+    if not geometry:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid route line found in uploaded file")
+    return {
+        "geometry": geometry,
+        "distance_km": calculate_line_distance_km(geometry["coordinates"]),
+        "min_elevation_meters": round(min(elevations), 1) if elevations else None,
+        "max_elevation_meters": round(max(elevations), 1) if elevations else None,
+        "point_count": len(geometry["coordinates"]),
+    }
+
+def parse_uploaded_gpx_route_geometry(content: bytes) -> dict:
+    try:
+        root = ET.fromstring(content)
+    except ET.ParseError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid GPX file")
+    points = []
+    for element in root.iter():
+        tag_name = element.tag.rsplit("}", 1)[-1]
+        if tag_name not in {"trkpt", "rtept"}:
+            continue
+        point = {
+            "latitude": element.attrib.get("lat"),
+            "longitude": element.attrib.get("lon"),
+        }
+        for child in element:
+            if child.tag.rsplit("}", 1)[-1] == "ele":
+                point["elevation"] = child.text
+                break
+        points.append(point)
+    return normalize_uploaded_route_points(points)
+
+def parse_uploaded_geojson_route_geometry(content: bytes) -> dict:
+    try:
+        payload = json.loads(content.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid GeoJSON file")
+
+    def iter_line_coordinates(value):
+        if not isinstance(value, dict):
+            return
+        geometry_type = value.get("type")
+        if geometry_type == "FeatureCollection":
+            for feature in value.get("features") or []:
+                yield from iter_line_coordinates(feature)
+        elif geometry_type == "Feature":
+            yield from iter_line_coordinates(value.get("geometry"))
+        elif geometry_type == "LineString":
+            yield value.get("coordinates") or []
+        elif geometry_type == "MultiLineString":
+            for line in value.get("coordinates") or []:
+                yield line
+
+    selected_line = next((line for line in iter_line_coordinates(payload) if len(line or []) >= 2), None)
+    if not selected_line:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No LineString found in GeoJSON file")
+    points = []
+    for coordinate in selected_line:
+        if isinstance(coordinate, (list, tuple)) and len(coordinate) >= 2:
+            points.append({
+                "longitude": coordinate[0],
+                "latitude": coordinate[1],
+                "elevation": coordinate[2] if len(coordinate) >= 3 else None,
+            })
+    return normalize_uploaded_route_points(points)
+
+def parse_uploaded_kml_route_geometry(content: bytes) -> dict:
+    try:
+        root = ET.fromstring(content)
+    except ET.ParseError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid KML file")
+    coordinates_text = ""
+    for element in root.iter():
+        if element.tag.rsplit("}", 1)[-1] == "coordinates" and element.text:
+            coordinates_text = element.text
+            break
+    if not coordinates_text:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No coordinates found in KML file")
+    points = []
+    for token in coordinates_text.replace("\n", " ").split():
+        parts = token.split(",")
+        if len(parts) >= 2:
+            points.append({
+                "longitude": parts[0],
+                "latitude": parts[1],
+                "elevation": parts[2] if len(parts) >= 3 else None,
+            })
+    return normalize_uploaded_route_points(points)
+
+def parse_uploaded_route_geometry(filename: str, content: bytes) -> dict:
+    suffix = Path(filename or "").suffix.lower()
+    if suffix == ".gpx":
+        return parse_uploaded_gpx_route_geometry(content)
+    if suffix in {".geojson", ".json"}:
+        return parse_uploaded_geojson_route_geometry(content)
+    if suffix in {".kml", ".xml"}:
+        return parse_uploaded_kml_route_geometry(content)
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Upload a GPX, GeoJSON, or KML route file")
+
 def serialize_outdoor_route_variant(row: OutdoorRouteVariantModel) -> dict:
     return {
         "id": row.id,
@@ -7219,6 +7350,57 @@ def get_outdoor_route_details(route_id: int, current_user: UserModel = Depends(g
         if not row:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Outdoor route not found")
         return build_outdoor_route_details(db, row)
+    finally:
+        db.close()
+
+@app.post("/api/outdoor-routes/{route_id}/geometry-import")
+async def import_outdoor_route_geometry(
+    route_id: int,
+    file: UploadFile = File(...),
+    variant_name: str = Form(""),
+    current_user: UserModel = Depends(get_current_user),
+):
+    db = get_db()
+    try:
+        route = (
+            db.query(OutdoorRouteModel)
+            .filter(OutdoorRouteModel.id == route_id, OutdoorRouteModel.username.in_(get_outdoor_library_usernames(current_user.username)))
+            .first()
+        )
+        if not route:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Outdoor route not found")
+        if route.username != current_user.username and not current_user.is_admin:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the route owner or an admin can import route geometry")
+        content = await file.read()
+        if not content:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded route file is empty")
+        parsed = parse_uploaded_route_geometry(file.filename or "", content)
+        now = datetime.now(timezone.utc).isoformat()
+        clean_variant_name = str(variant_name or "").strip() or Path(file.filename or "").stem.strip() or "Imported GPS track"
+        variant = OutdoorRouteVariantModel(
+            route_id=route.id,
+            name=clean_variant_name[:255],
+            variant_type="imported_track",
+            distance_km=parsed["distance_km"],
+            min_elevation_meters=parsed["min_elevation_meters"],
+            max_elevation_meters=parsed["max_elevation_meters"],
+            route_shape="gps_track",
+            geometry_json=json.dumps(parsed["geometry"], ensure_ascii=False),
+            summary=f"Imported GPS geometry from {file.filename or 'uploaded file'}.",
+            difficulty_label=route.difficulty_label,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(variant)
+        route.updated_at = now
+        db.commit()
+        db.refresh(variant)
+        return {
+            "ok": True,
+            "variant": serialize_outdoor_route_variant(variant),
+            "point_count": parsed["point_count"],
+            "distance_km": parsed["distance_km"],
+        }
     finally:
         db.close()
 

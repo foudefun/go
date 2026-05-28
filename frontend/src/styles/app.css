@@ -1229,6 +1229,35 @@ select[multiple] {
   padding: 16px;
 }
 
+.route-geometry-import-panel {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.4fr) minmax(180px, 1fr) minmax(220px, 1.2fr) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 16px;
+}
+
+.route-geometry-import-panel h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 20px;
+  line-height: 1.15;
+}
+
+.route-import-status {
+  grid-column: 1 / -1;
+  color: #445066;
+  font-weight: 800;
+}
+
+.route-import-status.ready {
+  color: #0f766e;
+}
+
+.route-import-status.error {
+  color: #9f1d20;
+}
+
 .outdoor-route-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -2343,6 +2372,7 @@ select[multiple] {
 
 @media (max-width: 820px) {
   .outdoor-routes-toolbar,
+  .route-geometry-import-panel,
   .outdoor-map-filters,
   .outdoor-map-layout,
   .outdoor-audit-toolbar,
