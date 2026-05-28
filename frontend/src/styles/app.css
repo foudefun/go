@@ -1576,6 +1576,40 @@ select[multiple] {
   font-weight: 900;
 }
 
+.route-variant-badges {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.route-geometry-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  border: 1px solid #b6e7df;
+  border-radius: 999px;
+  background: #ecfdf9;
+  color: #0f766e;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.route-detail-import-panel {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.route-detail-import-controls {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
 .route-segment-list,
 .route-location-list {
   margin: 0;
@@ -2475,6 +2509,14 @@ select[multiple] {
 
   .route-variant-grade {
     width: max-content;
+  }
+
+  .route-variant-badges {
+    justify-content: flex-start;
+  }
+
+  .route-detail-import-controls {
+    grid-template-columns: 1fr;
   }
 
   .route-geometry-preview {

@@ -599,6 +599,7 @@ const FR = {
   "Imported route geometry: {points} points, {distance} km.": "Geometrie d'itineraire importee : {points} points, {distance} km.",
   "Optional track name": "Nom de trace optionnel",
   "Preview file": "Previsualiser le fichier",
+  "Preview the track before saving it.": "Previsualisez la trace avant de l'enregistrer.",
   "Previewing...": "Previsualisation...",
   "Route geometry": "Geometrie d'itineraire",
   "Save geometry": "Enregistrer la geometrie",
