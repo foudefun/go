@@ -2774,11 +2774,14 @@ def build_outdoor_route_details(db, route: OutdoorRouteModel) -> dict:
     }
 
 def build_outdoor_route_list_item(db, route: OutdoorRouteModel) -> dict:
-    main_role = (
+    route_roles = (
         db.query(OutdoorRouteLocationRoleModel)
-        .filter_by(entity_type="route", entity_id=route.id, role="main_objective")
-        .order_by(OutdoorRouteLocationRoleModel.id)
-        .first()
+        .filter_by(entity_type="route", entity_id=route.id)
+        .order_by(OutdoorRouteLocationRoleModel.order_index.is_(None), OutdoorRouteLocationRoleModel.order_index, OutdoorRouteLocationRoleModel.id)
+        .all()
+    )
+    main_role = (
+        next((role for role in route_roles if role.role == "main_objective"), None)
     )
     main_objective = {}
     if main_role:
@@ -2787,7 +2790,7 @@ def build_outdoor_route_list_item(db, route: OutdoorRouteModel) -> dict:
             main_role.location_entity_type,
         )
     variant_count = db.query(OutdoorRouteVariantModel).filter_by(route_id=route.id).count()
-    location_role_count = db.query(OutdoorRouteLocationRoleModel).filter_by(entity_type="route", entity_id=route.id).count()
+    location_roles = [serialize_outdoor_route_location_role(db, role) for role in route_roles]
     segment_count = (
         db.query(OutdoorRouteSegmentModel)
         .join(OutdoorRouteVariantModel, OutdoorRouteSegmentModel.route_variant_id == OutdoorRouteVariantModel.id)
@@ -2800,7 +2803,8 @@ def build_outdoor_route_list_item(db, route: OutdoorRouteModel) -> dict:
         "map_line": build_outdoor_route_map_line(db, route.id, main_objective),
         "variant_count": variant_count,
         "segment_count": segment_count,
-        "location_role_count": location_role_count,
+        "location_role_count": len(location_roles),
+        "location_roles": location_roles,
     }
 
 def get_outdoor_route_ids_matching_location_search(db, usernames: list[str], search_text: str) -> set[int]:

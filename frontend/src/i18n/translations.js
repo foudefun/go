@@ -405,6 +405,7 @@ const FR = {
   sources: "sources",
   "Structured only": "Structures seulement",
   Places: "Lieux",
+  "Unnamed place": "Lieu sans nom",
   "Mapped points": "Points cartographies",
   Selection: "Selection",
   "Select a point on the map.": "Selectionnez un point sur la carte.",

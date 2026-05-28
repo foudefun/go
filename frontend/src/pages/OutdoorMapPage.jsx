@@ -768,6 +768,38 @@ export default function OutdoorMapPage() {
     setShowRoutes(true);
   }
 
+  function selectRouteLocationRole(role) {
+    const location = role.location || {};
+    const existingLocationItem = allLocations.find((item) => (
+      item.location.location_entity_type === location.location_entity_type
+      && String(item.location.id) === String(location.id)
+    ));
+    if (existingLocationItem) {
+      selectLocationItem(existingLocationItem);
+      return;
+    }
+    setSelectedPoint({
+      id: `location-${location.location_entity_type}-${location.id}`,
+      kind: location.location_entity_type,
+      label: location.name,
+      elevation: location.elevation_meters,
+      coordinateStatus: location.coordinate_status,
+      routeRoleCount: 0,
+      sourceReferenceCount: 0,
+      sourceReferences: [],
+      description: location.description,
+      accessNotes: location.access_notes,
+      isCasOwned: location.is_cas_owned,
+      isPrivate: location.is_private,
+      sourceCatalog: location.source_catalog,
+      hutDetails: location.hut_details || {},
+      linkedRoutes: [],
+      latitude: location.latitude,
+      longitude: location.longitude,
+    });
+    setSelectedRouteId(null);
+  }
+
   function showLinkedRoute(routeId) {
     setSelectedRouteId(routeId);
     setShowRoutes(true);
@@ -1212,6 +1244,24 @@ export default function OutdoorMapPage() {
                     <Link to={`/outdoor-routes/${selectedRouteItem.route.id}`}>{t("Open route")}</Link>
                   </div>
                 </section>
+                {selectedRouteItem.location_roles?.length ? (
+                  <section className="outdoor-map-selection-section">
+                    <h3>{t("Places")}</h3>
+                    <div className="outdoor-map-linked-routes">
+                      {selectedRouteItem.location_roles.map((role) => (
+                        <div key={`${role.location_entity_type}-${role.location_entity_id}-${role.role}`}>
+                          <strong>{role.location?.name || t("Unnamed place")}</strong>
+                          <small>{formatCode(role.role)} - {formatCode(role.location_entity_type)}</small>
+                          {role.location?.latitude != null && role.location?.longitude != null ? (
+                            <button type="button" onClick={() => selectRouteLocationRole(role)}>
+                              {t("Show on map")}
+                            </button>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
               </>
             ) : (
               <p>{t("Select a point on the map.")}</p>

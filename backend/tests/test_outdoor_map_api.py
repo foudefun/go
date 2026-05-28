@@ -101,6 +101,9 @@ def test_get_outdoor_map_returns_locations_and_route_points(client):
     assert payload["totals"]["routes"] == 1
     assert payload["routes"][0]["route"]["id"] == route_id
     assert payload["routes"][0]["main_objective"]["name"] == "Mont Blanc"
+    assert payload["routes"][0]["location_role_count"] == 2
+    assert [item["role"] for item in payload["routes"][0]["location_roles"]] == ["main_objective", "start"]
+    assert payload["routes"][0]["location_roles"][1]["location"]["name"] == "Gouter Hut"
     assert payload["routes"][0]["map_line"]["type"] == "straight"
     assert payload["routes"][0]["map_line"]["start"]["name"] == "Gouter Hut"
     assert payload["routes"][0]["map_line"]["coordinates"] == [[6.829, 45.852], [6.8652, 45.8326]]

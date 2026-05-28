@@ -2227,6 +2227,11 @@ select[multiple] {
   text-decoration: none;
 }
 
+.outdoor-map-linked-routes strong {
+  color: #0f172a;
+  font-weight: 850;
+}
+
 .outdoor-map-linked-routes a:hover {
   text-decoration: underline;
 }
