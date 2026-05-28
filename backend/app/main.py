@@ -7423,6 +7423,42 @@ async def import_outdoor_route_geometry(
     finally:
         db.close()
 
+@app.delete("/api/outdoor-routes/{route_id}/variants/{variant_id}")
+def delete_outdoor_route_variant(
+    route_id: int,
+    variant_id: int,
+    current_user: UserModel = Depends(get_current_user),
+):
+    db = get_db()
+    try:
+        route = (
+            db.query(OutdoorRouteModel)
+            .filter(OutdoorRouteModel.id == route_id, OutdoorRouteModel.username.in_(get_outdoor_library_usernames(current_user.username)))
+            .first()
+        )
+        if not route:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Outdoor route not found")
+        if route.username != current_user.username and not current_user.is_admin:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the route owner or an admin can delete route variants")
+        variant = db.query(OutdoorRouteVariantModel).filter_by(id=variant_id, route_id=route.id).first()
+        if not variant:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Route variant not found")
+        if variant.variant_type != "imported_track" and variant.route_shape != "gps_track":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only imported GPS track variants can be deleted")
+        segment_ids = [row.id for row in db.query(OutdoorRouteSegmentModel.id).filter_by(route_variant_id=variant.id).all()]
+        if segment_ids:
+            db.query(OutdoorSourceReferenceModel).filter(
+                OutdoorSourceReferenceModel.entity_type == "route_segment",
+                OutdoorSourceReferenceModel.entity_id.in_(segment_ids),
+            ).delete(synchronize_session=False)
+        db.query(OutdoorSourceReferenceModel).filter_by(entity_type="route_variant", entity_id=variant.id).delete()
+        db.delete(variant)
+        route.updated_at = datetime.now(timezone.utc).isoformat()
+        db.commit()
+        return {"ok": True, "deleted_variant_id": variant_id}
+    finally:
+        db.close()
+
 @app.get("/api/exercises")
 def get_exercises(_: UserModel = Depends(get_current_user)):
     db = get_db()

@@ -1,6 +1,11 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { getOutdoorRouteDetails, importOutdoorRouteGeometry, previewOutdoorRouteGeometry } from "../api/outdoorRoutesApi.js";
+import {
+  deleteOutdoorRouteVariant,
+  getOutdoorRouteDetails,
+  importOutdoorRouteGeometry,
+  previewOutdoorRouteGeometry,
+} from "../api/outdoorRoutesApi.js";
 import { getOutdoorRouteActivityTypeLabel } from "../domain/outdoorRouteDomain.js";
 import { useTranslation } from "../i18n/translations.js";
 
@@ -256,9 +261,23 @@ function SegmentList({ segments }) {
   );
 }
 
-function VariantCard({ item }) {
+function VariantCard({ item, routeId, onDeleted, t }) {
   const variant = item.variant;
   const hasGeometry = Array.isArray(variant.geometry?.coordinates) && variant.geometry.coordinates.length >= 2;
+  const canDelete = variant.variant_type === "imported_track" || variant.route_shape === "gps_track";
+  const [deleteStatus, setDeleteStatus] = useState("idle");
+
+  async function handleDelete() {
+    if (!window.confirm(t("Delete this imported GPS track?"))) return;
+    setDeleteStatus("deleting");
+    try {
+      await deleteOutdoorRouteVariant(routeId, variant.id);
+      onDeleted();
+    } catch (err) {
+      setDeleteStatus("error");
+    }
+  }
+
   return (
     <article className="app-panel route-variant-card">
       <div className="route-variant-header">
@@ -270,8 +289,14 @@ function VariantCard({ item }) {
         <div className="route-variant-badges">
           {hasGeometry ? <span className="route-geometry-badge">{formatCode(variant.route_shape || "gps_track")}</span> : null}
           <div className="route-variant-grade">{variant.difficulty_label || "n/a"}</div>
+          {canDelete ? (
+            <button type="button" className="table-action-link route-variant-delete" onClick={handleDelete} disabled={deleteStatus === "deleting"}>
+              {deleteStatus === "deleting" ? t("Deleting...") : t("Delete track")}
+            </button>
+          ) : null}
         </div>
       </div>
+      {deleteStatus === "error" ? <div className="inline-error">{t("Unable to delete route geometry.")}</div> : null}
       <div className="stats-summary-grid compact">
         <DetailMetric label="duration" value={formatMinutes(variant.estimated_duration_minutes)} />
         <DetailMetric label="distance" value={formatNumber(variant.distance_km, " km")} />
@@ -369,7 +394,7 @@ export default function OutdoorRouteDetailPage() {
         <div className="route-variant-stack">
           <RouteGeometryImportPanel routeId={routeId} onImported={loadDetails} t={t} />
           {(details.variants || []).map((item) => (
-            <VariantCard key={item.variant.id} item={item} />
+            <VariantCard key={item.variant.id} item={item} routeId={routeId} onDeleted={loadDetails} t={t} />
           ))}
         </div>
         <LocationRoleList roles={details.location_roles || []} t={t} />

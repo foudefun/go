@@ -31,6 +31,12 @@ export function previewOutdoorRouteGeometry(file) {
   });
 }
 
+export function deleteOutdoorRouteVariant(routeId, variantId) {
+  return api(`/outdoor-routes/${routeId}/variants/${variantId}`, {
+    method: "DELETE",
+  });
+}
+
 export function getOutdoorMap() {
   return api("/outdoor-map");
 }

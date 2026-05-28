@@ -1597,6 +1597,19 @@ select[multiple] {
   font-weight: 900;
 }
 
+.route-variant-delete {
+  min-height: 32px;
+}
+
+.inline-error {
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff1f2;
+  color: #9f1d20;
+  padding: 8px 10px;
+  font-weight: 800;
+}
+
 .route-detail-import-panel {
   display: grid;
   gap: 12px;
@@ -2992,6 +3005,32 @@ select[multiple] {
 
 .import-layout.single {
   grid-template-columns: minmax(0, 760px);
+}
+
+.strava-activity-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.strava-activity-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.strava-activity-row.imported {
+  opacity: 0.68;
+}
+
+.strava-activity-row span,
+.strava-activity-row small {
+  display: grid;
+  gap: 0.2rem;
 }
 
 .import-mode-toolbar {

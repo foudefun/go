@@ -136,3 +136,52 @@ def test_import_route_geometry_rejects_invalid_file(client):
 
     assert response.status_code == 400
     assert "GPX, GeoJSON, or KML" in response.json()["detail"]
+
+
+def test_delete_imported_route_geometry_variant(client):
+    route_id = seed_importable_route()
+    gpx = b"""<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk><trkseg>
+    <trkpt lat="46.1400" lon="8.0050" />
+    <trkpt lat="46.1278" lon="8.0125" />
+  </trkseg></trk>
+</gpx>"""
+    import_response = client.post(
+        f"/api/outdoor-routes/{route_id}/geometry-import",
+        files={"file": ("weissmies.gpx", gpx, "application/gpx+xml")},
+    )
+    assert import_response.status_code == 200
+    variant_id = import_response.json()["variant"]["id"]
+
+    response = client.delete(f"/api/outdoor-routes/{route_id}/variants/{variant_id}")
+
+    assert response.status_code == 200
+    assert response.json()["deleted_variant_id"] == variant_id
+    details = client.get(f"/api/outdoor-routes/{route_id}/details")
+    assert details.status_code == 200
+    assert details.json()["variants"] == []
+
+
+def test_delete_route_variant_rejects_curated_variant(client):
+    route_id = seed_importable_route()
+    db = main.SessionLocal()
+    try:
+        variant = main.OutdoorRouteVariantModel(
+            route_id=route_id,
+            name="Standard route",
+            variant_type="standard",
+            route_shape="other",
+            created_at="2026-05-28T00:00:00",
+            updated_at="2026-05-28T00:00:00",
+        )
+        db.add(variant)
+        db.commit()
+        variant_id = variant.id
+    finally:
+        db.close()
+
+    response = client.delete(f"/api/outdoor-routes/{route_id}/variants/{variant_id}")
+
+    assert response.status_code == 400
+    assert "imported GPS track" in response.json()["detail"]
