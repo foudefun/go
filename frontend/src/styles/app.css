@@ -2038,6 +2038,41 @@ select[multiple] {
   color: #667085;
 }
 
+.outdoor-map-selection-section {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid #e5edf6;
+  padding-top: 10px;
+}
+
+.outdoor-map-selection-section h3 {
+  margin: 0;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.outdoor-map-meta-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.outdoor-map-meta-list span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  padding: 3px 8px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .outdoor-map-fact-list {
   display: grid;
   gap: 6px;

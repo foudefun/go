@@ -1086,101 +1086,132 @@ export default function OutdoorMapPage() {
                   />
                 ) : null}
                 <h2>{selectedPoint.label}</h2>
-                <span>{formatCode(selectedPoint.kind)}</span>
-                {selectedPoint.kind === "hut" && selectedPoint.sourceCatalog === "sac_route_portal" ? (
-                  <span className={selectedPoint.isCasOwned ? "outdoor-map-ownership owned" : "outdoor-map-ownership other"}>
-                    {selectedPoint.isCasOwned ? "CAS-owned hut" : "Other hut POI"}
-                  </span>
-                ) : null}
-                {selectedPoint.elevation ? <small>{selectedPoint.elevation} m</small> : null}
-                {selectedPoint.latitude != null && selectedPoint.longitude != null ? (
-                  <small>{formatCoordinate(selectedPoint.latitude)}, {formatCoordinate(selectedPoint.longitude)}</small>
-                ) : null}
-                {selectedPoint.coordinateStatus ? <small>{formatCode(selectedPoint.coordinateStatus)} coordinates</small> : null}
-                {selectedPoint.routeRoleCount ? <small>{selectedPoint.routeRoleCount} {t("route links")}</small> : null}
-                {shouldShowSourceDetails(selectedPoint) ? (
-                  <small>{selectedPoint.sourceReferenceCount || 0} {t("sources")}</small>
-                ) : null}
-                {selectedSummitFacts.length ? (
-                  <dl className="outdoor-map-fact-list">
-                    {selectedSummitFacts.map((fact) => (
-                      <div key={`${fact.label}-${fact.value}`}>
-                        <dt>{fact.label}</dt>
-                        <dd>{fact.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                ) : selectedHutFacts.length ? (
-                  <dl className="outdoor-map-fact-list">
-                    {selectedHutFacts.map((fact) => (
-                      <div key={`${fact.label}-${fact.value}`}>
-                        <dt>{fact.label}</dt>
-                        <dd>{fact.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                ) : selectedDescription ? (
-                  <p className="outdoor-map-selection-text">{selectedDescription}</p>
-                ) : null}
-                {selectedPoint.kind === "hut" && (selectedHutDetails.phone || selectedHutDetails.email || selectedHutDetails.website) ? (
-                  <div className="outdoor-map-contact-links">
-                    {selectedHutDetails.phone ? <a href={`tel:${selectedHutDetails.phone}`}>{selectedHutDetails.phone}</a> : null}
-                    {selectedHutDetails.email ? <a href={`mailto:${selectedHutDetails.email}`}>{selectedHutDetails.email}</a> : null}
-                    {selectedHutDetails.website ? <a href={selectedHutDetails.website} target="_blank" rel="noreferrer">{t("Website")}</a> : null}
+                <section className="outdoor-map-selection-section">
+                  <h3>{t("Overview")}</h3>
+                  <div className="outdoor-map-meta-list">
+                    <span>{formatCode(selectedPoint.kind)}</span>
+                    {selectedPoint.elevation ? <span>{selectedPoint.elevation} m</span> : null}
+                    {selectedPoint.latitude != null && selectedPoint.longitude != null ? (
+                      <span>{formatCoordinate(selectedPoint.latitude)}, {formatCoordinate(selectedPoint.longitude)}</span>
+                    ) : null}
+                    {selectedPoint.coordinateStatus ? <span>{formatCode(selectedPoint.coordinateStatus)} {t("coordinates")}</span> : null}
+                    {selectedPoint.routeRoleCount ? <span>{selectedPoint.routeRoleCount} {t("route links")}</span> : null}
+                    {shouldShowSourceDetails(selectedPoint) ? (
+                      <span>{selectedPoint.sourceReferenceCount || 0} {t("sources")}</span>
+                    ) : null}
                   </div>
+                  {selectedPoint.kind === "hut" && selectedPoint.sourceCatalog === "sac_route_portal" ? (
+                    <span className={selectedPoint.isCasOwned ? "outdoor-map-ownership owned" : "outdoor-map-ownership other"}>
+                      {selectedPoint.isCasOwned ? "CAS-owned hut" : "Other hut POI"}
+                    </span>
+                  ) : null}
+                  {selectedSummitFacts.length ? (
+                    <dl className="outdoor-map-fact-list">
+                      {selectedSummitFacts.map((fact) => (
+                        <div key={`${fact.label}-${fact.value}`}>
+                          <dt>{fact.label}</dt>
+                          <dd>{fact.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : selectedDescription ? (
+                    <p className="outdoor-map-selection-text">{selectedDescription}</p>
+                  ) : null}
+                </section>
+                {selectedHutFacts.length || (selectedPoint.kind === "hut" && (selectedHutDetails.phone || selectedHutDetails.email || selectedHutDetails.website)) ? (
+                  <section className="outdoor-map-selection-section">
+                    <h3>{t("Access")}</h3>
+                    {selectedHutFacts.length ? (
+                      <dl className="outdoor-map-fact-list">
+                        {selectedHutFacts.map((fact) => (
+                          <div key={`${fact.label}-${fact.value}`}>
+                            <dt>{fact.label}</dt>
+                            <dd>{fact.value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    ) : null}
+                    {selectedPoint.kind === "hut" && (selectedHutDetails.phone || selectedHutDetails.email || selectedHutDetails.website) ? (
+                      <div className="outdoor-map-contact-links">
+                        {selectedHutDetails.phone ? <a href={`tel:${selectedHutDetails.phone}`}>{selectedHutDetails.phone}</a> : null}
+                        {selectedHutDetails.email ? <a href={`mailto:${selectedHutDetails.email}`}>{selectedHutDetails.email}</a> : null}
+                        {selectedHutDetails.website ? <a href={selectedHutDetails.website} target="_blank" rel="noreferrer">{t("Website")}</a> : null}
+                      </div>
+                    ) : null}
+                  </section>
                 ) : null}
                 {selectedPoint.kind !== "summit" && selectedPoint.kind !== "hut" && selectedPoint.accessNotes ? (
-                  <p className="outdoor-map-selection-text preserve-lines">{selectedPoint.accessNotes}</p>
-                ) : null}
-                {shouldShowSourceDetails(selectedPoint) && selectedPoint.sourceReferences?.length ? (
-                  <div className="outdoor-map-source-links">
-                    {selectedPoint.sourceReferences
-                      .filter((reference) => reference.url && reference.source_type !== "photo")
-                      .slice(0, 4)
-                      .map((reference) => (
-                        <a key={`${reference.source_type}-${reference.url}`} href={reference.url} target="_blank" rel="noreferrer">
-                          {reference.title || reference.publisher || reference.url}
-                        </a>
-                      ))}
-                  </div>
-                ) : null}
-                {selectedPoint.latitude != null && selectedPoint.longitude != null ? (
-                  <div className="outdoor-map-export-actions">
-                    <button type="button" onClick={() => exportSelectedPoint("geojson")}>{t("Export GeoJSON")}</button>
-                    <button type="button" onClick={() => exportSelectedPoint("gpx")}>{t("Export GPX")}</button>
-                  </div>
+                  <section className="outdoor-map-selection-section">
+                    <h3>{t("Access")}</h3>
+                    <p className="outdoor-map-selection-text preserve-lines">{selectedPoint.accessNotes}</p>
+                  </section>
                 ) : null}
                 {selectedPoint.linkedRoutes?.length ? (
-                  <div className="outdoor-map-linked-routes">
-                    {selectedPoint.linkedRoutes.map((item) => (
-                      <div
-                        key={`${item.route.id}-${item.role}`}
-                        className={selectedRouteId === item.route.id ? "selected" : ""}
-                      >
-                        <Link to={`/outdoor-routes/${item.route.id}`}>{item.route.name}</Link>
-                        <small>{formatCode(item.role)}{item.route.difficulty_label ? ` · ${item.route.difficulty_label}` : ""}</small>
-                        <button type="button" onClick={() => showLinkedRoute(item.route.id)}>
-                          {t("Show on map")}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                  <section className="outdoor-map-selection-section">
+                    <h3>{t("Routes")}</h3>
+                    <div className="outdoor-map-linked-routes">
+                      {selectedPoint.linkedRoutes.map((item) => (
+                        <div
+                          key={`${item.route.id}-${item.role}`}
+                          className={selectedRouteId === item.route.id ? "selected" : ""}
+                        >
+                          <Link to={`/outdoor-routes/${item.route.id}`}>{item.route.name}</Link>
+                          <small>{formatCode(item.role)}{item.route.difficulty_label ? ` - ${item.route.difficulty_label}` : ""}</small>
+                          <button type="button" onClick={() => showLinkedRoute(item.route.id)}>
+                            {t("Show on map")}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+                {shouldShowSourceDetails(selectedPoint) && selectedPoint.sourceReferences?.length ? (
+                  <section className="outdoor-map-selection-section">
+                    <h3>{t("Sources")}</h3>
+                    <div className="outdoor-map-source-links">
+                      {selectedPoint.sourceReferences
+                        .filter((reference) => reference.url && reference.source_type !== "photo")
+                        .slice(0, 4)
+                        .map((reference) => (
+                          <a key={`${reference.source_type}-${reference.url}`} href={reference.url} target="_blank" rel="noreferrer">
+                            {reference.title || reference.publisher || reference.url}
+                          </a>
+                        ))}
+                    </div>
+                  </section>
+                ) : null}
+                {selectedPoint.latitude != null && selectedPoint.longitude != null ? (
+                  <section className="outdoor-map-selection-section">
+                    <h3>{t("Export")}</h3>
+                    <div className="outdoor-map-export-actions">
+                      <button type="button" onClick={() => exportSelectedPoint("geojson")}>{t("Export GeoJSON")}</button>
+                      <button type="button" onClick={() => exportSelectedPoint("gpx")}>{t("Export GPX")}</button>
+                    </div>
+                  </section>
                 ) : null}
               </>
             ) : selectedRouteItem ? (
               <>
                 <h2>{selectedRouteItem.route.name}</h2>
-                <span>{formatCode(selectedRouteItem.route.activity_type)}</span>
-                {selectedRouteItem.route.difficulty_label ? <small>{selectedRouteItem.route.difficulty_label}</small> : null}
-                {selectedRouteItem.main_objective?.name ? (
-                  <small>{t("Main objective")}: {selectedRouteItem.main_objective.name}</small>
-                ) : null}
-                {selectedRouteItem.route.summary ? (
-                  <p className="outdoor-map-selection-text">{selectedRouteItem.route.summary}</p>
-                ) : null}
-                <div className="outdoor-map-export-actions">
-                  <Link to={`/outdoor-routes/${selectedRouteItem.route.id}`}>{t("Open route")}</Link>
-                </div>
+                <section className="outdoor-map-selection-section">
+                  <h3>{t("Overview")}</h3>
+                  <div className="outdoor-map-meta-list">
+                    <span>{formatCode(selectedRouteItem.route.activity_type)}</span>
+                    {selectedRouteItem.route.difficulty_label ? <span>{selectedRouteItem.route.difficulty_label}</span> : null}
+                    {selectedRouteItem.main_objective?.name ? (
+                      <span>{t("Main objective")}: {selectedRouteItem.main_objective.name}</span>
+                    ) : null}
+                  </div>
+                  {selectedRouteItem.route.summary ? (
+                    <p className="outdoor-map-selection-text">{selectedRouteItem.route.summary}</p>
+                  ) : null}
+                </section>
+                <section className="outdoor-map-selection-section">
+                  <h3>{t("Routes")}</h3>
+                  <div className="outdoor-map-export-actions">
+                    <Link to={`/outdoor-routes/${selectedRouteItem.route.id}`}>{t("Open route")}</Link>
+                  </div>
+                </section>
               </>
             ) : (
               <p>{t("Select a point on the map.")}</p>
