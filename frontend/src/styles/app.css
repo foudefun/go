@@ -1231,7 +1231,7 @@ select[multiple] {
 
 .route-geometry-import-panel {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.4fr) minmax(180px, 1fr) minmax(220px, 1.2fr) auto;
+  grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.4fr) minmax(180px, 1fr) minmax(220px, 1.2fr) minmax(190px, auto);
   gap: 12px;
   align-items: end;
   padding: 16px;
@@ -1256,6 +1256,88 @@ select[multiple] {
 
 .route-import-status.error {
   color: #9f1d20;
+}
+
+.route-geometry-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.route-geometry-preview {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(220px, 1fr);
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #dce4f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.route-geometry-preview svg {
+  width: 100%;
+  max-width: 280px;
+  height: auto;
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(148, 163, 184, 0.16) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(148, 163, 184, 0.16) 1px, transparent 1px),
+    #eef6f5;
+  background-size: 28px 24px;
+}
+
+.route-geometry-preview path {
+  fill: none;
+  stroke: #0f766e;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.route-geometry-preview circle {
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.route-geometry-preview .track-start-dot {
+  fill: #2563eb;
+}
+
+.route-geometry-preview .track-end-dot {
+  fill: #dc2626;
+}
+
+.route-geometry-preview-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.route-geometry-preview-meta span {
+  display: grid;
+  gap: 2px;
+  border: 1px solid #dce4f0;
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.route-geometry-preview-meta strong {
+  color: #111827;
+  font-size: 18px;
+}
+
+.route-geometry-preview small {
+  grid-column: 2;
+  color: #667085;
+  font-weight: 800;
 }
 
 .outdoor-route-grid {
@@ -2393,6 +2475,18 @@ select[multiple] {
 
   .route-variant-grade {
     width: max-content;
+  }
+
+  .route-geometry-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .route-geometry-preview small {
+    grid-column: 1;
+  }
+
+  .route-geometry-preview-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { importOutdoorRouteGeometry, listOutdoorRoutes } from "../api/outdoorRoutesApi.js";
+import { importOutdoorRouteGeometry, listOutdoorRoutes, previewOutdoorRouteGeometry } from "../api/outdoorRoutesApi.js";
 import { getOutdoorRouteActivityTypeLabel } from "../domain/outdoorRouteDomain.js";
 import { useTranslation } from "../i18n/translations.js";
 
@@ -50,6 +50,59 @@ function RouteSummaryCard({ item }) {
   );
 }
 
+function buildTrackPreviewShape(coordinates) {
+  if (!Array.isArray(coordinates) || coordinates.length < 2) return "";
+  const width = 280;
+  const height = 120;
+  const padding = 12;
+  const longitudes = coordinates.map((point) => point[0]);
+  const latitudes = coordinates.map((point) => point[1]);
+  const minLon = Math.min(...longitudes);
+  const maxLon = Math.max(...longitudes);
+  const minLat = Math.min(...latitudes);
+  const maxLat = Math.max(...latitudes);
+  const lonSpan = maxLon - minLon || 1;
+  const latSpan = maxLat - minLat || 1;
+  const points = coordinates.map(([longitude, latitude]) => {
+      const x = padding + ((longitude - minLon) / lonSpan) * (width - padding * 2);
+      const y = height - padding - ((latitude - minLat) / latSpan) * (height - padding * 2);
+      return [x, y];
+    });
+  return {
+    path: points.map(([x, y], index) => `${index === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`).join(" "),
+    start: points[0],
+    end: points[points.length - 1],
+  };
+}
+
+function RouteGeometryPreview({ preview }) {
+  const geometry = preview?.geometry || {};
+  const coordinates = Array.isArray(geometry.coordinates) ? geometry.coordinates : [];
+  const shape = buildTrackPreviewShape(coordinates);
+  if (!preview || !shape.path) return null;
+  const first = coordinates[0] || [];
+  const last = coordinates[coordinates.length - 1] || [];
+  return (
+    <div className="route-geometry-preview">
+      <svg viewBox="0 0 280 120" role="img" aria-label="Route geometry preview">
+        <path d={shape.path} />
+        <circle cx={shape.start[0]} cy={shape.start[1]} r="4" className="track-start-dot" />
+        <circle cx={shape.end[0]} cy={shape.end[1]} r="4" className="track-end-dot" />
+      </svg>
+      <div className="route-geometry-preview-meta">
+        <span><strong>{preview.point_count}</strong>points</span>
+        <span><strong>{preview.distance_km || "-"}</strong>km</span>
+        <span><strong>{preview.min_elevation_meters ?? "-"}</strong>min m</span>
+        <span><strong>{preview.max_elevation_meters ?? "-"}</strong>max m</span>
+      </div>
+      <small>
+        {first.length >= 2 ? `${first[1].toFixed(5)}, ${first[0].toFixed(5)}` : "-"}{" -> "}
+        {last.length >= 2 ? `${last[1].toFixed(5)}, ${last[0].toFixed(5)}` : "-"}
+      </small>
+    </div>
+  );
+}
+
 export default function OutdoorRoutesPage() {
   const { t } = useTranslation();
   const fileInputRef = useRef(null);
@@ -65,6 +118,8 @@ export default function OutdoorRoutesPage() {
   const [geometryVariantName, setGeometryVariantName] = useState("");
   const [geometryImportStatus, setGeometryImportStatus] = useState("idle");
   const [geometryImportMessage, setGeometryImportMessage] = useState("");
+  const [geometryPreview, setGeometryPreview] = useState(null);
+  const [geometryPreviewStatus, setGeometryPreviewStatus] = useState("idle");
 
   useEffect(() => {
     let cancelled = false;
@@ -134,11 +189,32 @@ export default function OutdoorRoutesPage() {
       );
       setGeometryFile(null);
       setGeometryVariantName("");
+      setGeometryPreview(null);
+      setGeometryPreviewStatus("idle");
       if (fileInputRef.current) fileInputRef.current.value = "";
       setRefreshToken((value) => value + 1);
     } catch (err) {
       setGeometryImportStatus("error");
       setGeometryImportMessage(err.message || t("Unable to import route geometry."));
+    }
+  }
+
+  async function handlePreviewGeometry() {
+    if (!geometryFile) {
+      setGeometryPreviewStatus("error");
+      setGeometryImportMessage(t("Choose a GPX, GeoJSON, or KML file to preview."));
+      return;
+    }
+    setGeometryPreviewStatus("loading");
+    setGeometryImportMessage("");
+    try {
+      const payload = await previewOutdoorRouteGeometry(geometryFile);
+      setGeometryPreview(payload);
+      setGeometryPreviewStatus("ready");
+    } catch (err) {
+      setGeometryPreview(null);
+      setGeometryPreviewStatus("error");
+      setGeometryImportMessage(err.message || t("Unable to preview route geometry."));
     }
   }
 
@@ -212,13 +288,28 @@ export default function OutdoorRoutesPage() {
             ref={fileInputRef}
             type="file"
             accept=".gpx,.geojson,.json,.kml,.xml,application/gpx+xml,application/geo+json,application/vnd.google-earth.kml+xml"
-            onChange={(event) => setGeometryFile(event.target.files?.[0] || null)}
+            onChange={(event) => {
+              setGeometryFile(event.target.files?.[0] || null);
+              setGeometryPreview(null);
+              setGeometryPreviewStatus("idle");
+              setGeometryImportMessage("");
+            }}
           />
         </label>
-        <button type="button" className="primary-action" onClick={handleImportGeometry} disabled={geometryImportStatus === "importing" || !routes.length}>
-          {geometryImportStatus === "importing" ? t("Importing...") : t("Import geometry")}
-        </button>
-        {geometryImportMessage ? <span className={`route-import-status ${geometryImportStatus}`}>{geometryImportMessage}</span> : null}
+        <div className="route-geometry-actions">
+          <button type="button" onClick={handlePreviewGeometry} disabled={geometryPreviewStatus === "loading" || !geometryFile}>
+            {geometryPreviewStatus === "loading" ? t("Previewing...") : t("Preview file")}
+          </button>
+          <button type="button" className="primary-action" onClick={handleImportGeometry} disabled={geometryImportStatus === "importing" || !routes.length || !geometryFile || !geometryPreview}>
+            {geometryImportStatus === "importing" ? t("Importing...") : t("Save geometry")}
+          </button>
+        </div>
+        <RouteGeometryPreview preview={geometryPreview} />
+        {geometryImportMessage ? (
+          <span className={`route-import-status ${geometryImportStatus === "error" || geometryPreviewStatus === "error" ? "error" : geometryImportStatus}`}>
+            {geometryImportMessage}
+          </span>
+        ) : null}
       </section>
 
       <section className="stats-summary-grid route-summary-grid">

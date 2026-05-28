@@ -80,6 +80,31 @@ def test_import_route_geometry_from_gpx_creates_gps_variant(client):
     assert map_route["map_line"]["coordinates"] == [[8.005, 46.14], [8.009, 46.134], [8.0125, 46.1278]]
 
 
+def test_preview_route_geometry_does_not_create_variant(client):
+    route_id = seed_importable_route()
+    gpx = b"""<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk><trkseg>
+    <trkpt lat="46.1400" lon="8.0050"><ele>3100</ele></trkpt>
+    <trkpt lat="46.1278" lon="8.0125"><ele>4013</ele></trkpt>
+  </trkseg></trk>
+</gpx>"""
+
+    response = client.post(
+        "/api/outdoor-routes/geometry-preview",
+        files={"file": ("weissmies.gpx", gpx, "application/gpx+xml")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["point_count"] == 2
+    assert payload["geometry"]["coordinates"] == [[8.005, 46.14], [8.0125, 46.1278]]
+
+    details = client.get(f"/api/outdoor-routes/{route_id}/details")
+    assert details.status_code == 200
+    assert details.json()["variants"] == []
+
+
 def test_import_route_geometry_from_geojson(client):
     route_id = seed_importable_route()
     geojson = b"""{

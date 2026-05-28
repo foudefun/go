@@ -7353,6 +7353,25 @@ def get_outdoor_route_details(route_id: int, current_user: UserModel = Depends(g
     finally:
         db.close()
 
+@app.post("/api/outdoor-routes/geometry-preview")
+async def preview_outdoor_route_geometry(
+    file: UploadFile = File(...),
+    _: UserModel = Depends(get_current_user),
+):
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded route file is empty")
+    parsed = parse_uploaded_route_geometry(file.filename or "", content)
+    return {
+        "ok": True,
+        "filename": file.filename or "",
+        "geometry": parsed["geometry"],
+        "point_count": parsed["point_count"],
+        "distance_km": parsed["distance_km"],
+        "min_elevation_meters": parsed["min_elevation_meters"],
+        "max_elevation_meters": parsed["max_elevation_meters"],
+    }
+
 @app.post("/api/outdoor-routes/{route_id}/geometry-import")
 async def import_outdoor_route_geometry(
     route_id: int,

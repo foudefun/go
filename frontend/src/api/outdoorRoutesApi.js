@@ -22,6 +22,15 @@ export function importOutdoorRouteGeometry(routeId, { file, variantName = "" }) 
   });
 }
 
+export function previewOutdoorRouteGeometry(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return api("/outdoor-routes/geometry-preview", {
+    method: "POST",
+    body: formData,
+  });
+}
+
 export function getOutdoorMap() {
   return api("/outdoor-map");
 }
