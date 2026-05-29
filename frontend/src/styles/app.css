@@ -1550,6 +1550,17 @@ select[multiple] {
   padding: 18px;
 }
 
+.route-pitch-extract-panel {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.route-pitch-extract-panel p {
+  margin: 0;
+  color: #42526b;
+}
+
 .route-source-links {
   display: grid;
   gap: 10px;
@@ -1559,6 +1570,55 @@ select[multiple] {
   color: #0f766e;
   font-weight: 800;
   overflow-wrap: anywhere;
+}
+
+.route-pitch-edit {
+  width: fit-content;
+}
+
+.route-pitch-editor {
+  display: grid;
+  grid-template-columns: minmax(80px, 0.4fr) minmax(140px, 1fr) minmax(100px, 0.6fr);
+  gap: 10px;
+  margin-top: 10px;
+  border: 1px solid #dce4f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.route-pitch-editor label {
+  display: grid;
+  gap: 5px;
+  color: #42526b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.route-pitch-editor input,
+.route-pitch-editor textarea {
+  width: 100%;
+  border: 1px solid #dce4f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #172033;
+  padding: 8px;
+}
+
+.route-pitch-editor textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.route-pitch-editor-wide {
+  grid-column: 1 / -1;
+}
+
+.route-pitch-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  grid-column: 1 / -1;
 }
 
 .route-variant-header {

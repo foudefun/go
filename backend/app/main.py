@@ -2843,6 +2843,60 @@ def serialize_outdoor_route_segment(row: OutdoorRouteSegmentModel) -> dict:
         "updated_at": row.updated_at,
     }
 
+def parse_pitch_segments_from_description(description: str) -> list[dict]:
+    text = str(description or "").strip()
+    if not text:
+        return []
+    pattern = re.compile(
+        r"L#\s*\|\s*([^|]+?)\s*\|\s*([^|]*?)\s*\|\s*(.*?)(?=\s+L#\s*\||\s+##\s+|$)",
+        re.IGNORECASE | re.DOTALL,
+    )
+    pitches = []
+    for match in pattern.finditer(text):
+        grade = re.sub(r"\s+", " ", match.group(1) or "").strip()
+        middle = re.sub(r"\s+", " ", match.group(2) or "").strip()
+        description_text = re.sub(r"\s+", " ", match.group(3) or "").strip()
+        if not grade and not description_text:
+            continue
+        notes = f"Imported middle column: {middle}" if middle else ""
+        pitches.append(
+            {
+                "order_index": len(pitches) + 1,
+                "segment_type": "pitch",
+                "name": f"Pitch {len(pitches) + 1}",
+                "difficulty_label": grade,
+                "description": description_text,
+                "notes": notes,
+            }
+        )
+    return pitches
+
+def get_route_pitch_variant(db, route: OutdoorRouteModel) -> OutdoorRouteVariantModel | None:
+    return (
+        db.query(OutdoorRouteVariantModel)
+        .filter_by(route_id=route.id, variant_type="pitch_list")
+        .order_by(OutdoorRouteVariantModel.id)
+        .first()
+    )
+
+def create_route_pitch_variant(db, route: OutdoorRouteModel, now: str) -> OutdoorRouteVariantModel:
+    variant = OutdoorRouteVariantModel(
+        route_id=route.id,
+        name="Main route pitches",
+        variant_type="pitch_list",
+        route_shape="pitch_sequence",
+        summary="Pitch sequence extracted from the route description.",
+        difficulty_label=route.difficulty_label,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(variant)
+    db.flush()
+    return variant
+
+def ensure_route_pitch_variant(db, route: OutdoorRouteModel, now: str) -> OutdoorRouteVariantModel:
+    return get_route_pitch_variant(db, route) or create_route_pitch_variant(db, route, now)
+
 def get_outdoor_source_references(db, entity_type: str, entity_id: int) -> list[dict]:
     rows = (
         db.query(OutdoorSourceReferenceModel)
@@ -8035,6 +8089,126 @@ async def import_outdoor_route_geometry(
             "point_count": parsed["point_count"],
             "distance_km": parsed["distance_km"],
         }
+    finally:
+        db.close()
+
+@app.post("/api/outdoor-routes/{route_id}/pitches/extract")
+def extract_outdoor_route_pitches(
+    route_id: int,
+    payload: dict | None = None,
+    current_user: UserModel = Depends(get_current_user),
+):
+    replace_existing = bool((payload or {}).get("replace_existing"))
+    db = get_db()
+    try:
+        route = (
+            db.query(OutdoorRouteModel)
+            .filter(OutdoorRouteModel.id == route_id, OutdoorRouteModel.username.in_(get_outdoor_library_usernames(current_user.username)))
+            .first()
+        )
+        if not route:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Outdoor route not found")
+        if route.username != current_user.username and not current_user.is_admin:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the route owner or an admin can extract route pitches")
+        pitches = parse_pitch_segments_from_description(route.description or "")
+        if not pitches:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No pitch lines were found in the route description")
+        now = datetime.now(timezone.utc).isoformat()
+        variant = ensure_route_pitch_variant(db, route, now)
+        existing_pitch_count = db.query(OutdoorRouteSegmentModel).filter_by(route_variant_id=variant.id, segment_type="pitch").count()
+        if existing_pitch_count and not replace_existing:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This route already has extracted pitches")
+        if existing_pitch_count and replace_existing:
+            segment_ids = [
+                row.id
+                for row in db.query(OutdoorRouteSegmentModel.id)
+                .filter_by(route_variant_id=variant.id, segment_type="pitch")
+                .all()
+            ]
+            if segment_ids:
+                db.query(OutdoorSourceReferenceModel).filter(
+                    OutdoorSourceReferenceModel.entity_type == "route_segment",
+                    OutdoorSourceReferenceModel.entity_id.in_(segment_ids),
+                ).delete(synchronize_session=False)
+            db.query(OutdoorRouteSegmentModel).filter_by(route_variant_id=variant.id, segment_type="pitch").delete()
+        for pitch in pitches:
+            db.add(
+                OutdoorRouteSegmentModel(
+                    route_variant_id=variant.id,
+                    order_index=pitch["order_index"],
+                    segment_type=pitch["segment_type"],
+                    name=pitch["name"],
+                    difficulty_label=pitch["difficulty_label"],
+                    description=pitch["description"],
+                    notes=pitch["notes"],
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+        variant.updated_at = now
+        route.updated_at = now
+        db.commit()
+        db.refresh(variant)
+        return {
+            "ok": True,
+            "variant": serialize_outdoor_route_variant(variant),
+            "pitch_count": len(pitches),
+            "details": build_outdoor_route_details(db, route),
+        }
+    finally:
+        db.close()
+
+@app.put("/api/outdoor-routes/{route_id}/segments/{segment_id}")
+def update_outdoor_route_segment(
+    route_id: int,
+    segment_id: int,
+    payload: dict,
+    current_user: UserModel = Depends(get_current_user),
+):
+    db = get_db()
+    try:
+        route = (
+            db.query(OutdoorRouteModel)
+            .filter(OutdoorRouteModel.id == route_id, OutdoorRouteModel.username.in_(get_outdoor_library_usernames(current_user.username)))
+            .first()
+        )
+        if not route:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Outdoor route not found")
+        if route.username != current_user.username and not current_user.is_admin:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the route owner or an admin can update route segments")
+        segment = (
+            db.query(OutdoorRouteSegmentModel)
+            .join(OutdoorRouteVariantModel, OutdoorRouteSegmentModel.route_variant_id == OutdoorRouteVariantModel.id)
+            .filter(OutdoorRouteSegmentModel.id == segment_id, OutdoorRouteVariantModel.route_id == route.id)
+            .first()
+        )
+        if not segment:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Route segment not found")
+        if "order_index" in payload:
+            order_index = normalize_optional_int(payload.get("order_index"))
+            if order_index is None or order_index < 1:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pitch order must be a positive number")
+            segment.order_index = order_index
+        for field in ["name", "segment_type", "description", "difficulty_label", "notes"]:
+            if field in payload:
+                value = str(payload.get(field) or "").strip()
+                if field == "segment_type" and not value:
+                    value = "pitch"
+                setattr(segment, field, value[:255] if field in {"name", "segment_type", "difficulty_label"} else value)
+        for field in ["distance_km", "elevation_gain_meters", "elevation_loss_meters"]:
+            if field in payload:
+                setattr(segment, field, normalize_optional_float(payload.get(field)))
+        if "estimated_duration_minutes" in payload:
+            segment.estimated_duration_minutes = normalize_optional_int(payload.get("estimated_duration_minutes"))
+        now = datetime.now(timezone.utc).isoformat()
+        segment.updated_at = now
+        route.updated_at = now
+        variant = db.query(OutdoorRouteVariantModel).filter_by(id=segment.route_variant_id).first()
+        if variant:
+            variant.updated_at = now
+        db.commit()
+        db.refresh(segment)
+        return {"ok": True, "segment": serialize_outdoor_route_segment(segment), "details": build_outdoor_route_details(db, route)}
     finally:
         db.close()
 

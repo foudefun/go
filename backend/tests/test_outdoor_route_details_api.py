@@ -134,6 +134,62 @@ def test_get_outdoor_route_details_returns_nested_structure(client):
     assert payload["variants"][0]["segments"][0]["source_references"][0]["url"] == "https://example.com/route"
 
 
+def test_extract_outdoor_route_pitches_from_description(client):
+    db = main.SessionLocal()
+    try:
+        now = "2026-05-24T00:00:00"
+        route = main.OutdoorRouteModel(
+            username="admin",
+            name="A Toi la Gloire",
+            activity_type="outdoor_climbing",
+            route_category="climb",
+            difficulty_label="7a",
+            description="## Escalade L# | 6a | | Départ dans la fissure L# |7a | | Crux technique en dalle ## Descente Rappels.",
+            visibility="private",
+            status="draft",
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(route)
+        db.commit()
+        route_id = route.id
+    finally:
+        db.close()
+
+    response = client.post(f"/api/outdoor-routes/{route_id}/pitches/extract", json={})
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["pitch_count"] == 2
+    variant = payload["details"]["variants"][0]["variant"]
+    assert variant["variant_type"] == "pitch_list"
+    segments = payload["details"]["variants"][0]["segments"]
+    assert [item["segment"]["difficulty_label"] for item in segments] == ["6a", "7a"]
+    assert segments[1]["segment"]["description"] == "Crux technique en dalle"
+
+
+def test_update_outdoor_route_pitch_segment(client):
+    route_id = seed_route_details()
+    db = main.SessionLocal()
+    try:
+        variant = db.query(main.OutdoorRouteVariantModel).filter_by(route_id=route_id).first()
+        segment_id = db.query(main.OutdoorRouteSegmentModel).filter_by(route_variant_id=variant.id).first().id
+    finally:
+        db.close()
+
+    response = client.put(
+        f"/api/outdoor-routes/{route_id}/segments/{segment_id}",
+        json={"segment_type": "pitch", "order_index": 2, "name": "Pitch 2", "difficulty_label": "6b", "description": "Updated pitch"},
+    )
+
+    assert response.status_code == 200, response.text
+    segment = response.json()["segment"]
+    assert segment["order_index"] == 2
+    assert segment["segment_type"] == "pitch"
+    assert segment["difficulty_label"] == "6b"
+    assert segment["description"] == "Updated pitch"
+
+
 def test_get_outdoor_route_details_scopes_to_current_user(client):
     db = main.SessionLocal()
     try:

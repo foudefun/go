@@ -12,6 +12,22 @@ export function getOutdoorRouteDetails(routeId) {
   return api(`/outdoor-routes/${routeId}/details`);
 }
 
+export function extractOutdoorRoutePitches(routeId, { replaceExisting = false } = {}) {
+  return api(`/outdoor-routes/${routeId}/pitches/extract`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ replace_existing: replaceExisting }),
+  });
+}
+
+export function updateOutdoorRouteSegment(routeId, segmentId, payload) {
+  return api(`/outdoor-routes/${routeId}/segments/${segmentId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
 export function importOutdoorRouteGeometry(routeId, { file, variantName = "" }) {
   const formData = new FormData();
   formData.append("file", file);

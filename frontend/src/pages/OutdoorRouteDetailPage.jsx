@@ -2,9 +2,11 @@ import { useEffect, useCallback, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   deleteOutdoorRouteVariant,
+  extractOutdoorRoutePitches,
   getOutdoorRouteDetails,
   importOutdoorRouteGeometry,
   previewOutdoorRouteGeometry,
+  updateOutdoorRouteSegment,
 } from "../api/outdoorRoutesApi.js";
 import { getOutdoorRouteActivityTypeLabel } from "../domain/outdoorRouteDomain.js";
 import { useTranslation } from "../i18n/translations.js";
@@ -262,7 +264,137 @@ function SourceReferenceList({ references = [], t }) {
   );
 }
 
-function SegmentList({ segments }) {
+function PitchExtractionPanel({ routeId, details, onExtracted, t }) {
+  const [status, setStatus] = useState("idle");
+  const [message, setMessage] = useState("");
+  const pitchCount = (details?.variants || []).reduce(
+    (count, item) => count + (item.segments || []).filter(({ segment }) => segment.segment_type === "pitch").length,
+    0,
+  );
+  const description = details?.route?.description || "";
+  const hasPitchMarkers = /L#\s*\|/i.test(description);
+
+  async function handleExtract() {
+    setStatus("extracting");
+    setMessage("");
+    try {
+      const payload = await extractOutdoorRoutePitches(routeId);
+      setStatus("done");
+      setMessage(t("Extracted {count} pitches.", { count: payload.pitch_count || 0 }));
+      onExtracted(payload.details);
+    } catch (err) {
+      setStatus("error");
+      setMessage(err.message || t("Unable to extract pitches."));
+    }
+  }
+
+  if (pitchCount > 0) return null;
+
+  return (
+    <section className="app-panel route-pitch-extract-panel">
+      <div className="section-heading-row">
+        <div>
+          <p className="eyebrow">{t("Pitches")}</p>
+          <h2>{t("Extract pitch list")}</h2>
+        </div>
+      </div>
+      <p>{hasPitchMarkers ? t("Pitch lines were found in the route description.") : t("No pitch markers detected in the description yet.")}</p>
+      <button type="button" className="primary-action" onClick={handleExtract} disabled={!hasPitchMarkers || status === "extracting"}>
+        {status === "extracting" ? t("Extracting...") : t("Extract pitches")}
+      </button>
+      {message ? <span className={`route-import-status ${status === "error" ? "error" : "ready"}`}>{message}</span> : null}
+    </section>
+  );
+}
+
+function PitchEditor({ segment, routeId, onUpdated, t }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [form, setForm] = useState({
+    order_index: segment.order_index || 1,
+    name: segment.name || "",
+    difficulty_label: segment.difficulty_label || "",
+    description: segment.description || "",
+    notes: segment.notes || "",
+  });
+  const [status, setStatus] = useState("idle");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    setForm({
+      order_index: segment.order_index || 1,
+      name: segment.name || "",
+      difficulty_label: segment.difficulty_label || "",
+      description: segment.description || "",
+      notes: segment.notes || "",
+    });
+  }, [segment]);
+
+  async function handleSave() {
+    setStatus("saving");
+    setMessage("");
+    try {
+      const payload = await updateOutdoorRouteSegment(routeId, segment.id, {
+        ...form,
+        segment_type: "pitch",
+      });
+      setStatus("saved");
+      setIsEditing(false);
+      onUpdated(payload.details);
+    } catch (err) {
+      setStatus("error");
+      setMessage(err.message || t("Unable to save pitch."));
+    }
+  }
+
+  if (!isEditing) {
+    return (
+      <button type="button" className="table-action-link route-pitch-edit" onClick={() => setIsEditing(true)}>
+        {t("Edit pitch")}
+      </button>
+    );
+  }
+
+  return (
+    <div className="route-pitch-editor">
+      <label>
+        {t("Order")}
+        <input
+          type="number"
+          min="1"
+          value={form.order_index}
+          onChange={(event) => setForm((current) => ({ ...current, order_index: event.target.value }))}
+        />
+      </label>
+      <label>
+        {t("Name")}
+        <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
+      </label>
+      <label>
+        {t("Grade")}
+        <input value={form.difficulty_label} onChange={(event) => setForm((current) => ({ ...current, difficulty_label: event.target.value }))} />
+      </label>
+      <label className="route-pitch-editor-wide">
+        {t("Description")}
+        <textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
+      </label>
+      <label className="route-pitch-editor-wide">
+        {t("Notes")}
+        <input value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} />
+      </label>
+      <div className="route-pitch-editor-actions">
+        <button type="button" className="primary-action" onClick={handleSave} disabled={status === "saving"}>
+          {status === "saving" ? t("Saving...") : t("Save pitch")}
+        </button>
+        <button type="button" onClick={() => setIsEditing(false)} disabled={status === "saving"}>
+          {t("Cancel")}
+        </button>
+      </div>
+      {message ? <span className="inline-error">{message}</span> : null}
+    </div>
+  );
+}
+
+function SegmentList({ segments, routeId, onUpdated, t }) {
   if (!segments.length) return <div className="empty-state compact">No segments imported yet.</div>;
   return (
     <ol className="route-segment-list">
@@ -282,6 +414,9 @@ function SegmentList({ segments }) {
               <DetailMetric label="gain" value={formatNumber(segment.elevation_gain_meters, " m")} />
             </div>
             {segment.notes ? <small>{segment.notes}</small> : null}
+            {segment.segment_type === "pitch" ? (
+              <PitchEditor segment={segment} routeId={routeId} onUpdated={onUpdated} t={t} />
+            ) : null}
           </div>
         </li>
       ))}
@@ -331,7 +466,7 @@ function VariantCard({ item, routeId, onDeleted, t }) {
         <DetailMetric label="gain" value={formatNumber(variant.elevation_gain_meters, " m")} />
         <DetailMetric label="shape" value={formatCode(variant.route_shape)} />
       </div>
-      <SegmentList segments={item.segments || []} />
+      <SegmentList segments={item.segments || []} routeId={routeId} onUpdated={onDeleted} t={t} />
     </article>
   );
 }
@@ -376,6 +511,14 @@ export default function OutdoorRouteDetailPage() {
     () => (details?.variants || []).filter((item) => (item.variant?.geometry?.coordinates || []).length >= 2).length,
     [details],
   );
+  const refreshDetails = useCallback((payload) => {
+    if (payload) {
+      setDetails(payload);
+      setStatus("ready");
+      return;
+    }
+    loadDetails();
+  }, [loadDetails]);
 
   if (status === "loading") {
     return (
@@ -421,9 +564,10 @@ export default function OutdoorRouteDetailPage() {
 
       <div className="route-detail-layout">
         <div className="route-variant-stack">
+          <PitchExtractionPanel routeId={routeId} details={details} onExtracted={refreshDetails} t={t} />
           <RouteGeometryImportPanel routeId={routeId} onImported={loadDetails} t={t} />
           {(details.variants || []).map((item) => (
-            <VariantCard key={item.variant.id} item={item} routeId={routeId} onDeleted={loadDetails} t={t} />
+            <VariantCard key={item.variant.id} item={item} routeId={routeId} onDeleted={refreshDetails} t={t} />
           ))}
           <SourceReferenceList references={details.source_references || []} t={t} />
         </div>
