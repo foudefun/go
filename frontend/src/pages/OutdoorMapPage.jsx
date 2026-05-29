@@ -147,6 +147,8 @@ const MAP_STYLE = {
 const ROUTE_LINE_SOURCE_ID = "outdoor-route-lines";
 const ROUTE_LINE_INFERRED_LAYER_ID = "outdoor-route-lines-inferred";
 const ROUTE_LINE_GEOMETRY_LAYER_ID = "outdoor-route-lines-geometry";
+const POINT_CLUSTER_MAX_ZOOM = 10.5;
+const POINT_CLUSTER_RADIUS_PX = 42;
 const TRAIL_LAYER_IDS = {
   hiking: "swisstopoHikingTrails",
   ski: "swisstopoSkiRoutes",
@@ -431,6 +433,12 @@ function syncRouteLines(map, routeLines) {
   return true;
 }
 
+function getPointMarkerZIndex(point) {
+  if (point.kind === "summit") return "3";
+  if (point.kind === "hut") return "2";
+  return "1";
+}
+
 function OutdoorMapCanvas({
   locations,
   routes,
@@ -605,11 +613,16 @@ function OutdoorMapCanvas({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    markersRef.current.forEach((marker) => marker.remove());
-    markersRef.current = points.map((point) => {
+
+    const clearMarkers = () => {
+      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current = [];
+    };
+    const createPointMarker = (point) => {
       const markerElement = document.createElement("button");
       markerElement.type = "button";
       markerElement.className = getMarkerClass(point);
+      markerElement.classList.toggle("selected", point.id === selectedId);
       markerElement.textContent = getMarkerText(point);
       if (point.kind === "hut") {
         const image = document.createElement("img");
@@ -621,7 +634,7 @@ function OutdoorMapCanvas({
       markerElement.title = point.label;
       markerElement.setAttribute("aria-label", point.label);
       markerElement.dataset.pointId = point.id;
-      markerElement.style.zIndex = point.kind === "summit" ? "3" : "2";
+      markerElement.style.zIndex = getPointMarkerZIndex(point);
       markerElement.addEventListener("pointerdown", (event) => event.stopPropagation());
       markerElement.addEventListener("click", (event) => {
         event.preventDefault();
@@ -631,35 +644,122 @@ function OutdoorMapCanvas({
       return new maplibregl.Marker({ element: markerElement, anchor: "center" })
         .setLngLat([Number(point.longitude), Number(point.latitude)])
         .addTo(map);
-    });
+    };
+    const createClusterMarker = (clusterPoints) => {
+      const center = clusterPoints.reduce(
+        (current, point) => ({
+          longitude: current.longitude + Number(point.longitude),
+          latitude: current.latitude + Number(point.latitude),
+        }),
+        { longitude: 0, latitude: 0 },
+      );
+      const longitude = center.longitude / clusterPoints.length;
+      const latitude = center.latitude / clusterPoints.length;
+      const markerElement = document.createElement("button");
+      markerElement.type = "button";
+      markerElement.className = "outdoor-map-cluster";
+      markerElement.textContent = String(clusterPoints.length);
+      markerElement.title = `${clusterPoints.length} map points`;
+      markerElement.setAttribute("aria-label", `${clusterPoints.length} map points`);
+      markerElement.addEventListener("pointerdown", (event) => event.stopPropagation());
+      markerElement.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const boundsCoordinates = clusterPoints.map((point) => [
+          Number(point.longitude),
+          Number(point.latitude),
+        ]);
+        const bounds = boundsCoordinates.reduce(
+          (current, coordinate) => current.extend(coordinate),
+          new maplibregl.LngLatBounds(boundsCoordinates[0], boundsCoordinates[0]),
+        );
+        map.fitBounds(bounds, {
+          padding: 64,
+          maxZoom: Math.max(map.getZoom() + 2, POINT_CLUSTER_MAX_ZOOM + 1),
+          duration: 220,
+        });
+      });
+      return new maplibregl.Marker({ element: markerElement, anchor: "center" })
+        .setLngLat([longitude, latitude])
+        .addTo(map);
+    };
+    const getPointGroups = () => {
+      if (map.getZoom() >= POINT_CLUSTER_MAX_ZOOM) return points.map((point) => [point]);
+      const groups = [];
+      const usedPointIds = new Set();
+      points.forEach((point) => {
+        if (usedPointIds.has(point.id)) return;
+        if (point.id === selectedId) {
+          usedPointIds.add(point.id);
+          groups.push([point]);
+          return;
+        }
+        const projectedPoint = map.project([Number(point.longitude), Number(point.latitude)]);
+        const group = [point];
+        usedPointIds.add(point.id);
+        points.forEach((candidate) => {
+          if (usedPointIds.has(candidate.id) || candidate.id === selectedId) return;
+          const projectedCandidate = map.project([Number(candidate.longitude), Number(candidate.latitude)]);
+          const deltaX = projectedCandidate.x - projectedPoint.x;
+          const deltaY = projectedCandidate.y - projectedPoint.y;
+          if (Math.sqrt((deltaX * deltaX) + (deltaY * deltaY)) <= POINT_CLUSTER_RADIUS_PX) {
+            group.push(candidate);
+            usedPointIds.add(candidate.id);
+          }
+        });
+        groups.push(group);
+      });
+      return groups;
+    };
+    const renderMarkers = () => {
+      clearMarkers();
+      markersRef.current = getPointGroups().map((group) => (
+        group.length > 1 ? createClusterMarker(group) : createPointMarker(group[0])
+      ));
+    };
+
+    renderMarkers();
+    map.on("moveend", renderMarkers);
+    map.on("zoomend", renderMarkers);
+
     if (focusPoint) {
       map.flyTo({
         center: [Number(focusPoint.longitude), Number(focusPoint.latitude)],
         zoom: Math.max(map.getZoom(), 10),
         duration: 0,
       });
-      return;
+      return () => {
+        map.off("moveend", renderMarkers);
+        map.off("zoomend", renderMarkers);
+        clearMarkers();
+      };
     }
     const selectedRouteLine = routeLines.find((line) => Number(line.routeId) === Number(selectedRouteId));
     const shouldFitMap = Boolean(selectedRouteLine) || !hasFitInitialBoundsRef.current;
-    if (!shouldFitMap) return;
-    const routeLineCoordinates = selectedRouteLine?.coordinates || routeLines.flatMap((line) => line.coordinates);
-    const boundsCoordinates = [
-      ...(selectedRouteLine ? [] : points.map((point) => [Number(point.longitude), Number(point.latitude)])),
-      ...routeLineCoordinates.map((coordinate) => [Number(coordinate[0]), Number(coordinate[1])]),
-    ];
-    if (boundsCoordinates.length) {
-      const bounds = boundsCoordinates.reduce(
-        (current, coordinate) => current.extend(coordinate),
-        new maplibregl.LngLatBounds(
-          boundsCoordinates[0],
-          boundsCoordinates[0],
-        ),
-      );
-      map.fitBounds(bounds, { padding: 48, maxZoom: 9, duration: 0 });
-      hasFitInitialBoundsRef.current = true;
+    if (shouldFitMap) {
+      const routeLineCoordinates = selectedRouteLine?.coordinates || routeLines.flatMap((line) => line.coordinates);
+      const boundsCoordinates = [
+        ...(selectedRouteLine ? [] : points.map((point) => [Number(point.longitude), Number(point.latitude)])),
+        ...routeLineCoordinates.map((coordinate) => [Number(coordinate[0]), Number(coordinate[1])]),
+      ];
+      if (boundsCoordinates.length) {
+        const bounds = boundsCoordinates.reduce(
+          (current, coordinate) => current.extend(coordinate),
+          new maplibregl.LngLatBounds(
+            boundsCoordinates[0],
+            boundsCoordinates[0],
+          ),
+        );
+        map.fitBounds(bounds, { padding: 48, maxZoom: 9, duration: 0 });
+        hasFitInitialBoundsRef.current = true;
+      }
     }
-  }, [focusPoint, onSelect, points, routeLines, selectedRouteId]);
+    return () => {
+      map.off("moveend", renderMarkers);
+      map.off("zoomend", renderMarkers);
+      clearMarkers();
+    };
+  }, [focusPoint, onSelect, points, routeLines, selectedId, selectedRouteId]);
 
   useEffect(() => {
     markersRef.current.forEach((marker) => {

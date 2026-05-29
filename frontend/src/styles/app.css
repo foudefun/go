@@ -2267,6 +2267,31 @@ select[multiple] {
   box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.22), 0 2px 8px rgba(17, 24, 39, 0.28);
 }
 
+.outdoor-map-cluster {
+  appearance: none;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px !important;
+  height: 34px;
+  min-height: 34px !important;
+  border: 3px solid #fff;
+  border-radius: 999px;
+  background: #0f766e;
+  box-shadow: 0 4px 14px rgba(17, 24, 39, 0.32);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0 8px !important;
+}
+
+.outdoor-map-cluster:hover {
+  background: #115e59;
+  transform: translateY(-1px);
+}
+
 .outdoor-map-marker.location.summit.selected {
   box-shadow: none;
 }
