@@ -1918,7 +1918,7 @@ select[multiple] {
 
 .map-layer-control {
   display: grid;
-  grid-template-columns: auto repeat(2, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 10px 14px;
   align-items: start;
   padding: 10px;
@@ -1927,14 +1927,28 @@ select[multiple] {
   background: #f8fafc;
 }
 
-.map-layer-base,
+.map-layer-control-header,
 .map-layer-group {
   display: grid;
   gap: 6px;
   min-width: 0;
 }
 
-.map-layer-base span,
+.map-layer-control-header {
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  border-bottom: 1px solid #d8e1ef;
+  padding-bottom: 8px;
+}
+
+.map-layer-control-header div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.map-layer-control-header span,
 .map-layer-group > span {
   color: #64748b;
   font-size: 0.78rem;
@@ -1942,11 +1956,30 @@ select[multiple] {
   text-transform: uppercase;
 }
 
-.map-layer-base strong {
+.map-layer-control-header strong {
+  color: #111827;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.map-layer-control-header small {
+  color: #667085;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.map-layer-toggle {
   min-height: 36px;
   display: inline-flex;
   align-items: center;
+  gap: 8px;
   color: #111827;
+  font-weight: 800;
+}
+
+.map-layer-toggle input {
+  width: auto;
+  min-height: 0;
 }
 
 .location-filter-set button,
@@ -1971,9 +2004,11 @@ select[multiple] {
   grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 14px;
+  gap: 10px 16px;
   color: #475569;
   font-size: 0.9rem;
+  border-top: 1px solid #d8e1ef;
+  padding-top: 8px;
 }
 
 .map-layer-legend span {
@@ -1984,11 +2019,77 @@ select[multiple] {
 }
 
 .map-layer-legend i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 24px;
-  height: 4px;
+  height: 14px;
   border-radius: 999px;
-  background: #ef4444;
+  background: transparent;
   box-shadow: 0 0 0 1px rgb(15 23 42 / 12%);
+  color: #fff;
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.map-layer-legend .point i {
+  width: 18px;
+  height: 18px;
+}
+
+.map-layer-legend i.summit {
+  width: 0;
+  height: 0;
+  border-right: 7px solid transparent;
+  border-bottom: 14px solid #172033;
+  border-left: 7px solid transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.map-layer-legend i.hut {
+  border: 2px solid #0f766e;
+  background: #fff;
+}
+
+.map-layer-legend i.hut img {
+  display: block;
+  width: 12px;
+  height: 12px;
+  object-fit: contain;
+}
+
+.map-layer-legend i.parking {
+  background: #2563eb;
+}
+
+.map-layer-legend i.station {
+  background: #0f766e;
+}
+
+.map-layer-legend i.route-geometry,
+.map-layer-legend i.route-inferred,
+.map-layer-legend i.hiking,
+.map-layer-legend i.ski,
+.map-layer-legend i.winter,
+.map-layer-legend i.snowshoe {
+  width: 28px;
+  height: 4px;
+}
+
+.map-layer-legend i.route-geometry {
+  background: #0f766e;
+}
+
+.map-layer-legend i.route-inferred {
+  background: repeating-linear-gradient(
+    90deg,
+    #0f766e 0 6px,
+    transparent 6px 10px
+  );
+  box-shadow: none;
 }
 
 .map-layer-legend i.hiking {

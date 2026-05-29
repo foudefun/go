@@ -7,16 +7,6 @@ import hutMarkerIcon from "../../assets/hut.png";
 import { getOutdoorRouteActivityTypeLabel } from "../domain/outdoorRouteDomain.js";
 import { useTranslation } from "../i18n/translations.js";
 
-const LOCATION_FILTERS = [
-  "summit",
-  "hut",
-  "trailhead",
-  "parking",
-  "station",
-  "pass",
-  "waypoint",
-  "other_location",
-];
 const ACTIVITY_FILTERS = ["", "alpinism", "ski_touring", "hiking", "outdoor_climbing"];
 const ALTITUDE_MIN = 0;
 const ALTITUDE_MAX = 5000;
@@ -33,11 +23,22 @@ const TRAIL_OVERLAY_GROUPS = [
   { label: "Summer", overlays: TRAIL_OVERLAYS.filter((overlay) => overlay.key === "hiking") },
   { label: "Winter", overlays: TRAIL_OVERLAYS.filter((overlay) => overlay.key !== "hiking") },
 ];
-const TRAIL_LEGEND = [
-  { label: "Hiking trails", className: "hiking" },
-  { label: "Ski routes", className: "ski" },
-  { label: "Winter hiking", className: "winter" },
-  { label: "Snowshoe trails", className: "snowshoe" },
+const POINT_LAYER_GROUPS = [
+  { label: "Main points", types: ["summit", "hut"] },
+  { label: "Access", types: ["parking", "trailhead", "station"] },
+  { label: "Terrain", types: ["pass", "waypoint", "other_location"] },
+];
+const MAP_LEGEND_ITEMS = [
+  { label: "Summit", className: "summit", kind: "point" },
+  { label: "Hut", className: "hut", kind: "point" },
+  { label: "Parking", className: "parking", kind: "point" },
+  { label: "Station", className: "station", kind: "point" },
+  { label: "GPS track", className: "route-geometry", kind: "line" },
+  { label: "Inferred line", className: "route-inferred", kind: "line" },
+  { label: "Hiking trails", className: "hiking", kind: "line" },
+  { label: "Ski routes", className: "ski", kind: "line" },
+  { label: "Winter trails", className: "winter", kind: "line" },
+  { label: "Snowshoe trails", className: "snowshoe", kind: "line" },
 ];
 const MAP_PRESETS = [
   {
@@ -1091,10 +1092,6 @@ export default function OutdoorMapPage() {
           </div>
         </div>
         <label className="checkbox-label">
-          <input type="checkbox" checked={showRoutes} onChange={(event) => setShowRoutes(event.target.checked)} />
-          {t("Routes")}
-        </label>
-        <label className="checkbox-label">
           <input type="checkbox" checked={structuredOnly} onChange={(event) => setStructuredOnly(event.target.checked)} />
           {t("Structured only")}
         </label>
@@ -1122,22 +1119,37 @@ export default function OutdoorMapPage() {
             ))}
           </select>
         </label>
-        <div className="location-filter-set">
-          {LOCATION_FILTERS.map((type) => (
-            <button
-              type="button"
-              key={type}
-              className={locationTypes.has(type) ? "active" : ""}
-              onClick={() => toggleLocationType(type)}
-            >
-              {formatCode(type)}
-            </button>
-          ))}
-        </div>
         <div className="map-layer-control">
-          <div className="map-layer-base">
-            <span>{t("Base map")}</span>
-            <strong>{t("Standard map")}</strong>
+          <div className="map-layer-control-header">
+            <div>
+              <span>{t("Layers")}</span>
+              <strong>{t("Map content")}</strong>
+            </div>
+            <small>{t("Base map")} - {t("Standard map")}</small>
+          </div>
+          {POINT_LAYER_GROUPS.map((group) => (
+            <div className="map-layer-group" key={group.label}>
+              <span>{t(group.label)}</span>
+              <div className="location-filter-set">
+                {group.types.map((type) => (
+                  <button
+                    type="button"
+                    key={type}
+                    className={locationTypes.has(type) ? "active" : ""}
+                    onClick={() => toggleLocationType(type)}
+                  >
+                    {formatCode(type)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+          <div className="map-layer-group">
+            <span>{t("Routes")}</span>
+            <label className="map-layer-toggle">
+              <input type="checkbox" checked={showRoutes} onChange={(event) => setShowRoutes(event.target.checked)} />
+              {t("Route lines")}
+            </label>
           </div>
           {TRAIL_OVERLAY_GROUPS.map((group) => (
             <div className="map-layer-group" key={group.label}>
@@ -1157,9 +1169,12 @@ export default function OutdoorMapPage() {
             </div>
           ))}
           <div className="map-layer-legend" aria-label={t("Map legend")}>
-            {TRAIL_LEGEND.map((item) => (
-              <span key={item.label}>
-                <i className={item.className} />
+            {MAP_LEGEND_ITEMS.map((item) => (
+              <span key={item.label} className={`map-legend-item ${item.kind}`}>
+                <i className={item.className}>
+                  {item.className === "hut" ? <img src={hutMarkerIcon} alt="" /> : null}
+                  {item.className === "parking" ? "P" : null}
+                </i>
                 {t(item.label)}
               </span>
             ))}
