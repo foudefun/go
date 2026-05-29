@@ -46,6 +46,14 @@ const MAP_LEGEND_ITEMS = [
 ];
 const MAP_PRESETS = [
   {
+    key: "climbing",
+    label: "Climbing",
+    locationTypes: ["summit", "hut", "parking", "station", "other_location"],
+    overlays: ["hiking"],
+    activityType: "outdoor_climbing",
+    showRoutes: true,
+  },
+  {
     key: "hiking",
     label: "Hiking",
     locationTypes: ["summit", "hut", "trailhead", "parking", "station", "pass", "waypoint"],
@@ -805,7 +813,7 @@ export default function OutdoorMapPage() {
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [locationTypes, setLocationTypes] = useState(new Set(["summit", "hut", "trailhead", "station", "pass", "waypoint"]));
+  const [locationTypes, setLocationTypes] = useState(new Set(["summit", "hut", "trailhead", "station", "pass", "waypoint", "other_location"]));
   const [showRoutes, setShowRoutes] = useState(true);
   const [activityType, setActivityType] = useState("");
   const [difficulty, setDifficulty] = useState("");
@@ -1109,6 +1117,14 @@ export default function OutdoorMapPage() {
   const selectedRouteItem = selectedRouteId
     ? allRoutes.find((item) => Number(item.route.id) === Number(selectedRouteId))
     : null;
+  const selectedRouteFocusPoint = selectedRouteItem?.main_objective?.latitude != null && selectedRouteItem?.main_objective?.longitude != null
+    ? {
+        id: `location-${selectedRouteItem.main_objective.location_entity_type}-${selectedRouteItem.main_objective.id}`,
+        latitude: selectedRouteItem.main_objective.latitude,
+        longitude: selectedRouteItem.main_objective.longitude,
+      }
+    : null;
+  const selectedMapPointId = selectedPoint?.id || selectedRouteFocusPoint?.id;
   const visibleRouteLineCounts = useMemo(
     () => filteredRoutes.reduce((counts, item) => {
       if (item.map_line?.type === "geometry") counts.geometry += 1;
@@ -1357,9 +1373,9 @@ export default function OutdoorMapPage() {
             <OutdoorMapCanvas
               locations={filteredLocations}
               routes={filteredRoutes}
-              selectedId={selectedPoint?.id}
+              selectedId={selectedMapPointId}
               selectedRouteId={selectedRouteId}
-              focusPoint={selectedPoint}
+              focusPoint={selectedPoint || selectedRouteFocusPoint}
               activeTrailOverlays={activeTrailOverlays}
               showInferredRouteLines={showInferredRouteLines}
               onSelect={selectPoint}

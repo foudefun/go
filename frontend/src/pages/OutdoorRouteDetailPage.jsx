@@ -27,6 +27,12 @@ function formatCode(value) {
   return String(value || "").replaceAll("_", " ");
 }
 
+function compactDescription(value, maxLength = 900) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength).replace(/\s+\S*$/, "")}...`;
+}
+
 function buildMapLink(location) {
   const params = new URLSearchParams({
     kind: location.location_entity_type,
@@ -234,6 +240,28 @@ function LocationRoleList({ roles, t }) {
   );
 }
 
+function SourceReferenceList({ references = [], t }) {
+  const visibleReferences = references.filter((reference) => reference.url);
+  if (!visibleReferences.length) return null;
+  return (
+    <section className="app-panel route-sources-panel">
+      <div className="section-heading-row">
+        <div>
+          <p className="eyebrow">{t("Sources")}</p>
+          <h2>{t("External route links")}</h2>
+        </div>
+      </div>
+      <div className="route-source-links">
+        {visibleReferences.map((reference) => (
+          <a key={`${reference.source_type}-${reference.url}`} href={reference.url} target="_blank" rel="noreferrer">
+            {reference.title || reference.publisher || reference.url}
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function SegmentList({ segments }) {
   if (!segments.length) return <div className="empty-state compact">No segments imported yet.</div>;
   return (
@@ -339,6 +367,7 @@ export default function OutdoorRouteDetailPage() {
 
   const route = details?.route || {};
   const objective = details?.main_objective || {};
+  const routeLead = compactDescription(route.description || route.summary || t("No route description imported yet."));
   const segmentCount = useMemo(
     () => (details?.variants || []).reduce((count, variant) => count + (variant.segments?.length || 0), 0),
     [details],
@@ -370,7 +399,7 @@ export default function OutdoorRouteDetailPage() {
         <div>
           <p className="eyebrow">{getOutdoorRouteActivityTypeLabel(route.activity_type)}</p>
           <h1>{route.name}</h1>
-          <p className="lede">{route.description || route.summary || t("No route description imported yet.")}</p>
+          <p className="lede">{routeLead}</p>
         </div>
         <div className="route-objective-panel">
           <span>Main objective</span>
@@ -396,6 +425,7 @@ export default function OutdoorRouteDetailPage() {
           {(details.variants || []).map((item) => (
             <VariantCard key={item.variant.id} item={item} routeId={routeId} onDeleted={loadDetails} t={t} />
           ))}
+          <SourceReferenceList references={details.source_references || []} t={t} />
         </div>
         <LocationRoleList roles={details.location_roles || []} t={t} />
       </div>

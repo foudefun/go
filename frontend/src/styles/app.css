@@ -1546,6 +1546,21 @@ select[multiple] {
   padding: 18px;
 }
 
+.route-sources-panel {
+  padding: 18px;
+}
+
+.route-source-links {
+  display: grid;
+  gap: 10px;
+}
+
+.route-source-links a {
+  color: #0f766e;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
 .route-variant-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
