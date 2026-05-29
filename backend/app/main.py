@@ -3504,6 +3504,15 @@ def normalize_activity_source_series(series: dict) -> dict:
             ("heart_rate", "hr"),
             ("cadence", "cadence"),
             ("distance_m", "distance_m"),
+            ("lat", "lat"),
+            ("latitude", "lat"),
+            ("lon", "lon"),
+            ("lng", "lon"),
+            ("longitude", "lon"),
+            ("altitude_m", "altitude_m"),
+            ("altitude", "altitude_m"),
+            ("elevation_m", "altitude_m"),
+            ("ele", "altitude_m"),
         ]:
             value = normalize_optional_float(item.get(source_key))
             if value is not None:
@@ -4572,6 +4581,81 @@ def store_activity_source_upload(
     return f"/api/uploads/activity-sources/{target_name}"
 
 
+def activity_source_series_has_track(series: dict) -> bool:
+    points = series.get("points") if isinstance(series, dict) and isinstance(series.get("points"), list) else []
+    coordinate_count = 0
+    for point in points:
+        if not isinstance(point, dict):
+            continue
+        lat = normalize_optional_float(point.get("lat"))
+        lon = normalize_optional_float(point.get("lon"))
+        if lat is not None and lon is not None:
+            coordinate_count += 1
+        if coordinate_count >= 2:
+            return True
+    return False
+
+
+def resolve_activity_source_upload_path(file_url: str) -> Path | None:
+    prefix = "/api/uploads/activity-sources/"
+    normalized = str(file_url or "").strip()
+    if not normalized.startswith(prefix):
+        return None
+    filename = Path(normalized.removeprefix(prefix)).name
+    if not filename:
+        return None
+    path = ACTIVITY_SOURCE_UPLOADS_DIR / filename
+    if not path.is_file() or path.suffix.lower() not in {".fit", ".tcx", ".gpx"}:
+        return None
+    return path
+
+
+def enrich_activity_source_file_track(source: dict) -> tuple[dict, bool]:
+    if not isinstance(source, dict) or activity_source_series_has_track(source.get("series", {})):
+        return source, False
+    path = resolve_activity_source_upload_path(source.get("file_url", ""))
+    if path is None:
+        return source, False
+    try:
+        parsed = parse_activity_file(
+            path.read_bytes(),
+            source.get("filename") or path.name,
+            source.get("file_format", ""),
+        )
+    except Exception:
+        return source, False
+    series = normalize_activity_source_series(parsed.get("series", {}))
+    if not activity_source_series_has_track(series):
+        return source, False
+    updated = dict(source)
+    updated["series"] = series
+    return normalize_activity_source_file(updated), True
+
+
+def enrich_session_activity_source_tracks(payload: dict) -> tuple[dict, bool]:
+    normalized = normalize_session_payload(payload)
+    changed = False
+    activities = []
+    for activity in get_session_activities(normalized):
+        updated_activity = dict(activity)
+        source_files = []
+        for source in normalize_activity_source_files(activity.get("source_files", [])):
+            updated_source, source_changed = enrich_activity_source_file_track(source)
+            source_files.append(updated_source)
+            changed = changed or source_changed
+        if source_files:
+            updated_activity["source_files"] = source_files
+            updated_activity["metric_source_preferences"] = normalize_metric_source_preferences(
+                updated_activity.get("metric_source_preferences", {}),
+                source_files,
+            )
+        activities.append(updated_activity)
+    if changed:
+        normalized["activities"] = activities
+        normalized = normalize_session_payload(normalized)
+    return normalized, changed
+
+
 def set_exercise_images(row: ExerciseModel, images: list[str]) -> None:
     cleaned = [str(image or "").strip() for image in images if str(image or "").strip()]
     row.image = cleaned[0] if cleaned else ""
@@ -5138,6 +5222,10 @@ def build_activity_series(samples: list[dict], interval_seconds: int = ACTIVITY_
                 "cadence_values": [],
                 "distance_m": None,
                 "distance_elapsed": -1,
+                "lat": None,
+                "lon": None,
+                "altitude_m": None,
+                "coordinate_elapsed": -1,
             },
         )
         for source_key, bucket_key_name in [("power", "power_values"), ("hr", "hr_values"), ("cadence", "cadence_values")]:
@@ -5148,6 +5236,14 @@ def build_activity_series(samples: list[dict], interval_seconds: int = ACTIVITY_
         if distance_m is not None and elapsed >= bucket["distance_elapsed"]:
             bucket["distance_m"] = distance_m
             bucket["distance_elapsed"] = elapsed
+        lat = normalize_optional_float(sample.get("lat"))
+        lon = normalize_optional_float(sample.get("lon"))
+        altitude_m = normalize_optional_float(sample.get("altitude_m"))
+        if lat is not None and lon is not None and elapsed >= bucket["coordinate_elapsed"]:
+            bucket["lat"] = lat
+            bucket["lon"] = lon
+            bucket["altitude_m"] = altitude_m
+            bucket["coordinate_elapsed"] = elapsed
 
     points = []
     for elapsed in sorted(buckets):
@@ -5161,6 +5257,11 @@ def build_activity_series(samples: list[dict], interval_seconds: int = ACTIVITY_
             point["cadence"] = rounded_series_value(average(bucket["cadence_values"]))
         if bucket["distance_m"] is not None:
             point["distance_m"] = rounded_series_value(bucket["distance_m"], 1)
+        if bucket["lat"] is not None and bucket["lon"] is not None:
+            point["lat"] = rounded_series_value(bucket["lat"], 6)
+            point["lon"] = rounded_series_value(bucket["lon"], 6)
+            if bucket["altitude_m"] is not None:
+                point["altitude_m"] = rounded_series_value(bucket["altitude_m"], 1)
         if len(point) > 1:
             points.append(point)
         if len(points) >= MAX_ACTIVITY_SERIES_POINTS:
@@ -5181,6 +5282,13 @@ def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     delta_lambda = math.radians(lon2 - lon1)
     a = math.sin(delta_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
     return radius_m * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def fit_semicircle_to_degrees(value) -> float | None:
+    numeric = normalize_optional_float(value)
+    if numeric is None:
+        return None
+    return numeric * (180 / 2147483648)
 
 
 def infer_activity_type_from_text(value: str, *, has_power: bool = False, has_cadence: bool = False) -> str:
@@ -5240,6 +5348,9 @@ def parse_tcx_activity_file(content: bytes, filename: str = "") -> dict:
             "hr": first_numeric_xml_value(trackpoint, "Value"),
             "cadence": first_numeric_xml_value(trackpoint, "Cadence"),
             "distance_m": first_numeric_xml_value(trackpoint, "DistanceMeters"),
+            "lat": first_numeric_xml_value(trackpoint, "LatitudeDegrees"),
+            "lon": first_numeric_xml_value(trackpoint, "LongitudeDegrees"),
+            "altitude_m": first_numeric_xml_value(trackpoint, "AltitudeMeters"),
         })
 
     return {
@@ -5298,6 +5409,7 @@ def parse_gpx_activity_file(content: bytes, filename: str = "") -> dict:
         hr_value = first_numeric_xml_value(point, "hr", "heartrate", "heartRate")
         cadence_value = first_numeric_xml_value(point, "cad", "cadence")
         power_value = first_numeric_xml_value(point, "power", "watts")
+        altitude_m = first_numeric_xml_value(point, "ele", "elevation", "altitude")
         if hr_value is not None:
             hr_values.append(hr_value)
         if cadence_value is not None:
@@ -5311,6 +5423,9 @@ def parse_gpx_activity_file(content: bytes, filename: str = "") -> dict:
                 "hr": hr_value,
                 "cadence": cadence_value,
                 "distance_m": cumulative_distance_m if points else None,
+                "lat": lat,
+                "lon": lon,
+                "altitude_m": altitude_m,
             })
 
     if not timestamps:
@@ -5439,13 +5554,21 @@ def parse_fit_activity_file(content: bytes, filename: str = "") -> dict:
                     power_value = normalize_optional_float(message.get_value("power"))
                     hr_value = normalize_optional_float(message.get_value("heart_rate"))
                     cadence_value = normalize_optional_float(message.get_value("cadence"))
-                    if any(value is not None for value in [power_value, hr_value, cadence_value, distance_value]):
+                    lat = fit_semicircle_to_degrees(message.get_value("position_lat"))
+                    lon = fit_semicircle_to_degrees(message.get_value("position_long"))
+                    altitude_m = normalize_optional_float(message.get_value("enhanced_altitude"))
+                    if altitude_m is None:
+                        altitude_m = normalize_optional_float(message.get_value("altitude"))
+                    if any(value is not None for value in [power_value, hr_value, cadence_value, distance_value, lat, lon]):
                         series_samples.append({
                             "timestamp": timestamp,
                             "power": power_value,
                             "hr": hr_value,
                             "cadence": cadence_value,
                             "distance_m": distance_value,
+                            "lat": lat,
+                            "lon": lon,
+                            "altitude_m": altitude_m,
                         })
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed while parsing FIT activity data") from exc
@@ -9631,6 +9754,11 @@ def read_session(date_str: str, current_user: UserModel = Depends(get_current_us
     try:
         row = get_session_obj(db, current_user.username, date_str)
         data = session_payload_from_row(row)
+        if row:
+            data, enriched = enrich_session_activity_source_tracks(data)
+            if enriched:
+                row.data = json.dumps(data, ensure_ascii=False)
+                db.commit()
     finally:
         db.close()
     target = get_target_for_date(date_str)

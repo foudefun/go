@@ -1,3 +1,4 @@
+import json
 from io import BytesIO
 
 from app import main
@@ -64,6 +65,8 @@ def test_activity_can_keep_multiple_source_files_and_metric_preferences(client):
     assert activity["metric_source_preferences"]["heart_rate"] == garmin_source["id"]
     assert activity["metric_source_preferences"]["power"] == garmin_source["id"]
     assert mywhoosh_source["metrics"]["power"]["avg"] == 270
+    assert mywhoosh_source["series"]["points"][0]["lat"] == 46
+    assert mywhoosh_source["series"]["points"][1]["lon"] == 6.001
 
     updated = client.put(
         "/api/session/2026-05-17/activities/0/metric-sources",
@@ -79,6 +82,40 @@ def test_activity_can_keep_multiple_source_files_and_metric_preferences(client):
         assert db.query(main.AuditLogModel).filter_by(action="activity_source_upload_created").count() == 2
     finally:
         db.close()
+
+
+def test_activity_source_track_is_backfilled_from_stored_file(client):
+    saved = client.post(
+        "/api/session/2026-05-21",
+        json={"activities": [{"title": "Ride"}], "draft_active_activity_index": 0},
+    )
+    assert saved.status_code == 200, saved.text
+
+    uploaded = client.post(
+        "/api/session/2026-05-21/activities/0/source-files",
+        data={"format": "gpx", "provider": "Garmin"},
+        files={"activity_file": ("garmin.gpx", BytesIO(gpx_payload()), "application/gpx+xml")},
+    )
+    assert uploaded.status_code == 200, uploaded.text
+
+    db = main.SessionLocal()
+    try:
+        row = db.query(main.SessionModel).filter_by(username="admin", date="2026-05-21").one()
+        payload = json.loads(row.data)
+        points = payload["activities"][0]["source_files"][0]["series"]["points"]
+        for point in points:
+            point.pop("lat", None)
+            point.pop("lon", None)
+        row.data = json.dumps(payload)
+        db.commit()
+    finally:
+        db.close()
+
+    loaded = client.get("/api/session/2026-05-21")
+    assert loaded.status_code == 200, loaded.text
+    points = loaded.json()["activities"][0]["source_files"][0]["series"]["points"]
+    assert points[0]["lat"] == 46
+    assert points[1]["lon"] == 6.001
 
 
 def test_activity_source_rejects_unsupported_extension(client):

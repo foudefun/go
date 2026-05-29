@@ -379,6 +379,25 @@ function getPowerSeries(activity) {
   return [];
 }
 
+function getTrackSeries(activity) {
+  const sourceFiles = Array.isArray(activity?.source_files) ? activity.source_files : [];
+  for (const source of sourceFiles) {
+    const points = Array.isArray(source.series?.points) ? source.series.points : [];
+    const trackPoints = points
+      .map((point) => ({
+        t: Number(point.t || 0),
+        lat: Number(point.lat),
+        lon: Number(point.lon),
+        altitude_m: point.altitude_m !== undefined ? Number(point.altitude_m) : null,
+      }))
+      .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon));
+    if (trackPoints.length >= 2) {
+      return { source, points: trackPoints };
+    }
+  }
+  return { source: null, points: [] };
+}
+
 function ActivityPowerCurve({ activity, t }) {
   const points = getPowerSeries(activity);
   if (points.length < 2) return null;
@@ -410,6 +429,68 @@ function ActivityPowerCurve({ activity, t }) {
         <line x1={paddingX} y1={paddingY} x2={paddingX} y2={height - paddingY} />
         <polyline points={polyline} />
       </svg>
+    </section>
+  );
+}
+
+function ActivityTrackMap({ activity, t }) {
+  const { source, points } = getTrackSeries(activity);
+  if (points.length < 2) return null;
+
+  const width = 600;
+  const height = 260;
+  const padding = 24;
+  const lats = points.map((point) => point.lat);
+  const lons = points.map((point) => point.lon);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLon = Math.min(...lons);
+  const maxLon = Math.max(...lons);
+  const lonSpan = Math.max(maxLon - minLon, 0.000001);
+  const latSpan = Math.max(maxLat - minLat, 0.000001);
+  const projectedPoints = points.map((point) => {
+    const x = padding + ((point.lon - minLon) / lonSpan) * (width - padding * 2);
+    const y = height - padding - ((point.lat - minLat) / latSpan) * (height - padding * 2);
+    return { ...point, x, y };
+  });
+  const polyline = projectedPoints.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
+  const start = projectedPoints[0];
+  const finish = projectedPoints[projectedPoints.length - 1];
+  const maxTime = Math.max(...points.map((point) => point.t), 0);
+  const distanceKm = readMetricValue(activity, "distance", "km");
+  const altitudeValues = points.map((point) => point.altitude_m).filter((value) => Number.isFinite(value));
+  const elevationLabel = altitudeValues.length
+    ? `${Math.round(Math.min(...altitudeValues))}-${Math.round(Math.max(...altitudeValues))} m`
+    : "";
+
+  return (
+    <section className="activity-track-map" aria-label={t("Activity route")}>
+      <div className="section-heading-row">
+        <div>
+          <p className="eyebrow">{t("Route")}</p>
+          <h3>{getSourceTitle(source || {}, 0)}</h3>
+        </div>
+        <span>{distanceKm ? `${Number(distanceKm).toFixed(2)} km` : formatDurationSeconds(maxTime)}</span>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("GPS track")}>
+        <rect x="0" y="0" width={width} height={height} rx="16" />
+        <g className="activity-track-grid">
+          {[0.25, 0.5, 0.75].map((ratio) => (
+            <line key={`h-${ratio}`} x1={padding} x2={width - padding} y1={height * ratio} y2={height * ratio} />
+          ))}
+          {[0.25, 0.5, 0.75].map((ratio) => (
+            <line key={`v-${ratio}`} x1={width * ratio} x2={width * ratio} y1={padding} y2={height - padding} />
+          ))}
+        </g>
+        <polyline points={polyline} />
+        <circle className="activity-track-start" cx={start.x} cy={start.y} r="5" />
+        <circle className="activity-track-finish" cx={finish.x} cy={finish.y} r="5" />
+      </svg>
+      <div className="activity-track-meta">
+        <span>{`${points.length} ${t("GPS points")}`}</span>
+        {maxTime ? <span>{formatDurationSeconds(maxTime)}</span> : null}
+        {elevationLabel ? <span>{elevationLabel}</span> : null}
+      </div>
     </section>
   );
 }
@@ -1012,6 +1093,7 @@ export default function DaySessionModal({
                           </label>
                           <ActivityMetricFields activity={activeActivity} t={t} />
                           <ActivityPowerCurve activity={activeActivity} t={t} />
+                          <ActivityTrackMap activity={activeActivity} t={t} />
                           <label>
                             {t("Notes")}
                             <textarea

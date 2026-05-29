@@ -113,8 +113,8 @@ def test_activity_file_import_appends_activity_and_audits_import(client):
     assert activity["source_files"][0]["metrics"]["power"]["max"] == 220
     assert activity["source_files"][0]["series"]["sample_interval_seconds"] == 5
     assert activity["source_files"][0]["series"]["points"] == [
-        {"t": 0, "power": 180, "hr": 120, "cadence": 82, "distance_m": 0},
-        {"t": 1200, "power": 220, "hr": 140, "cadence": 88, "distance_m": 135.4},
+        {"t": 0, "power": 180, "hr": 120, "cadence": 82, "distance_m": 0, "lat": 46, "lon": 6},
+        {"t": 1200, "power": 220, "hr": 140, "cadence": 88, "distance_m": 135.4, "lat": 46.001, "lon": 6.001},
     ]
     downloaded = client.get(activity["source_files"][0]["file_url"])
     assert downloaded.status_code == 200
