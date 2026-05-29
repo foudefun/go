@@ -11,6 +11,7 @@ import CalendarPage from "./pages/CalendarPage.jsx";
 import EquipmentPage from "./pages/EquipmentPage.jsx";
 import ExercisesPage from "./pages/ExercisesPage.jsx";
 import HangboardPage from "./pages/HangboardPage.jsx";
+import ImportPage from "./pages/ImportPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import OutdoorDataAuditPage from "./pages/OutdoorDataAuditPage.jsx";
 import OutdoorRouteDetailPage from "./pages/OutdoorRouteDetailPage.jsx";
@@ -23,6 +24,7 @@ const OutdoorMapPage = lazy(() => import("./pages/OutdoorMapPage.jsx"));
 const tabs = [
   { to: "/calendar", labelKey: "Calendar" },
   { to: "/activities", labelKey: "Activities" },
+  { to: "/import", labelKey: "Import" },
   { to: "/statistics", labelKey: "Statistics" },
   { to: "/exercises", labelKey: "Exercises" },
   { to: "/equipment", labelKey: "Equipment" },
@@ -89,7 +91,7 @@ function AppLayout() {
         <Route path="/outdoor-routes" element={<OutdoorRoutesPage />} />
         <Route path="/outdoor-routes/:routeId" element={<OutdoorRouteDetailPage />} />
         <Route path="/hangboard" element={<HangboardPage />} />
-        <Route path="/import" element={<Navigate to="/activities" replace />} />
+        <Route path="/import" element={<ImportPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route
