@@ -33,8 +33,12 @@ const MAP_LEGEND_ITEMS = [
   { label: "Hut", className: "hut", kind: "point" },
   { label: "Parking", className: "parking", kind: "point" },
   { label: "Station", className: "station", kind: "point" },
+  { label: "Selected route", className: "route-selected", kind: "line" },
   { label: "GPS track", className: "route-geometry", kind: "line" },
   { label: "Inferred line", className: "route-inferred", kind: "line" },
+  { label: "Ski touring route", className: "route-ski", kind: "line" },
+  { label: "Hiking route", className: "route-hiking", kind: "line" },
+  { label: "Alpinism route", className: "route-alpinism", kind: "line" },
   { label: "Hiking trails", className: "hiking", kind: "line" },
   { label: "Ski routes", className: "ski", kind: "line" },
   { label: "Winter trails", className: "winter", kind: "line" },
@@ -149,6 +153,20 @@ const ROUTE_LINE_INFERRED_LAYER_ID = "outdoor-route-lines-inferred";
 const ROUTE_LINE_GEOMETRY_LAYER_ID = "outdoor-route-lines-geometry";
 const POINT_CLUSTER_MAX_ZOOM = 10.5;
 const POINT_CLUSTER_RADIUS_PX = 42;
+const ROUTE_LINE_COLOR_EXPRESSION = [
+  "case",
+  ["boolean", ["get", "selected"], false],
+  "#dc2626",
+  ["==", ["get", "activityType"], "ski_touring"],
+  "#2563eb",
+  ["==", ["get", "activityType"], "hiking"],
+  "#16a34a",
+  ["==", ["get", "activityType"], "alpinism"],
+  "#d97706",
+  ["==", ["get", "activityType"], "outdoor_climbing"],
+  "#7c3aed",
+  "#0f766e",
+];
 const TRAIL_LAYER_IDS = {
   hiking: "swisstopoHikingTrails",
   ski: "swisstopoSkiRoutes",
@@ -404,11 +422,12 @@ function syncRouteLines(map, routeLines) {
       layout: {
         "line-cap": "round",
         "line-join": "round",
+        "line-sort-key": ["case", ["boolean", ["get", "selected"], false], 2, 1],
       },
       paint: {
-        "line-color": ["case", ["boolean", ["get", "selected"], false], "#dc2626", "#0f766e"],
-        "line-width": ["case", ["boolean", ["get", "selected"], false], 4.5, 2.5],
-        "line-opacity": 0.78,
+        "line-color": ROUTE_LINE_COLOR_EXPRESSION,
+        "line-width": ["case", ["boolean", ["get", "selected"], false], 5.5, 2.3],
+        "line-opacity": ["case", ["boolean", ["get", "selected"], false], 0.96, 0.64],
         "line-dasharray": [1.2, 1.2],
       },
     });
@@ -422,11 +441,12 @@ function syncRouteLines(map, routeLines) {
       layout: {
         "line-cap": "round",
         "line-join": "round",
+        "line-sort-key": ["case", ["boolean", ["get", "selected"], false], 2, 1],
       },
       paint: {
-        "line-color": ["case", ["boolean", ["get", "selected"], false], "#dc2626", "#0f766e"],
-        "line-width": ["case", ["boolean", ["get", "selected"], false], 4.5, 2.8],
-        "line-opacity": 0.86,
+        "line-color": ROUTE_LINE_COLOR_EXPRESSION,
+        "line-width": ["case", ["boolean", ["get", "selected"], false], 6, 3],
+        "line-opacity": ["case", ["boolean", ["get", "selected"], false], 0.96, 0.82],
       },
     });
   }
@@ -446,6 +466,7 @@ function OutdoorMapCanvas({
   selectedRouteId,
   onSelect,
   onRouteSelect,
+  showInferredRouteLines,
   focusPoint,
   activeTrailOverlays,
 }) {
@@ -491,6 +512,7 @@ function OutdoorMapCanvas({
         .filter((line) => (
           Array.isArray(line.coordinates)
           && line.coordinates.length >= 2
+          && (showInferredRouteLines || line.lineType === "geometry")
           && line.coordinates.every((coordinate) => (
             Array.isArray(coordinate)
             && coordinate.length >= 2
@@ -498,7 +520,7 @@ function OutdoorMapCanvas({
             && coordinate[1] != null
           ))
         )),
-    [routes, selectedRouteId],
+    [routes, selectedRouteId, showInferredRouteLines],
   );
   const routeItemById = useMemo(
     () => new Map(routes.map((item) => [Number(item.route.id), item])),
@@ -794,6 +816,7 @@ export default function OutdoorMapPage() {
   const [sourceFilter, setSourceFilter] = useState("");
   const [routeLinkFilter, setRouteLinkFilter] = useState("");
   const [activeTrailOverlays, setActiveTrailOverlays] = useState(new Set());
+  const [showInferredRouteLines, setShowInferredRouteLines] = useState(true);
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [selectedRouteId, setSelectedRouteId] = useState(null);
 
@@ -1089,10 +1112,10 @@ export default function OutdoorMapPage() {
   const visibleRouteLineCounts = useMemo(
     () => filteredRoutes.reduce((counts, item) => {
       if (item.map_line?.type === "geometry") counts.geometry += 1;
-      else if (item.map_line?.type === "straight") counts.inferred += 1;
+      else if (showInferredRouteLines && item.map_line?.type === "straight") counts.inferred += 1;
       return counts;
     }, { geometry: 0, inferred: 0 }),
-    [filteredRoutes],
+    [filteredRoutes, showInferredRouteLines],
   );
   const selectedSummitFacts = selectedPoint?.kind === "summit"
     ? getSummitFacts(selectedPoint.description)
@@ -1250,6 +1273,15 @@ export default function OutdoorMapPage() {
               <input type="checkbox" checked={showRoutes} onChange={(event) => setShowRoutes(event.target.checked)} />
               {t("Route lines")}
             </label>
+            <label className="map-layer-toggle">
+              <input
+                type="checkbox"
+                checked={showInferredRouteLines}
+                onChange={(event) => setShowInferredRouteLines(event.target.checked)}
+                disabled={!showRoutes}
+              />
+              {t("Inferred lines")}
+            </label>
           </div>
           {TRAIL_OVERLAY_GROUPS.map((group) => (
             <div className="map-layer-group" key={group.label}>
@@ -1329,6 +1361,7 @@ export default function OutdoorMapPage() {
               selectedRouteId={selectedRouteId}
               focusPoint={selectedPoint}
               activeTrailOverlays={activeTrailOverlays}
+              showInferredRouteLines={showInferredRouteLines}
               onSelect={selectPoint}
               onRouteSelect={selectRouteItem}
             />

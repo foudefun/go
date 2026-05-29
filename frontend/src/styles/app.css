@@ -2071,6 +2071,10 @@ select[multiple] {
 
 .map-layer-legend i.route-geometry,
 .map-layer-legend i.route-inferred,
+.map-layer-legend i.route-selected,
+.map-layer-legend i.route-ski,
+.map-layer-legend i.route-hiking,
+.map-layer-legend i.route-alpinism,
 .map-layer-legend i.hiking,
 .map-layer-legend i.ski,
 .map-layer-legend i.winter,
@@ -2083,6 +2087,11 @@ select[multiple] {
   background: #0f766e;
 }
 
+.map-layer-legend i.route-selected {
+  height: 6px;
+  background: #dc2626;
+}
+
 .map-layer-legend i.route-inferred {
   background: repeating-linear-gradient(
     90deg,
@@ -2090,6 +2099,18 @@ select[multiple] {
     transparent 6px 10px
   );
   box-shadow: none;
+}
+
+.map-layer-legend i.route-ski {
+  background: #2563eb;
+}
+
+.map-layer-legend i.route-hiking {
+  background: #16a34a;
+}
+
+.map-layer-legend i.route-alpinism {
+  background: #d97706;
 }
 
 .map-layer-legend i.hiking {
