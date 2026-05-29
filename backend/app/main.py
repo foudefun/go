@@ -5877,10 +5877,17 @@ def parse_strava_export_file(path: Path) -> dict:
     return parsed
 
 def serialize_strava_export_preview(path: Path, parsed: dict, existing: dict | None = None) -> dict:
+    return serialize_strava_export_preview_record(
+        filename=path.name,
+        parsed=parsed,
+        existing=existing,
+    )
+
+def serialize_strava_export_preview_record(filename: str, parsed: dict, existing: dict | None = None) -> dict:
     metrics = build_activity_source_metrics(parsed)
     return {
-        "filename": path.name,
-        "id": parsed.get("strava_activity_id", strava_export_activity_id(path)),
+        "filename": filename,
+        "id": parsed.get("strava_activity_id", ""),
         "date": parsed.get("date", ""),
         "started_at": parsed.get("started_at", ""),
         "title": str(parsed.get("title", "") or "").strip(),
@@ -5915,6 +5922,43 @@ def import_strava_export_file_into_db(db, username: str, path: Path) -> dict:
         "imported": True,
         "skipped": False,
         "filename": path.name,
+        "strava_activity_id": strava_activity_id,
+        **result,
+    }
+
+def parse_uploaded_strava_export_file(filename: str, content: bytes) -> dict:
+    selected_format = detect_activity_file_format(filename, "")
+    if selected_format not in {"fit", "tcx", "gpx"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please upload FIT, TCX, or GPX Strava export files")
+    parsed = parse_activity_file(content, filename, selected_format)
+    strava_activity_id = strava_export_activity_id(Path(filename))
+    parsed["strava_activity_id"] = strava_activity_id
+    parsed["source_file"] = filename
+    parsed["strava_url"] = f"https://www.strava.com/activities/{strava_activity_id}" if strava_activity_id.isdigit() else ""
+    parsed["source_label"] = f"Import Strava export: {str(parsed.get('sport', '') or selected_format).replace('_', ' ')}".strip()
+    return parsed
+
+def import_uploaded_strava_export_file_into_db(db, username: str, filename: str, content: bytes) -> dict:
+    parsed = parse_uploaded_strava_export_file(filename, content)
+    strava_activity_id = str(parsed.get("strava_activity_id", "") or "")
+    existing = find_existing_strava_activity(db, username, strava_activity_id)
+    if existing:
+        return {"imported": False, "skipped": True, "filename": filename, "strava_activity_id": strava_activity_id, **existing}
+    result = import_activity_file_into_db(
+        db,
+        username,
+        parsed_activity=parsed,
+        source_file_content=maybe_decompress_activity_content(content, filename),
+        source_file_format=detect_activity_file_format(filename, ""),
+        title=str(parsed.get("title", "") or "").strip(),
+        source_id_override=f"strava-export-{strava_activity_id}" if strava_activity_id else "",
+        provider_override="Strava Export",
+        require_activity_type=True,
+    )
+    return {
+        "imported": True,
+        "skipped": False,
+        "filename": filename,
         "strava_activity_id": strava_activity_id,
         **result,
     }
@@ -9402,6 +9446,80 @@ def import_strava_export(payload: dict, current_user: UserModel = Depends(get_cu
             "strava_export",
             current_user.username,
             f"Imported {len(imported)} Strava export files, skipped {len(skipped)}, errors {len(errors)}",
+        )
+        db.commit()
+        return {"ok": True, "imported": imported, "skipped": skipped, "errors": errors}
+    finally:
+        db.close()
+
+
+@app.post("/api/strava/export/upload-preview")
+async def preview_uploaded_strava_export(
+    files: list[UploadFile] = File(...),
+    current_user: UserModel = Depends(get_current_user),
+):
+    if len(files) > 100:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Preview at most 100 Strava export files at a time")
+    db = get_db()
+    activities = []
+    errors = []
+    try:
+        for file in files:
+            filename = Path(str(file.filename or "")).name
+            try:
+                content = await file.read()
+                if not filename or not content:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty Strava export file")
+                if len(content) > MAX_ACTIVITY_SOURCE_UPLOAD_BYTES:
+                    raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="Uploaded file is too large")
+                parsed = parse_uploaded_strava_export_file(filename, content)
+                existing = find_existing_strava_activity(db, current_user.username, str(parsed.get("strava_activity_id", "") or ""))
+                activities.append(serialize_strava_export_preview_record(filename, parsed, existing))
+            except HTTPException as exc:
+                errors.append({"filename": filename, "detail": exc.detail})
+            except Exception as exc:
+                errors.append({"filename": filename, "detail": str(exc)})
+        return {"activities": activities, "errors": errors}
+    finally:
+        db.close()
+
+
+@app.post("/api/strava/export/upload-import")
+async def import_uploaded_strava_export(
+    files: list[UploadFile] = File(...),
+    current_user: UserModel = Depends(get_current_user),
+):
+    if len(files) > 100:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Import at most 100 Strava export files at a time")
+    db = get_db()
+    imported = []
+    skipped = []
+    errors = []
+    try:
+        for file in files:
+            filename = Path(str(file.filename or "")).name
+            try:
+                content = await file.read()
+                if not filename or not content:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty Strava export file")
+                if len(content) > MAX_ACTIVITY_SOURCE_UPLOAD_BYTES:
+                    raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="Uploaded file is too large")
+                result = import_uploaded_strava_export_file_into_db(db, current_user.username, filename, content)
+                if result.get("imported"):
+                    imported.append(result)
+                else:
+                    skipped.append(result)
+            except HTTPException as exc:
+                errors.append({"filename": filename, "detail": exc.detail})
+            except Exception as exc:
+                errors.append({"filename": filename, "detail": str(exc)})
+        write_audit_log(
+            db,
+            current_user.username,
+            "upload_import_strava_export",
+            "strava_export",
+            current_user.username,
+            f"Imported {len(imported)} uploaded Strava files, skipped {len(skipped)}, errors {len(errors)}",
         )
         db.commit()
         return {"ok": True, "imported": imported, "skipped": skipped, "errors": errors}

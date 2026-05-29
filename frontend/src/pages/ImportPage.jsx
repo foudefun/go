@@ -9,6 +9,8 @@ import {
   importProgram,
   importStravaActivities,
   importStravaExportFiles,
+  importUploadedStravaExportFiles,
+  previewUploadedStravaExportFiles,
 } from "../api/importApi.js";
 import { ACTIVITY_TYPES, getActivityTypeLabel } from "../domain/activityTypes.js";
 import {
@@ -299,14 +301,21 @@ export function StravaImportPanel() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [exportPreview, setExportPreview] = useState({ activities: [], errors: [], total: 0, offset: 0, limit: 25 });
   const [selectedExportFiles, setSelectedExportFiles] = useState([]);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [uploadedPreview, setUploadedPreview] = useState({ activities: [], errors: [] });
+  const [selectedUploadedFiles, setSelectedUploadedFiles] = useState([]);
+  const [uploadDropActive, setUploadDropActive] = useState(false);
   const [after, setAfter] = useState("");
   const [before, setBefore] = useState("");
   const [status, setStatus] = useState("loading");
   const [exportStatus, setExportStatus] = useState("idle");
+  const [uploadStatus, setUploadStatus] = useState("idle");
   const [error, setError] = useState("");
   const [exportError, setExportError] = useState("");
+  const [uploadError, setUploadError] = useState("");
   const [result, setResult] = useState(null);
   const [exportResult, setExportResult] = useState(null);
+  const [uploadResult, setUploadResult] = useState(null);
 
   async function loadStatus() {
     setStatus("loading");
@@ -423,6 +432,58 @@ export function StravaImportPanel() {
     } catch (importError) {
       setExportError(importError.message);
       setExportStatus("idle");
+    }
+  }
+
+  function setUploadSelection(fileList) {
+    const nextFiles = Array.from(fileList || []).filter((file) => /\.(fit|gpx|tcx)(\.gz)?$/i.test(file.name || ""));
+    setUploadedFiles(nextFiles);
+    setUploadedPreview({ activities: [], errors: [] });
+    setSelectedUploadedFiles([]);
+    setUploadResult(null);
+    setUploadError(nextFiles.length ? "" : t("Choose FIT, GPX, or TCX Strava export files."));
+  }
+
+  async function previewUploadedFiles() {
+    if (!uploadedFiles.length) {
+      setUploadError(t("Choose FIT, GPX, or TCX Strava export files."));
+      return;
+    }
+    setUploadStatus("previewing");
+    setUploadError("");
+    setUploadResult(null);
+    try {
+      const payload = await previewUploadedStravaExportFiles(uploadedFiles);
+      setUploadedPreview(payload);
+      setSelectedUploadedFiles([]);
+      setUploadStatus("idle");
+    } catch (previewError) {
+      setUploadError(previewError.message);
+      setUploadStatus("idle");
+    }
+  }
+
+  function toggleUploadedFile(filename) {
+    setSelectedUploadedFiles((current) => (current.includes(filename) ? current.filter((item) => item !== filename) : [...current, filename]));
+  }
+
+  async function importSelectedUploadedFiles() {
+    if (!selectedUploadedFiles.length) {
+      setUploadError(t("Select at least one uploaded Strava file to import."));
+      return;
+    }
+    const filesToImport = uploadedFiles.filter((file) => selectedUploadedFiles.includes(file.name));
+    setUploadStatus("importing");
+    setUploadError("");
+    setUploadResult(null);
+    try {
+      const payload = await importUploadedStravaExportFiles(filesToImport);
+      setUploadResult(payload);
+      setSelectedUploadedFiles([]);
+      setUploadStatus("idle");
+    } catch (importError) {
+      setUploadError(importError.message);
+      setUploadStatus("idle");
     }
   }
 
@@ -601,6 +662,96 @@ export function StravaImportPanel() {
                 </button>
               </div>
             </>
+          ) : null}
+        </section>
+
+        <section className="app-panel import-panel">
+          <div>
+            <p className="eyebrow">{t("Upload Export")}</p>
+            <h2>{t("Drop Strava Files")}</h2>
+            <p>{t("Upload FIT, GPX, or TCX files from your Strava export, preview them, then import selected mapped activities.")}</p>
+          </div>
+
+          <div
+            className={uploadDropActive ? "import-dropzone active" : "import-dropzone"}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setUploadDropActive(true);
+            }}
+            onDragLeave={(event) => {
+              event.preventDefault();
+              setUploadDropActive(false);
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              setUploadDropActive(false);
+              setUploadSelection(event.dataTransfer.files);
+            }}
+          >
+            {t("Drop Strava .fit, .fit.gz, .gpx, .gpx.gz, .tcx, or .tcx.gz files here")}
+          </div>
+
+          <label>
+            {t("Strava files")}
+            <input
+              type="file"
+              multiple
+              accept=".fit,.fit.gz,.gpx,.gpx.gz,.tcx,.tcx.gz,application/gzip,application/octet-stream,application/gpx+xml,application/xml,text/xml"
+              onChange={(event) => setUploadSelection(event.target.files)}
+            />
+          </label>
+
+          {uploadedFiles.length ? (
+            <div className="notice-panel">
+              <span>{t("Selected files")}: {uploadedFiles.length}</span>
+              <small>{uploadedFiles.slice(0, 5).map((file) => file.name).join(", ")}{uploadedFiles.length > 5 ? "..." : ""}</small>
+            </div>
+          ) : null}
+
+          <div className="day-modal-actions">
+            <button type="button" className="primary-action" onClick={previewUploadedFiles} disabled={uploadStatus === "previewing" || !uploadedFiles.length}>
+              {uploadStatus === "previewing" ? t("Loading...") : t("Preview Uploaded Files")}
+            </button>
+            <button type="button" className="secondary-action" onClick={importSelectedUploadedFiles} disabled={uploadStatus === "importing" || !selectedUploadedFiles.length}>
+              {uploadStatus === "importing" ? t("Importing...") : t("Import Selected")}
+            </button>
+          </div>
+
+          {uploadError ? <div className="error-banner">{uploadError}</div> : null}
+          {uploadResult ? (
+            <div className="success-banner">
+              {`${uploadResult.imported?.length || 0} ${t("imported")}, ${uploadResult.skipped?.length || 0} ${t("skipped")}, ${uploadResult.errors?.length || 0} ${t("errors")}`}
+            </div>
+          ) : null}
+
+          {uploadedPreview.activities?.length ? (
+            <div className="strava-activity-list">
+              {uploadedPreview.activities.map((activity) => (
+                <label className={activity.existing ? "strava-activity-row imported" : "strava-activity-row"} key={activity.filename}>
+                  <input
+                    type="checkbox"
+                    disabled={Boolean(activity.existing || activity.requires_review)}
+                    checked={selectedUploadedFiles.includes(activity.filename)}
+                    onChange={() => toggleUploadedFile(activity.filename)}
+                  />
+                  <span>
+                    <strong>{activity.title || activity.filename}</strong>
+                    <small>
+                      {activity.date || "-"} - {activity.sport || "-"} - {t(getActivityTypeLabel(activity.activity_type))} - {activity.distance_km ?? "-"} km - {activity.duration || "-"}
+                      {activity.existing ? ` - ${t("Already imported")}` : ""}
+                      {activity.requires_review ? ` - ${t("Review activity type before import")}` : ""}
+                    </small>
+                    <small>{activity.metrics?.length ? activity.metrics.join(", ") : t("No metrics detected")}</small>
+                  </span>
+                </label>
+              ))}
+            </div>
+          ) : null}
+
+          {uploadedPreview.errors?.length ? (
+            <div className="error-banner">
+              {uploadedPreview.errors.slice(0, 3).map((item) => `${item.filename}: ${item.detail}`).join(" | ")}
+            </div>
           ) : null}
         </section>
       </div>

@@ -70,3 +70,25 @@ export function importStravaExportFiles(filenames) {
     body: JSON.stringify({ filenames }),
   });
 }
+
+export function previewUploadedStravaExportFiles(files) {
+  const formData = new FormData();
+  for (const file of files || []) {
+    formData.append("files", file);
+  }
+  return api("/strava/export/upload-preview", {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export function importUploadedStravaExportFiles(files) {
+  const formData = new FormData();
+  for (const file of files || []) {
+    formData.append("files", file);
+  }
+  return api("/strava/export/upload-import", {
+    method: "POST",
+    body: formData,
+  });
+}

@@ -158,3 +158,47 @@ def test_local_strava_export_preview_and_import(monkeypatch, tmp_path, client):
     assert duplicate.status_code == 200, duplicate.text
     assert duplicate.json()["imported"] == []
     assert duplicate.json()["skipped"][0]["strava_activity_id"] == "123456"
+
+
+def test_uploaded_strava_export_preview_and_import(client):
+    gpx = b"""<?xml version="1.0" encoding="UTF-8"?>
+<gpx creator="StravaGPX" version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+ <trk>
+  <name>Uploaded surf</name>
+  <type>Surfing</type>
+  <trkseg>
+   <trkpt lat="46.0" lon="6.0"><ele>400</ele><time>2026-07-02T08:00:00Z</time></trkpt>
+   <trkpt lat="46.001" lon="6.001"><ele>401</ele><time>2026-07-02T08:05:00Z</time></trkpt>
+  </trkseg>
+ </trk>
+</gpx>"""
+    gzipped = gzip.compress(gpx)
+
+    preview = client.post(
+        "/api/strava/export/upload-preview",
+        files={"files": ("777777.gpx.gz", gzipped, "application/gzip")},
+    )
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["activities"][0]["activity_type"] == "surfing"
+    assert preview.json()["activities"][0]["requires_review"] is False
+
+    imported = client.post(
+        "/api/strava/export/upload-import",
+        files={"files": ("777777.gpx.gz", gzipped, "application/gzip")},
+    )
+    assert imported.status_code == 200, imported.text
+    assert len(imported.json()["imported"]) == 1
+
+    loaded = client.get("/api/session/2026-07-02")
+    activity = loaded.json()["activities"][0]
+    assert activity["title"] == "Uploaded surf"
+    assert activity["activity_type"] == "surfing"
+    assert activity["source_files"][0]["parsed"]["strava_activity_id"] == "777777"
+
+    duplicate = client.post(
+        "/api/strava/export/upload-import",
+        files={"files": ("777777.gpx.gz", gzipped, "application/gzip")},
+    )
+    assert duplicate.status_code == 200, duplicate.text
+    assert duplicate.json()["imported"] == []
+    assert duplicate.json()["skipped"][0]["strava_activity_id"] == "777777"
