@@ -31,6 +31,7 @@ test("maps existing session activity types back to possible route activity types
 
 test("includes app activity types used by Strava imports", () => {
   const values = ACTIVITY_TYPES.map((item) => item.value);
+  assert.ok(values.includes("indoor_climbing"));
   assert.ok(values.includes("alpinism"));
   assert.ok(values.includes("alpine_ski"));
   assert.ok(values.includes("snowboarding"));

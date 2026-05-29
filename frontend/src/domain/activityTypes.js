@@ -11,6 +11,7 @@ export const ACTIVITY_TYPES = [
   { value: "surfing", label: "Surfing", shortLabel: "Surf", color: "#99f6e4" },
   { value: "hockey", label: "Hockey", shortLabel: "Hockey", color: "#fde68a" },
   { value: "escalade", label: "Climbing", shortLabel: "Climb", color: "#ddd6fe" },
+  { value: "indoor_climbing", label: "Indoor climbing", shortLabel: "Indoor", color: "#ddd6fe" },
   { value: "outdoor_climbing", label: "Outdoor Climbing", shortLabel: "Outdoor", color: "#fed7aa" },
   { value: "hangboard", label: "Hangboard", shortLabel: "Hangboard", color: "#99f6e4" },
   { value: "musculation", label: "Strength", shortLabel: "Strength", color: "#fdba74" },
@@ -125,7 +126,7 @@ export function isStrengthActivity(value) {
 }
 
 export function isClimbingActivity(value) {
-  return value === "escalade" || value === "outdoor_climbing" || value === "hangboard";
+  return value === "escalade" || value === "indoor_climbing" || value === "outdoor_climbing" || value === "hangboard";
 }
 
 export function normalizeOutdoorRouteActivityType(value) {

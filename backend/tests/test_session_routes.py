@@ -90,3 +90,55 @@ def test_calendar_does_not_show_type_only_strength_activity(client):
     assert row["activity_count"] == 0
     assert row["activity_entries"] == []
     assert row["activity_types"] == []
+
+
+def test_session_preserves_indoor_climbing_route_attempt_details(client):
+    saved = client.post(
+        "/api/session/2026-06-05",
+        json={
+            "activities": [
+                {
+                    "title": "Gym routes",
+                    "activity_type": "indoor_climbing",
+                    "climbing_routes": [
+                        {
+                            "name": "Blue slab",
+                            "difficulty": "6a+",
+                            "rope_style": "auto belay",
+                            "ascent_style": "with rests",
+                            "rest_count": "2",
+                            "notes": "Fell low, finished clean",
+                        },
+                        {
+                            "name": "Orange overhang",
+                            "topo_grade": "6c",
+                            "rope_style": "lead",
+                            "ascent_style": "a_vue",
+                        },
+                    ],
+                }
+            ]
+        },
+    )
+    assert saved.status_code == 200, saved.text
+
+    loaded = client.get("/api/session/2026-06-05")
+    assert loaded.status_code == 200, loaded.text
+    activity = loaded.json()["activities"][0]
+    assert activity["activity_type"] == "indoor_climbing"
+    assert activity["climbing_routes"] == [
+        {
+            "name": "Blue slab",
+            "topo_grade": "6a+",
+            "rope_style": "auto_belay",
+            "ascent_style": "with_rests",
+            "notes": "Fell low, finished clean",
+            "rest_count": 2,
+        },
+        {
+            "name": "Orange overhang",
+            "topo_grade": "6c",
+            "rope_style": "lead",
+            "ascent_style": "onsight",
+        },
+    ]

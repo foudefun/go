@@ -18,6 +18,7 @@ import {
 import { useTranslation } from "../../i18n/translations.js";
 import { formatPlannedItem, normalizePlannedItems } from "../plannedItems.js";
 import { normalizeOptionalInt } from "../strengthItems.js";
+import ClimbingRouteEditor from "./ClimbingRouteEditor.jsx";
 import PlannedSessionEditor from "./PlannedSessionEditor.jsx";
 import StrengthEditor from "./StrengthEditor.jsx";
 
@@ -659,6 +660,10 @@ export default function DaySessionModal({
     );
   });
   const isActiveStrengthActivity = isStrengthActivity(activeActivity.activity_type);
+  const isActiveClimbingActivity =
+    activeActivity.activity_type === "indoor_climbing" ||
+    activeActivity.activity_type === "escalade" ||
+    activeActivity.activity_type === "outdoor_climbing";
   const hasAdvancedStrengthData = Boolean(activeActivity.performed_items?.length);
   const hasClimbingLogData = Boolean(activeActivity.climbing_routes?.length);
   const savedActivities = session?.activities || [];
@@ -1039,12 +1044,16 @@ export default function DaySessionModal({
                         />
                       ) : null}
 
-                      {((hasAdvancedStrengthData && !isActiveStrengthActivity) || hasClimbingLogData) && (
+                      {isActiveClimbingActivity ? (
+                        <ClimbingRouteEditor activity={activeActivity} onChange={updateActiveActivity} />
+                      ) : null}
+
+                      {((hasAdvancedStrengthData && !isActiveStrengthActivity) || (hasClimbingLogData && !isActiveClimbingActivity)) && (
                         <div className="notice-panel">
                           {hasAdvancedStrengthData && !isActiveStrengthActivity ? (
                             <span>{t("Strength items preserved", { count: activeActivity.performed_items.length })}</span>
                           ) : null}
-                          {hasClimbingLogData ? <span>{t("Climbing routes preserved", { count: activeActivity.climbing_routes.length })}</span> : null}
+                          {hasClimbingLogData && !isActiveClimbingActivity ? <span>{t("Climbing routes preserved", { count: activeActivity.climbing_routes.length })}</span> : null}
                         </div>
                       )}
                     </>

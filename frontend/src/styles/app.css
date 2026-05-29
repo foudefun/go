@@ -4251,6 +4251,7 @@ select[multiple] {
 }
 
 .strength-editor,
+.climbing-route-editor,
 .planned-editor {
   display: grid;
   gap: 12px;
@@ -4282,12 +4283,14 @@ select[multiple] {
   font-weight: 800;
 }
 
-.performed-item-list {
+.performed-item-list,
+.climbing-route-list {
   display: grid;
   gap: 10px;
 }
 
-.performed-item-card {
+.performed-item-card,
+.climbing-route-card {
   display: grid;
   gap: 9px;
   border: 1px solid #e4eaf3;
@@ -4481,18 +4484,22 @@ select[multiple] {
 }
 
 .performed-item-card strong,
+.climbing-route-card strong,
 .strength-builder-title strong,
 .set-builder-header strong {
   color: #172033;
 }
 
 .performed-item-card span,
-.performed-item-card p {
+.performed-item-card p,
+.climbing-route-card span,
+.climbing-route-card p {
   color: #667085;
   font-size: 13px;
 }
 
-.performed-item-card p {
+.performed-item-card p,
+.climbing-route-card p {
   margin: 0;
   line-height: 1.45;
 }
@@ -4540,6 +4547,7 @@ select[multiple] {
 }
 
 .strength-builder,
+.climbing-route-builder,
 .planned-builder {
   display: grid;
   gap: 12px;

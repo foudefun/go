@@ -2224,6 +2224,7 @@ def normalize_activity_type(value) -> str:
         "surfing",
         "hockey",
         "escalade",
+        "indoor_climbing",
         "outdoor_climbing",
         "hangboard",
         "musculation",
@@ -2245,6 +2246,7 @@ ACTIVITY_LABELS = {
     "surfing": {"fr": "Surf", "en": "Surfing"},
     "hockey": {"fr": "Hockey", "en": "Hockey"},
     "escalade": {"fr": "Escalade", "en": "Climbing"},
+    "indoor_climbing": {"fr": "Escalade indoor", "en": "Indoor climbing"},
     "outdoor_climbing": {"fr": "Escalade outdoor", "en": "Outdoor Climbing"},
     "hangboard": {"fr": "Poutre", "en": "Hangboard"},
     "musculation": {"fr": "Musculation", "en": "Strength"},
@@ -3243,17 +3245,46 @@ def normalize_climbing_route(item: dict) -> dict:
     if not isinstance(item, dict):
         return {}
     rest_count = normalize_optional_int(item.get("rest_count"))
+    rope_style = (
+        str(item.get("rope_style", item.get("climbing_mode", "")) or "")
+        .strip()
+        .lower()
+        .replace("-", "_")
+        .replace(" ", "_")
+    )
+    if rope_style not in {"lead", "second", "auto_belay"}:
+        rope_style = ""
+    ascent_style = str(item.get("ascent_style", "") or "").strip().lower().replace("-", "_")
+    ascent_style_aliases = {
+        "a_vue": "onsight",
+        "a vue": "onsight",
+        "onsight": "onsight",
+        "on_sight": "onsight",
+        "on sight": "onsight",
+        "enchainee": "redpoint",
+        "enchaînée": "redpoint",
+        "redpoint": "redpoint",
+        "red_point": "redpoint",
+        "red point": "redpoint",
+        "repos": "with_rests",
+        "rests": "with_rests",
+        "with_rests": "with_rests",
+        "with rests": "with_rests",
+    }
+    ascent_style = ascent_style_aliases.get(ascent_style, ascent_style)
+    if ascent_style not in {"onsight", "redpoint", "with_rests"}:
+        ascent_style = ""
     normalized = {
         "spot": str(item.get("spot", "") or "").strip(),
         "name": str(item.get("name", "") or "").strip(),
         "topo_grade": str(item.get("topo_grade", item.get("difficulty", "")) or "").strip(),
         "felt_grade": str(item.get("felt_grade", "") or "").strip(),
         "own_grade": str(item.get("own_grade", "") or "").strip(),
-        "ascent_style": str(item.get("ascent_style", "") or "").strip().lower(),
+        "rope_style": rope_style,
+        "ascent_style": ascent_style,
+        "notes": str(item.get("notes", "") or "").strip(),
     }
-    if normalized["ascent_style"] not in {"a_vue", "enchainee", "repos"}:
-        normalized["ascent_style"] = ""
-    if rest_count is not None and rest_count >= 0:
+    if normalized["ascent_style"] == "with_rests" and rest_count is not None and rest_count >= 0:
         normalized["rest_count"] = rest_count
     return {key: value for key, value in normalized.items() if value}
 
@@ -3642,7 +3673,7 @@ def normalize_activity_entry(payload: dict) -> dict:
         "hangboard_log": base.get("hangboard_log", {}) if isinstance(base.get("hangboard_log", {}), dict) else {},
     }
     normalized["status"] = "done" if activity_has_content(normalized) else "todo"
-    if normalized["activity_type"] not in {"escalade", "outdoor_climbing"}:
+    if normalized["activity_type"] not in {"escalade", "indoor_climbing", "outdoor_climbing"}:
         normalized["climbing_routes"] = []
     if normalized["activity_type"] != "musculation":
         normalized["performed_items"] = []
