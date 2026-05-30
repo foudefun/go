@@ -35,6 +35,15 @@ def c2c_detail(route_id=1855327):
     return row
 
 
+def c2c_pitch_detail(route_id=1855328):
+    row = c2c_detail(route_id)
+    row["locales"][0]["title"] = "A Toi la Gloire"
+    row["locales"][0]["title_prefix"] = "Miroir d'Argentine"
+    row["locales"][0]["description"] = "## Escalade L# | 6a | | Départ dans la fissure L# | 7a | | Crux technique en dalle ## Descente Rappels."
+    row["rock_free_rating"] = "7a"
+    return row
+
+
 def test_normalize_camptocamp_route_metadata():
     preview = import_camptocamp_routes.normalize_route(c2c_row(), c2c_detail(), "2026-05-29T00:00:00+00:00")
 
@@ -48,21 +57,31 @@ def test_normalize_camptocamp_route_metadata():
     assert preview["waypoint"]["latitude"] == 46.308254
     assert preview["waypoint"]["longitude"] == 6.980127
     assert preview["source_references"][0]["source_type"] == "community"
+    assert preview["pitch_count"] == 0
 
 
-def test_import_camptocamp_routes_preview_does_not_write(monkeypatch, client):
-    preview = import_camptocamp_routes.normalize_route(c2c_row(), c2c_detail(), "2026-05-29T00:00:00+00:00")
+def test_normalize_camptocamp_route_reports_pitch_count():
+    preview = import_camptocamp_routes.normalize_route(c2c_row(1855328), c2c_pitch_detail(), "2026-05-29T00:00:00+00:00")
+
+    assert preview["pitch_count"] == 2
+
+
+def test_import_camptocamp_routes_preview_does_not_write(monkeypatch, capsys, client):
+    preview = import_camptocamp_routes.normalize_route(c2c_row(1855328), c2c_pitch_detail(), "2026-05-29T00:00:00+00:00")
     monkeypatch.setattr(
         import_camptocamp_routes,
         "fetch_camptocamp_route_previews",
         lambda area_id, activity, limit, include_details=True: (321, [preview], []),
     )
 
-    assert import_camptocamp_routes.import_camptocamp_routes("admin", False, 14397, "rock_climbing", 1) == 0
+    assert import_camptocamp_routes.import_camptocamp_routes("admin", False, 14397, "rock_climbing", 1, extract_pitches=True) == 0
+    output = capsys.readouterr().out
+    assert "pitches=2" in output
+    assert "Pitch extraction preview: 1 route(s), 2 pitch segment(s) detected." in output
 
     db = main.SessionLocal()
     try:
-        assert db.query(main.OutdoorRouteModel).filter_by(slug="c2c-1855327-dalle-a-besson-diane-kruger").first() is None
+        assert db.query(main.OutdoorRouteModel).filter_by(slug="c2c-1855328-miroir-d-argentine-a-toi-la-gloire").first() is None
     finally:
         db.close()
 
@@ -92,5 +111,60 @@ def test_import_camptocamp_routes_apply_upserts_route_and_location(monkeypatch, 
         assert role.location_entity_id == location.id
         references = db.query(main.OutdoorSourceReferenceModel).filter_by(entity_type="route", entity_id=route.id).all()
         assert len(references) == 1
+    finally:
+        db.close()
+
+
+def test_import_camptocamp_routes_extracts_pitches_without_duplicates(monkeypatch, client):
+    preview = import_camptocamp_routes.normalize_route(c2c_row(1855328), c2c_pitch_detail(), "2026-05-29T00:00:00+00:00")
+    monkeypatch.setattr(
+        import_camptocamp_routes,
+        "fetch_camptocamp_route_previews",
+        lambda area_id, activity, limit, include_details=True: (321, [preview], []),
+    )
+
+    assert import_camptocamp_routes.import_camptocamp_routes("admin", True, 14397, "rock_climbing", 1, extract_pitches=True) == 0
+    assert import_camptocamp_routes.import_camptocamp_routes("admin", True, 14397, "rock_climbing", 1, extract_pitches=True) == 0
+
+    db = main.SessionLocal()
+    try:
+        route = db.query(main.OutdoorRouteModel).filter_by(slug="c2c-1855328-miroir-d-argentine-a-toi-la-gloire").one()
+        variant = db.query(main.OutdoorRouteVariantModel).filter_by(route_id=route.id, variant_type="pitch_list").one()
+        segments = db.query(main.OutdoorRouteSegmentModel).filter_by(route_variant_id=variant.id, segment_type="pitch").order_by(main.OutdoorRouteSegmentModel.order_index).all()
+        assert len(segments) == 2
+        assert [segment.difficulty_label for segment in segments] == ["6a", "7a"]
+        assert segments[1].description == "Crux technique en dalle"
+    finally:
+        db.close()
+
+
+def test_import_camptocamp_routes_preserves_existing_pitch_edits(monkeypatch, client):
+    preview = import_camptocamp_routes.normalize_route(c2c_row(1855328), c2c_pitch_detail(), "2026-05-29T00:00:00+00:00")
+    monkeypatch.setattr(
+        import_camptocamp_routes,
+        "fetch_camptocamp_route_previews",
+        lambda area_id, activity, limit, include_details=True: (321, [preview], []),
+    )
+
+    assert import_camptocamp_routes.import_camptocamp_routes("admin", True, 14397, "rock_climbing", 1, extract_pitches=True) == 0
+    db = main.SessionLocal()
+    try:
+        route = db.query(main.OutdoorRouteModel).filter_by(slug="c2c-1855328-miroir-d-argentine-a-toi-la-gloire").one()
+        variant = db.query(main.OutdoorRouteVariantModel).filter_by(route_id=route.id, variant_type="pitch_list").one()
+        first_segment = db.query(main.OutdoorRouteSegmentModel).filter_by(route_variant_id=variant.id, order_index=1).one()
+        first_segment.description = "Edited locally"
+        db.commit()
+    finally:
+        db.close()
+
+    assert import_camptocamp_routes.import_camptocamp_routes("admin", True, 14397, "rock_climbing", 1, extract_pitches=True) == 0
+
+    db = main.SessionLocal()
+    try:
+        route = db.query(main.OutdoorRouteModel).filter_by(slug="c2c-1855328-miroir-d-argentine-a-toi-la-gloire").one()
+        variant = db.query(main.OutdoorRouteVariantModel).filter_by(route_id=route.id, variant_type="pitch_list").one()
+        segments = db.query(main.OutdoorRouteSegmentModel).filter_by(route_variant_id=variant.id, segment_type="pitch").order_by(main.OutdoorRouteSegmentModel.order_index).all()
+        assert len(segments) == 2
+        assert segments[0].description == "Edited locally"
     finally:
         db.close()
