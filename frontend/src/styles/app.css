@@ -1566,6 +1566,52 @@ select[multiple] {
   padding: 18px;
 }
 
+.route-overview-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.route-overview-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.route-overview-list div {
+  min-width: 0;
+}
+
+.route-overview-list dt {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0 0 3px;
+  text-transform: uppercase;
+}
+
+.route-overview-list dd {
+  color: #101828;
+  font-size: 17px;
+  font-weight: 800;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.route-overview-description,
+.route-overview-summary {
+  color: #344054;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.route-overview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .route-pitch-extract-panel {
   display: grid;
   gap: 12px;

@@ -266,6 +266,68 @@ function SourceReferenceList({ references = [], t }) {
   );
 }
 
+function RouteOverviewPanel({ route, objective, sourceReferences = [], t }) {
+  const visibleSource = sourceReferences.find((reference) => reference.url);
+  return (
+    <section className="app-panel route-overview-panel">
+      <div className="section-heading-row">
+        <div>
+          <p className="eyebrow">{t("Overview")}</p>
+          <h2>{t("Route details")}</h2>
+        </div>
+      </div>
+      <dl className="route-overview-list">
+        {route.difficulty_label ? (
+          <div>
+            <dt>{t("Grade")}</dt>
+            <dd>{route.difficulty_label}</dd>
+          </div>
+        ) : null}
+        {route.route_category ? (
+          <div>
+            <dt>{t("Type")}</dt>
+            <dd>{formatCode(route.route_category)}</dd>
+          </div>
+        ) : null}
+        {route.min_elevation_meters || route.max_elevation_meters ? (
+          <div>
+            <dt>{t("Altitude")}</dt>
+            <dd>
+              {route.min_elevation_meters ? `${route.min_elevation_meters} m` : "-"}
+              {" - "}
+              {route.max_elevation_meters ? `${route.max_elevation_meters} m` : "-"}
+            </dd>
+          </div>
+        ) : null}
+        {objective.name ? (
+          <div>
+            <dt>{t("Main objective")}</dt>
+            <dd>{objective.name}</dd>
+          </div>
+        ) : null}
+        {objective.latitude != null && objective.longitude != null ? (
+          <div>
+            <dt>{t("Coordinates")}</dt>
+            <dd>{Number(objective.latitude).toFixed(5)}, {Number(objective.longitude).toFixed(5)}</dd>
+          </div>
+        ) : null}
+      </dl>
+      {route.description ? <p className="route-overview-description">{route.description}</p> : null}
+      {route.summary ? <p className="route-overview-summary">{route.summary}</p> : null}
+      <div className="route-overview-actions">
+        {objective.latitude != null && objective.longitude != null ? (
+          <Link className="table-action-link" to={buildMapLink(objective)}>{t("View on map")}</Link>
+        ) : null}
+        {visibleSource ? (
+          <a className="table-action-link" href={visibleSource.url} target="_blank" rel="noreferrer">
+            {visibleSource.publisher || visibleSource.title || t("Open route")}
+          </a>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 function PitchExtractionPanel({ routeId, details, onExtracted, t }) {
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
@@ -679,6 +741,12 @@ export default function OutdoorRouteDetailPage() {
 
       <div className="route-detail-layout">
         <div className="route-variant-stack">
+          <RouteOverviewPanel
+            route={route}
+            objective={objective}
+            sourceReferences={details.source_references || []}
+            t={t}
+          />
           <PitchExtractionPanel routeId={routeId} details={details} onExtracted={refreshDetails} t={t} />
           <RouteGeometryImportPanel routeId={routeId} onImported={loadDetails} t={t} />
           {(details.variants || []).map((item) => (
