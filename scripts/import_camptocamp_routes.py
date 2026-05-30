@@ -233,12 +233,25 @@ def normalize_route(row: dict, detail: dict | None, now: str) -> dict:
 
 def fetch_camptocamp_route_previews(area_id: int, activity: str, limit: int, include_details: bool = True):
     now = utc_now_iso()
-    payload = fetch_json(routes_url(area_id, activity, limit))
-    rows = payload.get("documents") or []
-    total = payload.get("total")
+    requested_limit = max(0, int(limit or 0))
+    page_limit = min(max(requested_limit, 1), 100)
+    rows = []
+    total = None
+    offset = 0
+    while len(rows) < requested_limit:
+        payload = fetch_json(routes_url(area_id, activity, min(page_limit, requested_limit - len(rows)), offset))
+        if total is None:
+            total = payload.get("total")
+        page_rows = payload.get("documents") or []
+        if not page_rows:
+            break
+        rows.extend(page_rows)
+        if len(page_rows) < page_limit:
+            break
+        offset += len(page_rows)
     previews = []
     detail_errors = []
-    for row in rows[:limit]:
+    for row in rows[:requested_limit]:
         detail = {}
         if include_details:
             route_id = row.get("document_id")

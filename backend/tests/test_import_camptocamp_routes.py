@@ -66,6 +66,29 @@ def test_normalize_camptocamp_route_reports_pitch_count():
     assert preview["pitch_count"] == 2
 
 
+def test_fetch_camptocamp_route_previews_paginates_to_requested_limit(monkeypatch):
+    calls = []
+
+    def fake_fetch_json(url):
+        calls.append(url)
+        offset = 0
+        if "offset=100" in url:
+            offset = 100
+        rows = [c2c_row(route_id=1855000 + index) for index in range(offset, offset + 100)]
+        return {"total": 321, "documents": rows}
+
+    monkeypatch.setattr(import_camptocamp_routes, "fetch_json", fake_fetch_json)
+
+    total, previews, detail_errors = import_camptocamp_routes.fetch_camptocamp_route_previews(14397, "rock_climbing", 150, include_details=False)
+
+    assert total == 321
+    assert len(previews) == 150
+    assert detail_errors == []
+    assert len(calls) == 2
+    assert "limit=100" in calls[0]
+    assert "offset=100" in calls[1]
+
+
 def test_import_camptocamp_routes_preview_does_not_write(monkeypatch, capsys, client):
     preview = import_camptocamp_routes.normalize_route(c2c_row(1855328), c2c_pitch_detail(), "2026-05-29T00:00:00+00:00")
     monkeypatch.setattr(
