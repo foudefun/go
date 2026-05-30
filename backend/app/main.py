@@ -22,7 +22,7 @@ from fastapi import Cookie, Depends, FastAPI, File, Form, Header, HTTPException,
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint, and_, case, create_engine, event, or_
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint, and_, case, create_engine, event, func, or_
 from sqlalchemy.orm import object_session, sessionmaker, declarative_base
 
 from app.hangboard import BEASTMAKER_1000, generate_workout, normalize_generator_input, recommend_progression
@@ -8226,6 +8226,100 @@ def update_outdoor_route_segment(
         db.commit()
         db.refresh(segment)
         return {"ok": True, "segment": serialize_outdoor_route_segment(segment), "details": build_outdoor_route_details(db, route)}
+    finally:
+        db.close()
+
+@app.post("/api/outdoor-routes/{route_id}/variants/{variant_id}/segments")
+def create_outdoor_route_segment(
+    route_id: int,
+    variant_id: int,
+    payload: dict,
+    current_user: UserModel = Depends(get_current_user),
+):
+    db = get_db()
+    try:
+        route = (
+            db.query(OutdoorRouteModel)
+            .filter(OutdoorRouteModel.id == route_id, OutdoorRouteModel.username.in_(get_outdoor_library_usernames(current_user.username)))
+            .first()
+        )
+        if not route:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Outdoor route not found")
+        if route.username != current_user.username and not current_user.is_admin:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the route owner or an admin can create route segments")
+        variant = db.query(OutdoorRouteVariantModel).filter_by(id=variant_id, route_id=route.id).first()
+        if not variant:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Route variant not found")
+        requested_order = normalize_optional_int(payload.get("order_index") if isinstance(payload, dict) else None)
+        if requested_order is None:
+            max_order = (
+                db.query(func.max(OutdoorRouteSegmentModel.order_index))
+                .filter_by(route_variant_id=variant.id)
+                .scalar()
+            )
+            requested_order = int(max_order or 0) + 1
+        if requested_order < 1:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pitch order must be a positive number")
+        now = datetime.now(timezone.utc).isoformat()
+        segment_type = str(payload.get("segment_type") or "pitch").strip() if isinstance(payload, dict) else "pitch"
+        segment = OutdoorRouteSegmentModel(
+            route_variant_id=variant.id,
+            order_index=requested_order,
+            segment_type=(segment_type or "pitch")[:255],
+            name=str(payload.get("name") or f"Pitch {requested_order}").strip()[:255] if isinstance(payload, dict) else f"Pitch {requested_order}",
+            description=str(payload.get("description") or "").strip() if isinstance(payload, dict) else "",
+            difficulty_label=str(payload.get("difficulty_label") or "").strip()[:255] if isinstance(payload, dict) else "",
+            notes=str(payload.get("notes") or "").strip() if isinstance(payload, dict) else "",
+            distance_km=normalize_optional_float(payload.get("distance_km")) if isinstance(payload, dict) else None,
+            elevation_gain_meters=normalize_optional_float(payload.get("elevation_gain_meters")) if isinstance(payload, dict) else None,
+            elevation_loss_meters=normalize_optional_float(payload.get("elevation_loss_meters")) if isinstance(payload, dict) else None,
+            estimated_duration_minutes=normalize_optional_int(payload.get("estimated_duration_minutes")) if isinstance(payload, dict) else None,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(segment)
+        variant.updated_at = now
+        route.updated_at = now
+        db.commit()
+        db.refresh(segment)
+        return {"ok": True, "segment": serialize_outdoor_route_segment(segment), "details": build_outdoor_route_details(db, route)}
+    finally:
+        db.close()
+
+@app.delete("/api/outdoor-routes/{route_id}/segments/{segment_id}")
+def delete_outdoor_route_segment(
+    route_id: int,
+    segment_id: int,
+    current_user: UserModel = Depends(get_current_user),
+):
+    db = get_db()
+    try:
+        route = (
+            db.query(OutdoorRouteModel)
+            .filter(OutdoorRouteModel.id == route_id, OutdoorRouteModel.username.in_(get_outdoor_library_usernames(current_user.username)))
+            .first()
+        )
+        if not route:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Outdoor route not found")
+        if route.username != current_user.username and not current_user.is_admin:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the route owner or an admin can delete route segments")
+        segment = (
+            db.query(OutdoorRouteSegmentModel)
+            .join(OutdoorRouteVariantModel, OutdoorRouteSegmentModel.route_variant_id == OutdoorRouteVariantModel.id)
+            .filter(OutdoorRouteSegmentModel.id == segment_id, OutdoorRouteVariantModel.route_id == route.id)
+            .first()
+        )
+        if not segment:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Route segment not found")
+        variant = db.query(OutdoorRouteVariantModel).filter_by(id=segment.route_variant_id).first()
+        db.query(OutdoorSourceReferenceModel).filter_by(entity_type="route_segment", entity_id=segment.id).delete()
+        db.delete(segment)
+        now = datetime.now(timezone.utc).isoformat()
+        route.updated_at = now
+        if variant:
+            variant.updated_at = now
+        db.commit()
+        return {"ok": True, "deleted_segment_id": segment_id, "details": build_outdoor_route_details(db, route)}
     finally:
         db.close()
 

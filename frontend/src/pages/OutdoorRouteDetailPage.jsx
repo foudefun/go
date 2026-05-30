@@ -1,7 +1,9 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
+  createOutdoorRouteSegment,
   deleteOutdoorRouteVariant,
+  deleteOutdoorRouteSegment,
   extractOutdoorRoutePitches,
   getOutdoorRouteDetails,
   importOutdoorRouteGeometry,
@@ -346,11 +348,30 @@ function PitchEditor({ segment, routeId, onUpdated, t }) {
     }
   }
 
+  async function handleDelete() {
+    if (!window.confirm(t("Delete this pitch?"))) return;
+    setStatus("deleting");
+    setMessage("");
+    try {
+      const payload = await deleteOutdoorRouteSegment(routeId, segment.id);
+      onUpdated(payload.details);
+    } catch (err) {
+      setStatus("error");
+      setMessage(err.message || t("Unable to delete pitch."));
+    }
+  }
+
   if (!isEditing) {
     return (
-      <button type="button" className="table-action-link route-pitch-edit" onClick={() => setIsEditing(true)}>
-        {t("Edit pitch")}
-      </button>
+      <div className="route-pitch-actions">
+        <button type="button" className="table-action-link route-pitch-edit" onClick={() => setIsEditing(true)}>
+          {t("Edit pitch")}
+        </button>
+        <button type="button" className="table-action-link route-pitch-delete" onClick={handleDelete} disabled={status === "deleting"}>
+          {status === "deleting" ? t("Deleting...") : t("Delete pitch")}
+        </button>
+        {message ? <span className="inline-error">{message}</span> : null}
+      </div>
     );
   }
 
@@ -394,6 +415,95 @@ function PitchEditor({ segment, routeId, onUpdated, t }) {
   );
 }
 
+function AddPitchPanel({ routeId, variant, nextOrder, onUpdated, t }) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [form, setForm] = useState({
+    order_index: nextOrder,
+    name: `Pitch ${nextOrder}`,
+    difficulty_label: "",
+    description: "",
+    notes: "",
+  });
+  const [status, setStatus] = useState("idle");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!isAdding) {
+      setForm({
+        order_index: nextOrder,
+        name: `Pitch ${nextOrder}`,
+        difficulty_label: "",
+        description: "",
+        notes: "",
+      });
+    }
+  }, [isAdding, nextOrder]);
+
+  async function handleCreate() {
+    setStatus("saving");
+    setMessage("");
+    try {
+      const payload = await createOutdoorRouteSegment(routeId, variant.id, {
+        ...form,
+        segment_type: "pitch",
+      });
+      setStatus("saved");
+      setIsAdding(false);
+      onUpdated(payload.details);
+    } catch (err) {
+      setStatus("error");
+      setMessage(err.message || t("Unable to add pitch."));
+    }
+  }
+
+  if (!isAdding) {
+    return (
+      <button type="button" className="primary-action route-add-pitch" onClick={() => setIsAdding(true)}>
+        {t("Add pitch")}
+      </button>
+    );
+  }
+
+  return (
+    <div className="route-pitch-editor route-add-pitch-editor">
+      <label>
+        {t("Order")}
+        <input
+          type="number"
+          min="1"
+          value={form.order_index}
+          onChange={(event) => setForm((current) => ({ ...current, order_index: event.target.value }))}
+        />
+      </label>
+      <label>
+        {t("Name")}
+        <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
+      </label>
+      <label>
+        {t("Grade")}
+        <input value={form.difficulty_label} onChange={(event) => setForm((current) => ({ ...current, difficulty_label: event.target.value }))} />
+      </label>
+      <label className="route-pitch-editor-wide">
+        {t("Description")}
+        <textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
+      </label>
+      <label className="route-pitch-editor-wide">
+        {t("Notes")}
+        <input value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} />
+      </label>
+      <div className="route-pitch-editor-actions">
+        <button type="button" className="primary-action" onClick={handleCreate} disabled={status === "saving"}>
+          {status === "saving" ? t("Saving...") : t("Save pitch")}
+        </button>
+        <button type="button" onClick={() => setIsAdding(false)} disabled={status === "saving"}>
+          {t("Cancel")}
+        </button>
+      </div>
+      {message ? <span className="inline-error">{message}</span> : null}
+    </div>
+  );
+}
+
 function SegmentList({ segments, routeId, onUpdated, t }) {
   if (!segments.length) return <div className="empty-state compact">No segments imported yet.</div>;
   return (
@@ -428,6 +538,8 @@ function VariantCard({ item, routeId, onDeleted, t }) {
   const variant = item.variant;
   const hasGeometry = Array.isArray(variant.geometry?.coordinates) && variant.geometry.coordinates.length >= 2;
   const canDelete = variant.variant_type === "imported_track" || variant.route_shape === "gps_track";
+  const pitchSegments = (item.segments || []).filter(({ segment }) => segment.segment_type === "pitch");
+  const nextPitchOrder = Math.max(0, ...pitchSegments.map(({ segment }) => Number(segment.order_index || 0))) + 1;
   const [deleteStatus, setDeleteStatus] = useState("idle");
 
   async function handleDelete() {
@@ -467,6 +579,9 @@ function VariantCard({ item, routeId, onDeleted, t }) {
         <DetailMetric label="shape" value={formatCode(variant.route_shape)} />
       </div>
       <SegmentList segments={item.segments || []} routeId={routeId} onUpdated={onDeleted} t={t} />
+      {variant.variant_type === "pitch_list" ? (
+        <AddPitchPanel routeId={routeId} variant={variant} nextOrder={nextPitchOrder} onUpdated={onDeleted} t={t} />
+      ) : null}
     </article>
   );
 }

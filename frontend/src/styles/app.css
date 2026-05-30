@@ -1588,8 +1588,20 @@ select[multiple] {
   overflow-wrap: anywhere;
 }
 
-.route-pitch-edit {
+.route-pitch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.route-pitch-edit,
+.route-pitch-delete {
   width: fit-content;
+}
+
+.route-pitch-delete {
+  color: #b42318;
 }
 
 .route-pitch-editor {
@@ -1635,6 +1647,15 @@ select[multiple] {
   flex-wrap: wrap;
   gap: 8px;
   grid-column: 1 / -1;
+}
+
+.route-add-pitch {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+.route-add-pitch-editor {
+  margin-top: 4px;
 }
 
 .route-variant-header {

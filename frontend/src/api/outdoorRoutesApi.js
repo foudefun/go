@@ -29,6 +29,20 @@ export function updateOutdoorRouteSegment(routeId, segmentId, payload) {
   });
 }
 
+export function createOutdoorRouteSegment(routeId, variantId, payload) {
+  return api(`/outdoor-routes/${routeId}/variants/${variantId}/segments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteOutdoorRouteSegment(routeId, segmentId) {
+  return api(`/outdoor-routes/${routeId}/segments/${segmentId}`, {
+    method: "DELETE",
+  });
+}
+
 export function importOutdoorRouteGeometry(routeId, { file, variantName = "" }) {
   const formData = new FormData();
   formData.append("file", file);

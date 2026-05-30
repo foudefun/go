@@ -240,6 +240,46 @@ def test_update_outdoor_route_pitch_segment(client):
     assert segment["description"] == "Updated pitch"
 
 
+def test_create_and_delete_outdoor_route_pitch_segment(client):
+    route_id = seed_route_details()
+    db = main.SessionLocal()
+    try:
+        variant = main.OutdoorRouteVariantModel(
+            route_id=route_id,
+            name="Pitch list",
+            variant_type="pitch_list",
+            route_shape="pitch_sequence",
+            created_at="2026-05-24T00:00:00",
+            updated_at="2026-05-24T00:00:00",
+        )
+        db.add(variant)
+        db.commit()
+        variant_id = variant.id
+    finally:
+        db.close()
+
+    created = client.post(
+        f"/api/outdoor-routes/{route_id}/variants/{variant_id}/segments",
+        json={"segment_type": "pitch", "order_index": 1, "name": "Pitch 1", "difficulty_label": "6a", "description": "Manual pitch"},
+    )
+
+    assert created.status_code == 200, created.text
+    segment = created.json()["segment"]
+    assert segment["segment_type"] == "pitch"
+    assert segment["name"] == "Pitch 1"
+    assert segment["description"] == "Manual pitch"
+
+    deleted = client.delete(f"/api/outdoor-routes/{route_id}/segments/{segment['id']}")
+
+    assert deleted.status_code == 200, deleted.text
+    assert deleted.json()["deleted_segment_id"] == segment["id"]
+    db = main.SessionLocal()
+    try:
+        assert db.query(main.OutdoorRouteSegmentModel).filter_by(id=segment["id"]).first() is None
+    finally:
+        db.close()
+
+
 def test_get_outdoor_route_details_scopes_to_current_user(client):
     db = main.SessionLocal()
     try:
