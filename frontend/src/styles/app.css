@@ -1223,10 +1223,26 @@ select[multiple] {
 
 .outdoor-routes-toolbar {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(160px, 220px) minmax(160px, 220px);
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 220px) minmax(160px, 220px) minmax(130px, auto);
   gap: 14px;
   align-items: end;
   padding: 16px;
+}
+
+.route-checkbox-filter {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 42px;
+  color: #42526b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.route-checkbox-filter input {
+  width: 18px;
+  height: 18px;
+  accent-color: #0f766e;
 }
 
 .route-geometry-import-panel {
@@ -1422,7 +1438,7 @@ select[multiple] {
 
 .route-card-meta {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 

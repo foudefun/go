@@ -1,9 +1,10 @@
 import { api } from "./client.js";
 
-export function listOutdoorRoutes({ search = "", activityType = "" } = {}) {
+export function listOutdoorRoutes({ search = "", activityType = "", hasPitches = false } = {}) {
   const params = new URLSearchParams();
   if (search) params.set("search", search);
   if (activityType) params.set("activity_type", activityType);
+  if (hasPitches) params.set("has_pitches", "true");
   const query = params.toString();
   return api(`/outdoor-routes${query ? `?${query}` : ""}`);
 }

@@ -3054,12 +3054,19 @@ def build_outdoor_route_list_item(db, route: OutdoorRouteModel) -> dict:
         .filter(OutdoorRouteVariantModel.route_id == route.id)
         .count()
     )
+    pitch_count = (
+        db.query(OutdoorRouteSegmentModel)
+        .join(OutdoorRouteVariantModel, OutdoorRouteSegmentModel.route_variant_id == OutdoorRouteVariantModel.id)
+        .filter(OutdoorRouteVariantModel.route_id == route.id, OutdoorRouteSegmentModel.segment_type == "pitch")
+        .count()
+    )
     return {
         "route": serialize_outdoor_route(route),
         "main_objective": main_objective,
         "map_line": build_outdoor_route_map_line(db, route.id, main_objective),
         "variant_count": variant_count,
         "segment_count": segment_count,
+        "pitch_count": pitch_count,
         "location_role_count": len(location_roles),
         "location_roles": location_roles,
     }
@@ -7961,6 +7968,7 @@ def update_config(payload: dict, _: UserModel = Depends(get_current_user)):
 def list_outdoor_routes(
     search: str = "",
     activity_type: str = "",
+    has_pitches: str = "",
     current_user: UserModel = Depends(get_current_user),
 ):
     db = get_db()
@@ -7970,6 +7978,15 @@ def list_outdoor_routes(
         normalized_activity = normalize_outdoor_route_activity_type(activity_type)
         if normalized_activity:
             query = query.filter(OutdoorRouteModel.activity_type == normalized_activity)
+        if parse_env_bool(has_pitches, False):
+            pitch_route_ids = (
+                db.query(OutdoorRouteVariantModel.route_id)
+                .join(OutdoorRouteSegmentModel, OutdoorRouteSegmentModel.route_variant_id == OutdoorRouteVariantModel.id)
+                .filter(OutdoorRouteSegmentModel.segment_type == "pitch")
+                .distinct()
+                .all()
+            )
+            query = query.filter(OutdoorRouteModel.id.in_([row.route_id for row in pitch_route_ids]))
         search_text = str(search or "").strip()
         if search_text:
             like = f"%{search_text}%"

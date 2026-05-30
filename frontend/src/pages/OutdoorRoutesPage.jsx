@@ -41,6 +41,7 @@ function RouteSummaryCard({ item }) {
         <span><strong>{route.difficulty_label || "n/a"}</strong>grade</span>
         <span><strong>{item.variant_count}</strong>variants</span>
         <span><strong>{item.segment_count}</strong>segments</span>
+        <span><strong>{item.pitch_count || 0}</strong>pitches</span>
       </div>
       <div className="route-card-footer">
         <span>{objective.name || "No objective"}</span>
@@ -110,6 +111,7 @@ export default function OutdoorRoutesPage() {
   const [search, setSearch] = useState("");
   const [activityType, setActivityType] = useState("");
   const [completenessFilter, setCompletenessFilter] = useState("");
+  const [hasPitches, setHasPitches] = useState(false);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
   const [refreshToken, setRefreshToken] = useState(0);
@@ -126,7 +128,7 @@ export default function OutdoorRoutesPage() {
     const timeoutId = window.setTimeout(() => {
       setStatus("loading");
       setError("");
-      listOutdoorRoutes({ search, activityType })
+      listOutdoorRoutes({ search, activityType, hasPitches })
         .then((payload) => {
           if (cancelled) return;
           setRoutes(Array.isArray(payload.routes) ? payload.routes : []);
@@ -142,13 +144,14 @@ export default function OutdoorRoutesPage() {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [search, activityType, refreshToken]);
+  }, [search, activityType, hasPitches, refreshToken]);
 
   const totals = useMemo(
     () => ({
       routes: routes.length,
       variants: routes.reduce((sum, item) => sum + Number(item.variant_count || 0), 0),
       segments: routes.reduce((sum, item) => sum + Number(item.segment_count || 0), 0),
+      pitches: routes.reduce((sum, item) => sum + Number(item.pitch_count || 0), 0),
     }),
     [routes],
   );
@@ -257,6 +260,14 @@ export default function OutdoorRoutesPage() {
             ))}
           </select>
         </label>
+        <label className="route-checkbox-filter">
+          <input
+            type="checkbox"
+            checked={hasPitches}
+            onChange={(event) => setHasPitches(event.target.checked)}
+          />
+          <span>{t("Has pitches")}</span>
+        </label>
       </section>
 
       <section className="app-panel route-geometry-import-panel">
@@ -316,6 +327,7 @@ export default function OutdoorRoutesPage() {
         <span><strong>{totals.routes}</strong>{t("Routes")}</span>
         <span><strong>{totals.variants}</strong>{t("Variants")}</span>
         <span><strong>{totals.segments}</strong>{t("Segments")}</span>
+        <span><strong>{totals.pitches}</strong>{t("Pitches")}</span>
         <span><strong>{activityType ? getOutdoorRouteActivityTypeLabel(activityType) : t("All types")}</strong>{t("Activity")}</span>
       </section>
 

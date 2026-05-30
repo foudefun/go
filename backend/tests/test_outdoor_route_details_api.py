@@ -97,7 +97,57 @@ def test_list_outdoor_routes_returns_summary_rows(client):
     assert item["map_line"]["coordinates"] == [[6.829, 45.852], [6.84, 45.86], [6.8652, 45.8326]]
     assert item["variant_count"] == 1
     assert item["segment_count"] == 1
+    assert item["pitch_count"] == 0
     assert item["location_role_count"] == 1
+
+
+def test_list_outdoor_routes_can_filter_routes_with_pitches(client):
+    route_id = seed_route_details()
+    db = main.SessionLocal()
+    try:
+        route = db.query(main.OutdoorRouteModel).filter_by(id=route_id).one()
+        pitch_variant = main.OutdoorRouteVariantModel(
+            route_id=route.id,
+            name="Pitch list",
+            variant_type="pitch_list",
+            route_shape="pitch_sequence",
+            created_at="2026-05-24T00:00:00",
+            updated_at="2026-05-24T00:00:00",
+        )
+        other_route = main.OutdoorRouteModel(
+            username="admin",
+            name="No pitches route",
+            activity_type="outdoor_climbing",
+            route_category="climb",
+            visibility="private",
+            status="draft",
+            created_at="2026-05-24T00:00:00",
+            updated_at="2026-05-24T00:00:00",
+        )
+        db.add_all([pitch_variant, other_route])
+        db.flush()
+        db.add(
+            main.OutdoorRouteSegmentModel(
+                route_variant_id=pitch_variant.id,
+                order_index=1,
+                segment_type="pitch",
+                name="Pitch 1",
+                difficulty_label="6a",
+                created_at="2026-05-24T00:00:00",
+                updated_at="2026-05-24T00:00:00",
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get("/api/outdoor-routes", params={"has_pitches": "true"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["routes"][0]["route"]["id"] == route_id
+    assert payload["routes"][0]["pitch_count"] == 1
 
 
 def test_list_outdoor_routes_filters_by_search_and_activity(client):
