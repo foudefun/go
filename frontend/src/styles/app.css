@@ -1832,10 +1832,26 @@ select[multiple] {
 
 .outdoor-map-filters {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
   align-items: end;
   padding: 16px;
+}
+
+.outdoor-map-filters label {
+  min-width: 0;
+}
+
+.outdoor-map-filters input,
+.outdoor-map-filters select {
+  width: 100%;
+  min-width: 0;
+}
+
+.outdoor-map-filters select {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .outdoor-map-search-field {
@@ -1857,6 +1873,7 @@ select[multiple] {
   border-color: #cbd5e1;
   background: #fff;
   color: #111827;
+  white-space: nowrap;
 }
 
 .map-preset-set button:hover {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -713,32 +713,35 @@ function OutdoorMapCanvas({
         .setLngLat([longitude, latitude])
         .addTo(map);
     };
+    const isPointInView = (point) => {
+      const bounds = map.getBounds();
+      const latitude = Number(point.latitude);
+      const longitude = Number(point.longitude);
+      const latitudePadding = Math.max(0.05, (bounds.getNorth() - bounds.getSouth()) * 0.12);
+      const longitudePadding = Math.max(0.05, (bounds.getEast() - bounds.getWest()) * 0.12);
+      return (
+        latitude >= bounds.getSouth() - latitudePadding
+        && latitude <= bounds.getNorth() + latitudePadding
+        && longitude >= bounds.getWest() - longitudePadding
+        && longitude <= bounds.getEast() + longitudePadding
+      );
+    };
     const getPointGroups = () => {
-      if (map.getZoom() >= POINT_CLUSTER_MAX_ZOOM) return points.map((point) => [point]);
+      const visiblePoints = points.filter((point) => point.id === selectedId || isPointInView(point));
+      if (map.getZoom() >= POINT_CLUSTER_MAX_ZOOM) return visiblePoints.map((point) => [point]);
       const groups = [];
-      const usedPointIds = new Set();
-      points.forEach((point) => {
-        if (usedPointIds.has(point.id)) return;
+      const grid = new Map();
+      visiblePoints.forEach((point) => {
         if (point.id === selectedId) {
-          usedPointIds.add(point.id);
           groups.push([point]);
           return;
         }
         const projectedPoint = map.project([Number(point.longitude), Number(point.latitude)]);
-        const group = [point];
-        usedPointIds.add(point.id);
-        points.forEach((candidate) => {
-          if (usedPointIds.has(candidate.id) || candidate.id === selectedId) return;
-          const projectedCandidate = map.project([Number(candidate.longitude), Number(candidate.latitude)]);
-          const deltaX = projectedCandidate.x - projectedPoint.x;
-          const deltaY = projectedCandidate.y - projectedPoint.y;
-          if (Math.sqrt((deltaX * deltaX) + (deltaY * deltaY)) <= POINT_CLUSTER_RADIUS_PX) {
-            group.push(candidate);
-            usedPointIds.add(candidate.id);
-          }
-        });
-        groups.push(group);
+        const key = `${Math.floor(projectedPoint.x / POINT_CLUSTER_RADIUS_PX)}:${Math.floor(projectedPoint.y / POINT_CLUSTER_RADIUS_PX)}`;
+        if (!grid.has(key)) grid.set(key, []);
+        grid.get(key).push(point);
       });
+      groups.push(...grid.values());
       return groups;
     };
     const renderMarkers = () => {
@@ -813,6 +816,7 @@ export default function OutdoorMapPage() {
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [locationTypes, setLocationTypes] = useState(new Set(["summit", "hut", "trailhead", "station", "pass", "waypoint", "other_location"]));
   const [showRoutes, setShowRoutes] = useState(true);
   const [activityType, setActivityType] = useState("");
@@ -858,7 +862,7 @@ export default function OutdoorMapPage() {
   );
   const [pendingMinimumElevationValue, pendingMaximumElevationValue] = pendingAltitudeRange;
   const [minimumElevationValue, maximumElevationValue] = altitudeRange;
-  const normalizedSearchQuery = normalizeSearchValue(searchQuery);
+  const normalizedSearchQuery = normalizeSearchValue(deferredSearchQuery);
   const filteredRoutes = useMemo(
     () =>
       allRoutes.filter((item) => {
