@@ -82,11 +82,12 @@ export function previewUploadedStravaExportFiles(files) {
   });
 }
 
-export function importUploadedStravaExportFiles(files) {
+export function importUploadedStravaExportFiles(files, { activityTypeOverride = "" } = {}) {
   const formData = new FormData();
   for (const file of files || []) {
     formData.append("files", file);
   }
+  formData.append("activity_type_override", activityTypeOverride);
   return api("/strava/export/upload-import", {
     method: "POST",
     body: formData,

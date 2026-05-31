@@ -187,6 +187,7 @@ export function ActivityImportPanel() {
   const [batchFiles, setBatchFiles] = useState([]);
   const [status, setStatus] = useState("idle");
   const [batchStatus, setBatchStatus] = useState("idle");
+  const [retryActivityType, setRetryActivityType] = useState("");
   const [error, setError] = useState("");
   const [batchError, setBatchError] = useState("");
   const [result, setResult] = useState(null);
@@ -230,6 +231,7 @@ export function ActivityImportPanel() {
     const nextFiles = Array.from(fileList || []).filter((item) => /\.(fit|gpx|tcx)(\.gz)?$/i.test(item.name || ""));
     setBatchFiles(nextFiles);
     setBatchResult(null);
+    setRetryActivityType("");
     setBatchError(nextFiles.length ? "" : t("Choose FIT, GPX, or TCX activity files."));
   }
 
@@ -243,6 +245,29 @@ export function ActivityImportPanel() {
     setBatchResult(null);
     try {
       const payload = await importUploadedStravaExportFiles(batchFiles);
+      setBatchResult(payload);
+      setBatchStatus("idle");
+    } catch (importError) {
+      setBatchError(importError.message);
+      setBatchStatus("idle");
+    }
+  }
+
+  async function retryBatchErrors() {
+    const errorNames = new Set((batchResult?.errors || []).map((item) => item.filename));
+    const filesToRetry = batchFiles.filter((item) => errorNames.has(item.name));
+    if (!filesToRetry.length) {
+      setBatchError(t("No failed files to retry."));
+      return;
+    }
+    if (!retryActivityType) {
+      setBatchError(t("Choose an activity type before retrying failed files."));
+      return;
+    }
+    setBatchStatus("importing");
+    setBatchError("");
+    try {
+      const payload = await importUploadedStravaExportFiles(filesToRetry, { activityTypeOverride: retryActivityType });
       setBatchResult(payload);
       setBatchStatus("idle");
     } catch (importError) {
@@ -375,9 +400,30 @@ export function ActivityImportPanel() {
           ) : null}
 
           {batchResult?.errors?.length ? (
-            <div className="error-banner">
-              {batchResult.errors.slice(0, 3).map((item) => `${item.filename}: ${item.detail}`).join(" | ")}
-            </div>
+            <section className="app-panel import-panel compact">
+              <div>
+                <p className="eyebrow">{t("Resolve Errors")}</p>
+                <h3>{t("Assign a type and retry")}</h3>
+                <p>{t("Some files could not be mapped to an activity type. Choose the best type and retry only failed files.")}</p>
+              </div>
+              <label>
+                {t("Activity type")}
+                <select value={retryActivityType} onChange={(event) => setRetryActivityType(event.target.value)}>
+                  <option value="">{t("Choose activity type")}</option>
+                  {ACTIVITY_TYPES.filter((activityType) => activityType.value).map((activityType) => (
+                    <option value={activityType.value} key={activityType.value}>
+                      {t(activityType.label)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="button" className="secondary-action" onClick={retryBatchErrors} disabled={batchStatus === "importing" || !retryActivityType}>
+                {batchStatus === "importing" ? t("Importing...") : t("Retry Failed Files")}
+              </button>
+              <div className="error-banner">
+                {batchResult.errors.slice(0, 8).map((item) => `${item.filename}: ${item.detail}`).join(" | ")}
+              </div>
+            </section>
           ) : null}
         </section>
       </div>

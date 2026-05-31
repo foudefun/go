@@ -6122,7 +6122,7 @@ def parse_uploaded_strava_export_file(filename: str, content: bytes) -> dict:
     parsed["source_label"] = "Import Strava"
     return parsed
 
-def import_uploaded_strava_export_file_into_db(db, username: str, filename: str, content: bytes) -> dict:
+def import_uploaded_strava_export_file_into_db(db, username: str, filename: str, content: bytes, activity_type_override: str = "") -> dict:
     parsed = parse_uploaded_strava_export_file(filename, content)
     strava_activity_id = str(parsed.get("strava_activity_id", "") or "")
     existing = find_existing_strava_activity(db, username, strava_activity_id)
@@ -6135,6 +6135,7 @@ def import_uploaded_strava_export_file_into_db(db, username: str, filename: str,
         source_file_content=maybe_decompress_activity_content(content, filename),
         source_file_format=detect_activity_file_format(filename, ""),
         title=str(parsed.get("title", "") or "").strip(),
+        activity_type_override=activity_type_override,
         source_id_override=f"strava-export-{strava_activity_id}" if strava_activity_id else "",
         provider_override="Strava Export",
         require_activity_type=True,
@@ -9895,6 +9896,7 @@ async def preview_uploaded_strava_export(
 @app.post("/api/strava/export/upload-import")
 async def import_uploaded_strava_export(
     files: list[UploadFile] = File(...),
+    activity_type_override: str = Form(""),
     current_user: UserModel = Depends(get_current_user),
 ):
     if len(files) > 100:
@@ -9912,7 +9914,7 @@ async def import_uploaded_strava_export(
                     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty Strava export file")
                 if len(content) > MAX_ACTIVITY_SOURCE_UPLOAD_BYTES:
                     raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="Uploaded file is too large")
-                result = import_uploaded_strava_export_file_into_db(db, current_user.username, filename, content)
+                result = import_uploaded_strava_export_file_into_db(db, current_user.username, filename, content, activity_type_override)
                 if result.get("imported"):
                     imported.append(result)
                 else:
