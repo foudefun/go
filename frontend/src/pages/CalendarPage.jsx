@@ -108,20 +108,27 @@ function compactCalendarSummary(entry) {
   let text = String(entry?.summary || entry?.details || "").trim();
   if (!text) return "";
   text = text
+    .replaceAll("RandonnÃƒÆ’Ã‚Â©e", "Randonnée")
+    .replaceAll("RandonnÃƒÂ©e", "Randonnée")
+    .replaceAll("RandonnÃ©e", "Randonnée")
+    .replaceAll("DurÃƒÆ’Ã‚Â©e", "Durée")
+    .replaceAll("DurÃƒÂ©e", "Durée")
     .replaceAll("DurÃ©e", "Durée")
     .replace(/\s+/g, " ")
+    .replace(/\bImport\s+(FIT|GPX|TCX|Strava(?:\s+export)?):?\s*[^|]*(?=Durée|Duration|Distance|Puissance|Avg|FC|Cadence|Calories|$)/gi, " ")
     .replace(/\s*Fichier:\s*.*?(?=Durée|Duration|Distance|Puissance|Avg|FC|Cadence|Calories|$)/i, " ")
-    .replace(/\bImport FIT:\s*/i, "")
+    .replace(/\b(cycling|walking|running)\s+\(virtual activity\)\s*/gi, "")
+    .replace(/\b(cycling|walking|running)\s*/gi, "")
     .trim();
   const parts = text
     .split("|")
     .map((part) => part.trim())
     .filter(Boolean)
-    .filter((part) => !/^Fichier:/i.test(part));
+    .filter((part) => !/^Fichier:/i.test(part))
+    .filter((part) => !/^Import\s+(FIT|GPX|TCX|Strava)/i.test(part));
   if (parts.length > 3) return parts.slice(0, 3).join(" | ");
   return parts.join(" | ") || text;
 }
-
 function hasTarget(row) {
   return row?.target_load !== null && row?.target_load !== undefined;
 }

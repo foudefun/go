@@ -2241,7 +2241,7 @@ ACTIVITY_LABELS = {
     "alpine_ski": {"fr": "Ski alpin", "en": "Alpine ski"},
     "snowboarding": {"fr": "Snowboard", "en": "Snowboarding"},
     "ski_touring": {"fr": "Ski de randonnÃ©e", "en": "Ski touring"},
-    "hiking": {"fr": "RandonnÃ©e", "en": "Hiking"},
+    "hiking": {"fr": "Randonnée", "en": "Hiking"},
     "alpinism": {"fr": "Alpinisme", "en": "Alpinism"},
     "surfing": {"fr": "Surf", "en": "Surfing"},
     "hockey": {"fr": "Hockey", "en": "Hockey"},
@@ -6057,7 +6057,7 @@ def parse_strava_export_file(path: Path) -> dict:
     parsed["strava_activity_id"] = strava_activity_id
     parsed["source_file"] = path.name
     parsed["strava_url"] = f"https://www.strava.com/activities/{strava_activity_id}" if strava_activity_id.isdigit() else ""
-    parsed["source_label"] = f"Import Strava export: {str(parsed.get('sport', '') or selected_format).replace('_', ' ')}".strip()
+    parsed["source_label"] = "Import Strava"
     return parsed
 
 def serialize_strava_export_preview(path: Path, parsed: dict, existing: dict | None = None) -> dict:
@@ -6119,7 +6119,7 @@ def parse_uploaded_strava_export_file(filename: str, content: bytes) -> dict:
     parsed["strava_activity_id"] = strava_activity_id
     parsed["source_file"] = filename
     parsed["strava_url"] = f"https://www.strava.com/activities/{strava_activity_id}" if strava_activity_id.isdigit() else ""
-    parsed["source_label"] = f"Import Strava export: {str(parsed.get('sport', '') or selected_format).replace('_', ' ')}".strip()
+    parsed["source_label"] = "Import Strava"
     return parsed
 
 def import_uploaded_strava_export_file_into_db(db, username: str, filename: str, content: bytes) -> dict:
