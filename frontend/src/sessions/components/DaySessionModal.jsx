@@ -160,19 +160,6 @@ function getActivityTypeInputValue(value, t = (item) => item) {
   return knownType ? t(knownType.label) : value || "";
 }
 
-function normalizeActivityTypeInput(input, t = (item) => item) {
-  const normalizedInput = String(input || "").trim().toLowerCase();
-  const knownType = ACTIVITY_TYPES.find((activityType) => {
-    if (!activityType.value) return false;
-    return (
-      activityType.value.toLowerCase() === normalizedInput ||
-      activityType.label.toLowerCase() === normalizedInput ||
-      t(activityType.label).toLowerCase() === normalizedInput
-    );
-  });
-  return knownType?.value || input;
-}
-
 function getSaveActionLabel({ draftActivity, showPlanEditor, hasActivityEditor, t }) {
   if (draftActivity) return t("Create activity");
   if (showPlanEditor && !hasActivityEditor) return t("Save plan and close");
@@ -217,6 +204,68 @@ function buildActivityFromPlan(session) {
       : [],
     exercises: isStrengthPlan ? plannedItems.map((item) => item.exercise_name).filter(Boolean) : [],
   });
+}
+
+const DEFAULT_ACTIVITY_TYPE_VALUES = [
+  "course_a_pied",
+  "velo",
+  "vtt",
+  "ski_touring",
+  "hiking",
+  "musculation",
+  "escalade",
+  "hangboard",
+  "yoga",
+];
+
+function ActivityTypePicker({ value, search, onSearchChange, onSelect, t }) {
+  const normalizedSearch = String(search || "").trim().toLowerCase();
+  const selectedLabel = getActivityTypeInputValue(value, t);
+  const options = ACTIVITY_TYPES.filter((activityType) => {
+    if (!activityType.value) return false;
+    if (!normalizedSearch) return DEFAULT_ACTIVITY_TYPE_VALUES.includes(activityType.value);
+    return (
+      activityType.value.toLowerCase().includes(normalizedSearch) ||
+      activityType.label.toLowerCase().includes(normalizedSearch) ||
+      t(activityType.label).toLowerCase().includes(normalizedSearch)
+    );
+  });
+
+  return (
+    <section className="activity-type-picker" aria-label={t("Activity Type")}>
+      <div className="section-heading-row">
+        <div>
+          <p className="eyebrow">{t("Activity Type")}</p>
+          <h3>{selectedLabel || t("Choose activity type")}</h3>
+        </div>
+      </div>
+      <label className="activity-type-search">
+        <span>{t("Search activity type")}</span>
+        <input
+          value={search}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder={t("Run, bike, strength...")}
+        />
+      </label>
+      <div className="activity-type-chip-grid">
+        {options.map((activityType) => (
+          <button
+            type="button"
+            className={value === activityType.value ? "activity-type-chip active" : "activity-type-chip"}
+            key={activityType.value}
+            onClick={() => {
+              onSelect(activityType.value);
+              onSearchChange("");
+            }}
+          >
+            <strong>{t(activityType.label)}</strong>
+            <span>{t(activityType.shortLabel || activityType.label)}</span>
+          </button>
+        ))}
+      </div>
+      {normalizedSearch && !options.length ? <p className="muted-copy">{t("No matching activity type.")}</p> : null}
+    </section>
+  );
 }
 
 function ActivityImagePanel({ activity, canManage, uploading, error, onUpload, onDelete, t }) {
@@ -668,7 +717,7 @@ export default function DaySessionModal({
   const [imageError, setImageError] = useState("");
   const [sourceStatus, setSourceStatus] = useState("idle");
   const [sourceError, setSourceError] = useState("");
-  const [isActivityTypeMenuOpen, setIsActivityTypeMenuOpen] = useState(false);
+  const [activityTypeSearch, setActivityTypeSearch] = useState("");
   const [showImportPanel, setShowImportPanel] = useState(false);
 
   useEffect(() => {
@@ -684,6 +733,7 @@ export default function DaySessionModal({
         setSession(nextSession);
         setDraftActivity(createNewOnOpen ? normalizeActivity({ ...blankActivity(), ...(initialActivity || {}) }) : null);
         setShowPlanEditor(false);
+        setActivityTypeSearch("");
         setShowImportPanel(Boolean(initialShowImportPanel));
         setActiveIndex(
           createNewOnOpen
@@ -729,17 +779,6 @@ export default function DaySessionModal({
   }, []);
 
   const activeActivity = activeIndex === null ? draftActivity || blankActivity() : session?.activities?.[activeIndex] || blankActivity();
-  const activityTypeInputValue = getActivityTypeInputValue(activeActivity.activity_type, t);
-  const activityTypeSuggestions = ACTIVITY_TYPES.filter((activityType) => {
-    if (!activityType.value) return false;
-    const search = activityTypeInputValue.trim().toLowerCase();
-    if (!search || ACTIVITY_TYPES.some((knownType) => knownType.value === activeActivity.activity_type)) return true;
-    return (
-      activityType.value.toLowerCase().includes(search) ||
-      activityType.label.toLowerCase().includes(search) ||
-      t(activityType.label).toLowerCase().includes(search)
-    );
-  });
   const isActiveStrengthActivity = isStrengthActivity(activeActivity.activity_type);
   const isActiveClimbingActivity =
     activeActivity.activity_type === "indoor_climbing" ||
@@ -788,11 +827,13 @@ export default function DaySessionModal({
   function addActivity() {
     setDraftActivity(blankActivity());
     setActiveIndex(null);
+    setActivityTypeSearch("");
     setShowImportPanel(false);
   }
 
   function cancelDraftActivity() {
     setDraftActivity(null);
+    setActivityTypeSearch("");
     setActiveIndex(savedActivities.length ? 0 : 0);
   }
 
@@ -1013,40 +1054,13 @@ export default function DaySessionModal({
 
               {hasActivityEditor ? (
                 <>
-                  <div className="activity-type-only-row">
-                    <label>
-                      {t("Activity Type")}
-                      <span className="activity-type-combobox">
-                        <input
-                          value={activityTypeInputValue}
-                          onChange={(event) => {
-                            updateActiveActivity({ activity_type: normalizeActivityTypeInput(event.target.value, t) });
-                            setIsActivityTypeMenuOpen(true);
-                          }}
-                          onFocus={() => setIsActivityTypeMenuOpen(true)}
-                          onBlur={() => setIsActivityTypeMenuOpen(false)}
-                          placeholder={t("Choose type")}
-                        />
-                        {isActivityTypeMenuOpen ? (
-                          <span className="activity-type-menu">
-                            {activityTypeSuggestions.map((activityType) => (
-                              <button
-                                type="button"
-                                key={activityType.value}
-                                onMouseDown={(event) => {
-                                  event.preventDefault();
-                                  updateActiveActivity({ activity_type: activityType.value });
-                                  setIsActivityTypeMenuOpen(false);
-                                }}
-                              >
-                                {t(activityType.label)}
-                              </button>
-                            ))}
-                          </span>
-                        ) : null}
-                      </span>
-                    </label>
-                  </div>
+                  <ActivityTypePicker
+                    value={activeActivity.activity_type}
+                    search={activityTypeSearch}
+                    onSearchChange={setActivityTypeSearch}
+                    onSelect={(activityType) => updateActiveActivity({ activity_type: activityType })}
+                    t={t}
+                  />
 
                   {showImportPanel ? (
                     <ActivitySourceFilesPanel
