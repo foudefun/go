@@ -185,8 +185,6 @@ export function ActivityImportPanel() {
   const [note, setNote] = useState("");
   const [activityTypeOverride, setActivityTypeOverride] = useState("");
   const [batchFiles, setBatchFiles] = useState([]);
-  const [batchPreview, setBatchPreview] = useState({ activities: [], errors: [] });
-  const [selectedBatchFiles, setSelectedBatchFiles] = useState([]);
   const [status, setStatus] = useState("idle");
   const [batchStatus, setBatchStatus] = useState("idle");
   const [error, setError] = useState("");
@@ -231,48 +229,21 @@ export function ActivityImportPanel() {
   function setBatchSelection(fileList) {
     const nextFiles = Array.from(fileList || []).filter((item) => /\.(fit|gpx|tcx)(\.gz)?$/i.test(item.name || ""));
     setBatchFiles(nextFiles);
-    setBatchPreview({ activities: [], errors: [] });
-    setSelectedBatchFiles([]);
     setBatchResult(null);
     setBatchError(nextFiles.length ? "" : t("Choose FIT, GPX, or TCX activity files."));
   }
 
-  async function previewBatchFiles() {
+  async function importBatchFiles() {
     if (!batchFiles.length) {
       setBatchError(t("Choose FIT, GPX, or TCX activity files."));
       return;
     }
-    setBatchStatus("previewing");
-    setBatchError("");
-    setBatchResult(null);
-    try {
-      const payload = await previewUploadedStravaExportFiles(batchFiles);
-      setBatchPreview(payload);
-      setSelectedBatchFiles([]);
-      setBatchStatus("idle");
-    } catch (previewError) {
-      setBatchError(previewError.message);
-      setBatchStatus("idle");
-    }
-  }
-
-  function toggleBatchFile(filename) {
-    setSelectedBatchFiles((current) => (current.includes(filename) ? current.filter((item) => item !== filename) : [...current, filename]));
-  }
-
-  async function importSelectedBatchFiles() {
-    if (!selectedBatchFiles.length) {
-      setBatchError(t("Select at least one file to import."));
-      return;
-    }
-    const filesToImport = batchFiles.filter((item) => selectedBatchFiles.includes(item.name));
     setBatchStatus("importing");
     setBatchError("");
     setBatchResult(null);
     try {
-      const payload = await importUploadedStravaExportFiles(filesToImport);
+      const payload = await importUploadedStravaExportFiles(batchFiles);
       setBatchResult(payload);
-      setSelectedBatchFiles([]);
       setBatchStatus("idle");
     } catch (importError) {
       setBatchError(importError.message);
@@ -359,7 +330,7 @@ export function ActivityImportPanel() {
           <div>
             <p className="eyebrow">{t("Batch Import")}</p>
             <h2>{t("Import Multiple Activities")}</h2>
-            <p>{t("Choose several FIT, GPX, or TCX files, or select a folder from your computer, preview them, then import selected activities.")}</p>
+            <p>{t("Choose several FIT, GPX, or TCX files, or select a folder from your computer, then import them in one step.")}</p>
           </div>
 
           <div className="form-grid">
@@ -391,11 +362,8 @@ export function ActivityImportPanel() {
           ) : null}
 
           <div className="day-modal-actions">
-            <button type="button" className="primary-action" onClick={previewBatchFiles} disabled={batchStatus === "previewing" || !batchFiles.length}>
-              {batchStatus === "previewing" ? t("Loading...") : t("Preview Files")}
-            </button>
-            <button type="button" className="secondary-action" onClick={importSelectedBatchFiles} disabled={batchStatus === "importing" || !selectedBatchFiles.length}>
-              {batchStatus === "importing" ? t("Importing...") : t("Import Selected")}
+            <button type="button" className="primary-action" onClick={importBatchFiles} disabled={batchStatus === "importing" || !batchFiles.length}>
+              {batchStatus === "importing" ? t("Importing...") : t("Import All Selected Files")}
             </button>
           </div>
 
@@ -406,33 +374,9 @@ export function ActivityImportPanel() {
             </div>
           ) : null}
 
-          {batchPreview.activities?.length ? (
-            <div className="strava-activity-list">
-              {batchPreview.activities.map((activity) => (
-                <label className={activity.existing ? "strava-activity-row imported" : "strava-activity-row"} key={activity.filename}>
-                  <input
-                    type="checkbox"
-                    disabled={Boolean(activity.existing || activity.requires_review)}
-                    checked={selectedBatchFiles.includes(activity.filename)}
-                    onChange={() => toggleBatchFile(activity.filename)}
-                  />
-                  <span>
-                    <strong>{activity.title || activity.filename}</strong>
-                    <small>
-                      {activity.date || "-"} - {activity.sport || "-"} - {t(getActivityTypeLabel(activity.activity_type))} - {activity.distance_km ?? "-"} km - {activity.duration || "-"}
-                      {activity.existing ? ` - ${t("Already imported")}` : ""}
-                      {activity.requires_review ? ` - ${t("Review activity type before import")}` : ""}
-                    </small>
-                    <small>{activity.metrics?.length ? activity.metrics.join(", ") : t("No metrics detected")}</small>
-                  </span>
-                </label>
-              ))}
-            </div>
-          ) : null}
-
-          {batchPreview.errors?.length ? (
+          {batchResult?.errors?.length ? (
             <div className="error-banner">
-              {batchPreview.errors.slice(0, 3).map((item) => `${item.filename}: ${item.detail}`).join(" | ")}
+              {batchResult.errors.slice(0, 3).map((item) => `${item.filename}: ${item.detail}`).join(" | ")}
             </div>
           ) : null}
         </section>
