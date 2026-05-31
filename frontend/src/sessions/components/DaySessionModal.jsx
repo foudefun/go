@@ -206,6 +206,64 @@ function buildActivityFromPlan(session) {
   });
 }
 
+function joinUniqueText(...values) {
+  return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))].join(" | ");
+}
+
+function uniqueByString(values) {
+  return [...new Set((values || []).map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
+function mergeActivityLists(targetItems = [], sourceItems = []) {
+  return [...(Array.isArray(targetItems) ? targetItems : []), ...(Array.isArray(sourceItems) ? sourceItems : [])];
+}
+
+function mergeActivitySourceFiles(targetSources = [], sourceSources = []) {
+  const merged = [];
+  const seen = new Set();
+  for (const source of mergeActivityLists(targetSources, sourceSources)) {
+    const key = String(source?.id || source?.filename || source?.label || JSON.stringify(source || {}));
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(source);
+  }
+  return merged;
+}
+
+function mergeMetricSourcePreferences(targetPreferences = {}, sourcePreferences = {}) {
+  return {
+    ...(sourcePreferences && typeof sourcePreferences === "object" ? sourcePreferences : {}),
+    ...(targetPreferences && typeof targetPreferences === "object" ? targetPreferences : {}),
+  };
+}
+
+function mergeActivities(targetActivity, sourceActivity) {
+  const target = normalizeActivity(targetActivity);
+  const source = normalizeActivity(sourceActivity);
+  const activityType = target.activity_type || source.activity_type;
+  const merged = normalizeActivity({
+    ...target,
+    title: joinUniqueText(target.title, source.title),
+    activity_type: activityType,
+    activity_details: joinUniqueText(target.activity_details, source.activity_details),
+    note: joinUniqueText(target.note, source.note),
+    physio_time: target.physio_time || source.physio_time,
+    load: Math.max(Number(target.load || 0), Number(source.load || 0)),
+    image: target.image || source.image,
+    exercises: uniqueByString([...(target.exercises || []), ...(source.exercises || [])]),
+    climbing_routes: mergeActivityLists(target.climbing_routes, source.climbing_routes),
+    performed_items: mergeActivityLists(target.performed_items, source.performed_items),
+    used_equipment: mergeActivityLists(target.used_equipment, source.used_equipment),
+    source_files: mergeActivitySourceFiles(target.source_files, source.source_files),
+    metric_source_preferences: mergeMetricSourcePreferences(
+      target.metric_source_preferences,
+      source.metric_source_preferences,
+    ),
+  });
+  merged.status = activityHasContent(merged) ? "done" : "todo";
+  return merged;
+}
+
 const DEFAULT_ACTIVITY_TYPE_VALUES = [
   "course_a_pied",
   "velo",
@@ -719,6 +777,7 @@ export default function DaySessionModal({
   const [sourceError, setSourceError] = useState("");
   const [activityTypeSearch, setActivityTypeSearch] = useState("");
   const [showImportPanel, setShowImportPanel] = useState(false);
+  const [mergeTargetIndex, setMergeTargetIndex] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -734,6 +793,7 @@ export default function DaySessionModal({
         setDraftActivity(createNewOnOpen ? normalizeActivity({ ...blankActivity(), ...(initialActivity || {}) }) : null);
         setShowPlanEditor(false);
         setActivityTypeSearch("");
+        setMergeTargetIndex("");
         setShowImportPanel(Boolean(initialShowImportPanel));
         setActiveIndex(
           createNewOnOpen
@@ -828,12 +888,14 @@ export default function DaySessionModal({
     setDraftActivity(blankActivity());
     setActiveIndex(null);
     setActivityTypeSearch("");
+    setMergeTargetIndex("");
     setShowImportPanel(false);
   }
 
   function cancelDraftActivity() {
     setDraftActivity(null);
     setActivityTypeSearch("");
+    setMergeTargetIndex("");
     setActiveIndex(savedActivities.length ? 0 : 0);
   }
 
@@ -856,6 +918,44 @@ export default function DaySessionModal({
       }
     } catch (deleteError) {
       setError(deleteError.message);
+    } finally {
+      setStatus("ready");
+    }
+  }
+
+  async function mergeSelectedActivity() {
+    const targetIndex = Number(mergeTargetIndex);
+    if (
+      activeIndex === null ||
+      !session?.activities?.[activeIndex] ||
+      !Number.isInteger(targetIndex) ||
+      targetIndex < 0 ||
+      targetIndex >= savedActivities.length ||
+      targetIndex === activeIndex
+    ) {
+      return;
+    }
+    const sourceActivity = savedActivities[activeIndex];
+    const targetActivity = savedActivities[targetIndex];
+    const sourceName = getActivityTitle(sourceActivity, activeIndex, t);
+    const targetName = getActivityTitle(targetActivity, targetIndex, t);
+    if (!window.confirm(t('Merge activity "{source}" into "{target}"?', { source: sourceName, target: targetName }))) return;
+
+    const activities = savedActivities.map((activity, index) =>
+      index === targetIndex ? mergeActivities(activity, sourceActivity) : activity,
+    ).filter((_, index) => index !== activeIndex);
+    const nextActiveIndex = activeIndex < targetIndex ? targetIndex - 1 : targetIndex;
+    const nextSession = { ...session, activities, draft_active_activity_index: nextActiveIndex };
+    const payload = buildSavePayload(nextSession, nextActiveIndex, null);
+    setStatus("saving");
+    setError("");
+    try {
+      await saveSession(date, payload);
+      applySessionPayload(payload);
+      setMergeTargetIndex("");
+      onSaved?.();
+    } catch (mergeError) {
+      setError(mergeError.message);
     } finally {
       setStatus("ready");
     }
@@ -1012,6 +1112,7 @@ export default function DaySessionModal({
                     key={`${index}-${activity.title}-${activity.activity_type}`}
                     onClick={() => {
                       setActiveIndex(index);
+                      setMergeTargetIndex("");
                       setShowImportPanel(false);
                     }}
                   >
@@ -1173,6 +1274,31 @@ export default function DaySessionModal({
                   <button type="button" onClick={cancelDraftActivity}>
                     {t("Discard new activity")}
                   </button>
+                ) : null}
+                {activeIndex !== null && savedActivities.length > 1 ? (
+                  <div className="activity-merge-control">
+                    <label>
+                      {t("Merge into")}
+                      <select value={mergeTargetIndex} onChange={(event) => setMergeTargetIndex(event.target.value)}>
+                        <option value="">{t("Choose target activity")}</option>
+                        {savedActivities.map((activity, index) =>
+                          index === activeIndex ? null : (
+                            <option value={index} key={`${index}-${activity.title}-${activity.activity_type}`}>
+                              {getActivityTitle(activity, index, t)}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      className="secondary-action"
+                      disabled={status === "saving" || mergeTargetIndex === ""}
+                      onClick={mergeSelectedActivity}
+                    >
+                      {t("Merge")}
+                    </button>
+                  </div>
                 ) : null}
                 {activeIndex !== null && savedActivities[activeIndex] ? (
                   <button type="button" className="danger-action" onClick={deleteSelectedActivity} disabled={status === "saving"}>

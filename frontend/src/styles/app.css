@@ -3741,6 +3741,17 @@ select[multiple] {
   flex-wrap: wrap;
 }
 
+.activity-merge-control {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  min-width: min(420px, 100%);
+}
+
+.activity-merge-control label {
+  flex: 1 1 220px;
+}
+
 .save-flow-note {
   flex-basis: 100%;
   color: #667085;
@@ -5609,6 +5620,7 @@ select[multiple] {
 
   .day-modal-header,
   .day-modal-actions,
+  .activity-merge-control,
   .day-plan-summary {
     align-items: stretch;
     flex-direction: column;
