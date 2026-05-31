@@ -32,7 +32,7 @@ const primaryTabs = [
     labelKey: "Explore",
     activePaths: ["/explore", "/climbing", "/outdoor-climbing", "/outdoor-map", "/outdoor-routes"],
   },
-  { to: "/log", labelKey: "Log", activePaths: ["/log", "/activities"] },
+  { to: "/log", labelKey: "Activities", activePaths: ["/log", "/activities"] },
   { to: "/progress", labelKey: "Progress", activePaths: ["/progress", "/statistics"] },
   { to: "/gear", labelKey: "Gear", activePaths: ["/gear", "/equipment"] },
   { to: "/community", labelKey: "Community", activePaths: ["/community"] },

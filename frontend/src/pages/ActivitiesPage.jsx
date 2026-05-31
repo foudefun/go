@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { getCalendar } from "../api/calendarApi.js";
 import { ACTIVITY_TYPES, getActivityTypeColor, getActivityTypeLabel } from "../domain/activityTypes.js";
 import { useTranslation } from "../i18n/translations.js";
@@ -82,6 +83,8 @@ function buildActivityTitle(entry, t) {
 
 export default function ActivitiesPage() {
   const { language, t } = useTranslation();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("loading");
@@ -113,6 +116,19 @@ export default function ActivitiesPage() {
       mountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const action = params.get("action");
+    if (action === "new") {
+      openNewActivity();
+      navigate(location.pathname, { replace: true });
+    }
+    if (action === "import") {
+      setImportDialogMode("activity");
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.pathname, location.search, navigate]);
 
   const activities = useMemo(
     () =>

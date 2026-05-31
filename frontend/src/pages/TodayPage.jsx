@@ -105,6 +105,9 @@ export default function TodayPage() {
               <Link className="secondary-action" to="/log">
                 {t("Log activity")}
               </Link>
+              <Link className="secondary-action" to="/log?action=import">
+                {t("Import Activity")}
+              </Link>
             </div>
           </section>
 
@@ -159,6 +162,8 @@ export default function TodayPage() {
 
           <section className="app-panel today-card today-link-list">
             <span className="today-card-label">{t("Quick paths")}</span>
+            <Link to="/log?action=new">{t("+ Activity")}</Link>
+            <Link to="/log?action=import">{t("Import Activity")}</Link>
             <Link to="/explore">{t("Plan an outdoor objective")}</Link>
             <Link to="/gear">{t("Check gear health")}</Link>
             <Link to="/community">{t("See shared activity")}</Link>
