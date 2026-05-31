@@ -86,17 +86,6 @@ export default function TodayPage() {
 
   return (
     <main className="page-shell today-page">
-      <section className="module-header today-hero">
-        <div>
-          <p className="eyebrow">{t("Today")}</p>
-          <h1>{t("Choose the right move")}</h1>
-          <p className="lede">{t("Today home lede")}</p>
-        </div>
-        <Link className="primary-action" to="/plan">
-          {t("Open Plan")}
-        </Link>
-      </section>
-
       {status === "error" ? <div className="error-banner">{error}</div> : null}
 
       <section className="today-layout">
