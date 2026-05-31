@@ -183,8 +183,9 @@ export default function CalendarPage() {
     <main className="page-shell">
       <section className="module-header">
         <div>
-          <p className="eyebrow">{t("Training")}</p>
-          <h1>{t("Calendar")}</h1>
+          <p className="eyebrow">{t("Plan")}</p>
+          <h1>{t("Training week")}</h1>
+          <p className="lede">{t("Plan page lede")}</p>
         </div>
         <button className="secondary-action" type="button" onClick={() => setSelectedDate(todayIso)}>
           {t("Open Today")}

@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Navigate, NavLink, Route, Routes } from "react-router-dom";
+import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./auth/AuthProvider.jsx";
 import { useTranslation } from "./i18n/translations.js";
 import ClimbingPage from "./climbing/pages/ClimbingPage.jsx";
@@ -8,8 +8,10 @@ import AccountPage from "./pages/AccountPage.jsx";
 import ActivitiesPage from "./pages/ActivitiesPage.jsx";
 import AdminPage from "./pages/AdminPage.jsx";
 import CalendarPage from "./pages/CalendarPage.jsx";
+import CommunityPage from "./pages/CommunityPage.jsx";
 import EquipmentPage from "./pages/EquipmentPage.jsx";
 import ExercisesPage from "./pages/ExercisesPage.jsx";
+import ExplorePage from "./pages/ExplorePage.jsx";
 import HangboardPage from "./pages/HangboardPage.jsx";
 import ImportPage from "./pages/ImportPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
@@ -18,25 +20,64 @@ import OutdoorRouteDetailPage from "./pages/OutdoorRouteDetailPage.jsx";
 import OutdoorRoutesPage from "./pages/OutdoorRoutesPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import StatisticsPage from "./pages/StatisticsPage.jsx";
+import TodayPage from "./pages/TodayPage.jsx";
 
 const OutdoorMapPage = lazy(() => import("./pages/OutdoorMapPage.jsx"));
 
-const tabs = [
-  { to: "/calendar", labelKey: "Calendar" },
-  { to: "/activities", labelKey: "Activities" },
-  { to: "/import", labelKey: "Import" },
-  { to: "/statistics", labelKey: "Statistics" },
-  { to: "/exercises", labelKey: "Exercises" },
-  { to: "/equipment", labelKey: "Equipment" },
-  { to: "/climbing", labelKey: "Climbing" },
-  { to: "/outdoor-map", labelKey: "Map" },
-  { to: "/outdoor-routes", labelKey: "Outdoor routes" },
+const primaryTabs = [
+  { to: "/today", labelKey: "Today", activePaths: ["/today"] },
+  { to: "/plan", labelKey: "Plan", activePaths: ["/plan", "/calendar"] },
+  {
+    to: "/explore",
+    labelKey: "Explore",
+    activePaths: ["/explore", "/climbing", "/outdoor-climbing", "/outdoor-map", "/outdoor-routes"],
+  },
+  { to: "/log", labelKey: "Log", activePaths: ["/log", "/activities"] },
+  { to: "/progress", labelKey: "Progress", activePaths: ["/progress", "/statistics"] },
+  { to: "/gear", labelKey: "Gear", activePaths: ["/gear", "/equipment"] },
+  { to: "/community", labelKey: "Community", activePaths: ["/community"] },
+];
+
+const secondaryNavGroups = [
+  {
+    labelKey: "Library",
+    items: [
+      { to: "/exercises", labelKey: "Exercises" },
+      { to: "/hangboard", labelKey: "Hangboard" },
+    ],
+  },
+  {
+    labelKey: "Outdoor",
+    items: [
+      { to: "/climbing", labelKey: "Climbing" },
+      { to: "/outdoor-map", labelKey: "Map" },
+      { to: "/outdoor-routes", labelKey: "Outdoor routes" },
+    ],
+  },
+  {
+    labelKey: "Tools",
+    items: [{ to: "/import", labelKey: "Import" }],
+  },
 ];
 
 function AppLayout() {
   const { user, logout } = useAuth();
   const { t } = useTranslation();
-  const visibleTabs = user?.isAdmin ? [...tabs, { to: "/admin", labelKey: "Admin" }] : tabs;
+  const location = useLocation();
+  const visibleSecondaryNavGroups = user?.isAdmin
+    ? secondaryNavGroups.map((group) =>
+        group.labelKey === "Tools"
+          ? { ...group, items: [...group.items, { to: "/admin", labelKey: "Admin" }] }
+          : group,
+      )
+    : secondaryNavGroups;
+  const isActiveTab = (tab) => tab.activePaths.some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`));
+  const primaryMenuIsActive = primaryTabs.some(isActiveTab);
+  const moreMenuIsActive =
+    !primaryMenuIsActive &&
+    visibleSecondaryNavGroups.some((group) =>
+      group.items.some((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)),
+    );
 
   return (
     <>
@@ -46,11 +87,28 @@ function AppLayout() {
           <span>{t("Training tracker")}</span>
         </div>
         <nav className="nav-cluster app-tabs" aria-label="Primary">
-          {visibleTabs.map((tab) => (
-            <NavLink key={tab.to} to={tab.to}>
+          {primaryTabs.map((tab) => (
+            <NavLink className={isActiveTab(tab) ? "active" : ""} key={tab.to} to={tab.to}>
               {t(tab.labelKey)}
             </NavLink>
           ))}
+          <details className="more-menu">
+            <summary className={moreMenuIsActive ? "more-menu-trigger active" : "more-menu-trigger"}>
+              {t("More")}
+            </summary>
+            <div className="more-menu-panel">
+              {visibleSecondaryNavGroups.map((group) => (
+                <div className="more-menu-section" key={group.labelKey}>
+                  <span>{t(group.labelKey)}</span>
+                  {group.items.map((item) => (
+                    <NavLink key={item.to} to={item.to}>
+                      {t(item.labelKey)}
+                    </NavLink>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </details>
         </nav>
         <div className="nav-cluster account-cluster">
           <details className="account-menu">
@@ -68,13 +126,20 @@ function AppLayout() {
         </div>
       </header>
       <Routes>
-        <Route path="/" element={<Navigate to="/calendar" replace />} />
-        <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/" element={<Navigate to="/today" replace />} />
+        <Route path="/today" element={<TodayPage />} />
+        <Route path="/plan" element={<CalendarPage />} />
+        <Route path="/calendar" element={<Navigate to="/plan" replace />} />
+        <Route path="/log" element={<ActivitiesPage />} />
         <Route path="/activities" element={<ActivitiesPage />} />
+        <Route path="/progress" element={<StatisticsPage />} />
         <Route path="/statistics" element={<StatisticsPage />} />
+        <Route path="/gear" element={<EquipmentPage />} />
         <Route path="/exercises" element={<ExercisesPage />} />
         <Route path="/equipment" element={<EquipmentPage />} />
+        <Route path="/explore" element={<ExplorePage />} />
         <Route path="/climbing" element={<ClimbingPage />} />
+        <Route path="/community" element={<CommunityPage />} />
         <Route path="/outdoor-climbing" element={<OutdoorClimbingPage />} />
         <Route
           path="/outdoor-map"
@@ -104,7 +169,7 @@ function AppLayout() {
             )
           }
         />
-        <Route path="*" element={<Navigate to="/calendar" replace />} />
+        <Route path="*" element={<Navigate to="/today" replace />} />
       </Routes>
     </>
   );
