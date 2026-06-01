@@ -2230,6 +2230,7 @@ def normalize_activity_type(value) -> str:
         "musculation",
         "yoga",
         "pilates",
+        "other",
     }
     normalized = str(value or "").strip().lower()
     return normalized if normalized in allowed else ""
@@ -2252,6 +2253,7 @@ ACTIVITY_LABELS = {
     "musculation": {"fr": "Musculation", "en": "Strength"},
     "yoga": {"fr": "Yoga", "en": "Yoga"},
     "pilates": {"fr": "Pilates", "en": "Pilates"},
+    "other": {"fr": "Autre", "en": "Other"},
 }
 
 OUTDOOR_ROUTE_ACTIVITY_TYPES = {
@@ -5189,7 +5191,7 @@ def infer_activity_type_from_fit(sport: str, sub_sport: str) -> str:
         if "mountain" in normalized_sub_sport:
             return "vtt"
         return "velo"
-    return ""
+    return "other"
 
 
 def parse_activity_datetime(value: str | None) -> datetime | None:
@@ -5362,7 +5364,7 @@ def infer_activity_type_from_text(value: str, *, has_power: bool = False, has_ca
         return "velo"
     if has_power or has_cadence:
         return "velo"
-    return ""
+    return "other"
 
 
 def parse_tcx_activity_file(content: bytes, filename: str = "") -> dict:
@@ -5732,7 +5734,7 @@ def import_activity_file_into_db(
     activity_type = normalize_activity_type(activity_type_override) or normalize_activity_type(parsed_activity.get("activity_type"))
     if require_activity_type and not activity_type:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Review activity type before importing this activity")
-    activity_type = activity_type or "velo"
+    activity_type = activity_type or "other"
     summary = build_fit_activity_summary(parsed_activity, parsed_activity.get("source_file", ""))
     source_id = str(source_id_override or "").strip() or uuid.uuid4().hex
     source_filename = str(parsed_activity.get("source_file", "") or "").strip()
@@ -5881,6 +5883,8 @@ def build_strava_athlete_name(athlete: dict) -> str:
 
 def normalize_strava_activity_type(activity: dict) -> str:
     sport_type = str(activity.get("sport_type", "") or activity.get("type", "") or "").strip().lower()
+    if not sport_type:
+        return ""
     if sport_type in {"run", "trailrun", "virtualrun"}:
         return "course_a_pied"
     if sport_type in {"ride", "virtualride", "gravelride", "ebikeride"}:

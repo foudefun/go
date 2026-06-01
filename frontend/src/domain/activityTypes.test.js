@@ -37,6 +37,7 @@ test("includes app activity types used by Strava imports", () => {
   assert.ok(values.includes("snowboarding"));
   assert.ok(values.includes("surfing"));
   assert.ok(values.includes("yoga"));
+  assert.ok(values.includes("other"));
 });
 
 test("defines the climbing topo bridge link types", () => {

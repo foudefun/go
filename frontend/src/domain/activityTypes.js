@@ -17,6 +17,7 @@ export const ACTIVITY_TYPES = [
   { value: "musculation", label: "Strength", shortLabel: "Strength", color: "#fdba74" },
   { value: "yoga", label: "Yoga", shortLabel: "Yoga", color: "#fbcfe8" },
   { value: "pilates", label: "Pilates", shortLabel: "Pilates", color: "#c7d2fe" },
+  { value: "other", label: "Other", shortLabel: "Other", color: "#e5e7eb" },
 ];
 
 export const OUTDOOR_ROUTE_ACTIVITY_TYPES = [

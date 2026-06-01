@@ -1318,15 +1318,16 @@ select[multiple] {
   }
 
   .activity-list-row {
-    grid-template-columns: 64px minmax(0, 1fr);
+    grid-template-columns: 90px minmax(0, 1fr);
   }
 
   .activity-thumb,
   .activity-thumb img,
   .activity-trace-thumb,
+  .activity-track-thumb,
   .activity-type-thumb {
-    width: 56px;
-    height: 56px;
+    width: 82px;
+    height: 64px;
   }
 
   .activity-trace-thumb > span {
@@ -1415,7 +1416,7 @@ select[multiple] {
 .activity-list-row {
   width: 100%;
   display: grid;
-  grid-template-columns: 84px minmax(0, 1fr) minmax(160px, auto);
+  grid-template-columns: 132px minmax(0, 1fr) minmax(160px, auto);
   gap: 14px;
   align-items: center;
   padding: 12px;
@@ -1430,9 +1431,10 @@ select[multiple] {
 .activity-thumb,
 .activity-thumb img,
 .activity-trace-thumb,
+.activity-track-thumb,
 .activity-type-thumb {
-  width: 72px;
-  height: 72px;
+  width: 120px;
+  height: 84px;
   border-radius: 8px;
 }
 
@@ -1449,6 +1451,7 @@ select[multiple] {
 }
 
 .activity-trace-thumb,
+.activity-track-thumb,
 .activity-type-thumb {
   display: grid;
   place-items: center;
@@ -1460,6 +1463,35 @@ select[multiple] {
   overflow-wrap: anywhere;
   padding: 6px;
   text-align: center;
+}
+
+.activity-track-thumb {
+  display: block;
+  padding: 0;
+  background: #eef6f0;
+}
+
+.activity-track-thumb svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.activity-track-thumb rect {
+  fill: #eef6f0;
+}
+
+.activity-track-thumb line {
+  stroke: rgba(83, 118, 94, 0.16);
+  stroke-width: 1;
+}
+
+.activity-track-thumb polyline {
+  fill: none;
+  stroke: #166534;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 4;
 }
 
 .activity-trace-thumb {
@@ -3614,6 +3646,13 @@ select[multiple] {
   fill: #eef6f0;
 }
 
+.activity-map-background path {
+  fill: none;
+  stroke: rgba(22, 101, 52, 0.16);
+  stroke-linecap: round;
+  stroke-width: 16;
+}
+
 .activity-track-grid line {
   stroke: rgba(83, 118, 94, 0.18);
   stroke-width: 1;
@@ -3652,6 +3691,47 @@ select[multiple] {
   font-size: 12px;
   font-weight: 800;
   padding: 5px 8px;
+}
+
+.activity-elevation-profile {
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid #edf2f7;
+  padding-top: 10px;
+}
+
+.activity-elevation-profile .section-heading-row.compact {
+  align-items: center;
+}
+
+.activity-elevation-profile strong {
+  color: #172033;
+  font-size: 13px;
+}
+
+.activity-elevation-profile span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.activity-elevation-profile svg {
+  width: 100%;
+  height: 130px;
+  overflow: visible;
+}
+
+.activity-elevation-profile line {
+  stroke: #dce4f0;
+  stroke-width: 2;
+}
+
+.activity-elevation-profile polyline {
+  fill: none;
+  stroke: #0f766e;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
 }
 
 .section-heading-row {

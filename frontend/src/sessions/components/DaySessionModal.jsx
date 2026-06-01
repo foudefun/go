@@ -505,6 +505,50 @@ function getTrackSeries(activity) {
   return { source: null, points: [] };
 }
 
+function projectTrackPoints(points, width, height, padding) {
+  const lats = points.map((point) => point.lat);
+  const lons = points.map((point) => point.lon);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLon = Math.min(...lons);
+  const maxLon = Math.max(...lons);
+  const lonSpan = Math.max(maxLon - minLon, 0.000001);
+  const latSpan = Math.max(maxLat - minLat, 0.000001);
+  return points.map((point) => {
+    const x = padding + ((point.lon - minLon) / lonSpan) * (width - padding * 2);
+    const y = height - padding - ((point.lat - minLat) / latSpan) * (height - padding * 2);
+    return { ...point, x, y };
+  });
+}
+
+function buildElevationProfile(points, width = 600, height = 130) {
+  const altitudePoints = points
+    .map((point, index) => ({
+      index,
+      altitude: Number(point.altitude_m),
+    }))
+    .filter((point) => Number.isFinite(point.altitude));
+  if (altitudePoints.length < 2) return null;
+  const paddingX = 18;
+  const paddingY = 16;
+  const minAltitude = Math.min(...altitudePoints.map((point) => point.altitude));
+  const maxAltitude = Math.max(...altitudePoints.map((point) => point.altitude));
+  const altitudeSpan = Math.max(maxAltitude - minAltitude, 1);
+  const indexSpan = Math.max(points.length - 1, 1);
+  const polyline = altitudePoints
+    .map((point) => {
+      const x = paddingX + (point.index / indexSpan) * (width - paddingX * 2);
+      const y = height - paddingY - ((point.altitude - minAltitude) / altitudeSpan) * (height - paddingY * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  return {
+    polyline,
+    minAltitude: Math.round(minAltitude),
+    maxAltitude: Math.round(maxAltitude),
+  };
+}
+
 function ActivityPowerCurve({ activity, t }) {
   const points = getPowerSeries(activity);
   if (points.length < 2) return null;
@@ -547,19 +591,7 @@ function ActivityTrackMap({ activity, t }) {
   const width = 600;
   const height = 260;
   const padding = 24;
-  const lats = points.map((point) => point.lat);
-  const lons = points.map((point) => point.lon);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLon = Math.min(...lons);
-  const maxLon = Math.max(...lons);
-  const lonSpan = Math.max(maxLon - minLon, 0.000001);
-  const latSpan = Math.max(maxLat - minLat, 0.000001);
-  const projectedPoints = points.map((point) => {
-    const x = padding + ((point.lon - minLon) / lonSpan) * (width - padding * 2);
-    const y = height - padding - ((point.lat - minLat) / latSpan) * (height - padding * 2);
-    return { ...point, x, y };
-  });
+  const projectedPoints = projectTrackPoints(points, width, height, padding);
   const polyline = projectedPoints.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
   const start = projectedPoints[0];
   const finish = projectedPoints[projectedPoints.length - 1];
@@ -569,6 +601,7 @@ function ActivityTrackMap({ activity, t }) {
   const elevationLabel = altitudeValues.length
     ? `${Math.round(Math.min(...altitudeValues))}-${Math.round(Math.max(...altitudeValues))} m`
     : "";
+  const elevationProfile = buildElevationProfile(points);
 
   return (
     <section className="activity-track-map" aria-label={t("Activity route")}>
@@ -581,6 +614,10 @@ function ActivityTrackMap({ activity, t }) {
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("GPS track")}>
         <rect x="0" y="0" width={width} height={height} rx="16" />
+        <g className="activity-map-background">
+          <path d={`M 0 ${height * 0.32} C ${width * 0.2} ${height * 0.24}, ${width * 0.38} ${height * 0.44}, ${width * 0.58} ${height * 0.34} S ${width * 0.86} ${height * 0.24}, ${width} ${height * 0.38}`} />
+          <path d={`M 0 ${height * 0.68} C ${width * 0.18} ${height * 0.56}, ${width * 0.34} ${height * 0.76}, ${width * 0.52} ${height * 0.64} S ${width * 0.82} ${height * 0.56}, ${width} ${height * 0.72}`} />
+        </g>
         <g className="activity-track-grid">
           {[0.25, 0.5, 0.75].map((ratio) => (
             <line key={`h-${ratio}`} x1={padding} x2={width - padding} y1={height * ratio} y2={height * ratio} />
@@ -598,6 +635,18 @@ function ActivityTrackMap({ activity, t }) {
         {maxTime ? <span>{formatDurationSeconds(maxTime)}</span> : null}
         {elevationLabel ? <span>{elevationLabel}</span> : null}
       </div>
+      {elevationProfile ? (
+        <div className="activity-elevation-profile">
+          <div className="section-heading-row compact">
+            <strong>{t("Elevation profile")}</strong>
+            <span>{`${elevationProfile.minAltitude}-${elevationProfile.maxAltitude} m`}</span>
+          </div>
+          <svg viewBox="0 0 600 130" role="img" aria-label={t("Elevation profile")}>
+            <line x1="18" y1="114" x2="582" y2="114" />
+            <polyline points={elevationProfile.polyline} />
+          </svg>
+        </div>
+      ) : null}
     </section>
   );
 }

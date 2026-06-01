@@ -47,6 +47,66 @@ function getActivityMetrics(activity) {
     .filter(Boolean);
 }
 
+function getTrackPointsFromSources(sourceFiles = []) {
+  for (const source of sourceFiles) {
+    const points = Array.isArray(source?.series?.points) ? source.series.points : [];
+    const trackPoints = points
+      .map((point) => ({
+        lat: Number(point.lat),
+        lon: Number(point.lon),
+      }))
+      .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon));
+    if (trackPoints.length >= 2) return trackPoints;
+  }
+  return [];
+}
+
+function buildTrackPolyline(points, width = 120, height = 84, padding = 10) {
+  if (!Array.isArray(points) || points.length < 2) return "";
+  const latitudes = points.map((point) => point.lat);
+  const longitudes = points.map((point) => point.lon);
+  const minLat = Math.min(...latitudes);
+  const maxLat = Math.max(...latitudes);
+  const minLon = Math.min(...longitudes);
+  const maxLon = Math.max(...longitudes);
+  const latSpan = Math.max(maxLat - minLat, 0.000001);
+  const lonSpan = Math.max(maxLon - minLon, 0.000001);
+  return points
+    .map((point) => {
+      const x = padding + ((point.lon - minLon) / lonSpan) * (width - padding * 2);
+      const y = height - padding - ((point.lat - minLat) / latSpan) * (height - padding * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+function ActivityTrackThumbnail({ sourceFiles, t }) {
+  const points = getTrackPointsFromSources(sourceFiles);
+  const polyline = buildTrackPolyline(points);
+  if (!polyline) {
+    return (
+      <span className="activity-trace-thumb">
+        <span />
+        <small>{t("Trace")}</small>
+      </span>
+    );
+  }
+  return (
+    <span className="activity-track-thumb" aria-label={t("GPS track")}>
+      <svg viewBox="0 0 120 84" role="img" aria-label={t("GPS track")}>
+        <rect x="0" y="0" width="120" height="84" rx="8" />
+        <g>
+          <line x1="0" y1="28" x2="120" y2="28" />
+          <line x1="0" y1="56" x2="120" y2="56" />
+          <line x1="40" y1="0" x2="40" y2="84" />
+          <line x1="80" y1="0" x2="80" y2="84" />
+        </g>
+        <polyline points={polyline} />
+      </svg>
+    </span>
+  );
+}
+
 function translateGeneratedActivityDetails(value, language) {
   let text = String(value || "").trim();
   if (!text) return "";
@@ -250,10 +310,7 @@ export default function ActivitiesPage() {
               {activity.image ? (
                 <img src={activity.image} alt="" />
               ) : activity.sourceCount ? (
-                <span className="activity-trace-thumb">
-                  <span />
-                  <small>{t("Trace")}</small>
-                </span>
+                <ActivityTrackThumbnail sourceFiles={activity.sourceFiles} t={t} />
               ) : (
                 <span className="activity-type-thumb" style={{ backgroundColor: getActivityTypeColor(activity.activityType) }}>
                   {t(getActivityTypeLabel(activity.activityType))}
