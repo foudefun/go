@@ -4058,6 +4058,146 @@ select[multiple] {
   font-weight: 600;
 }
 
+.batch-result-summary {
+  display: grid;
+  gap: 14px;
+  border: 1px solid #d7deea;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.batch-result-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.batch-result-header h3,
+.batch-result-group h4 {
+  margin: 0;
+  color: #111827;
+}
+
+.batch-result-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.batch-result-counts span {
+  border: 1px solid #d7deea;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #445066;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.batch-result-counts .success {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.batch-result-counts .error {
+  border-color: #f3b3b3;
+  background: #fff5f5;
+  color: #9f1d1d;
+}
+
+.batch-result-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.batch-result-group {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid #e3e8f2;
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 12px;
+}
+
+.batch-result-group.success {
+  border-color: #b8efd5;
+}
+
+.batch-result-group.error {
+  border-color: #f1c2c2;
+}
+
+.batch-result-group-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.batch-result-group-header span {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.batch-result-list {
+  display: grid;
+  gap: 8px;
+  max-height: 340px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.batch-result-row {
+  display: grid;
+  gap: 3px;
+  border-top: 1px solid #e8edf5;
+  padding-top: 8px;
+}
+
+.batch-result-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.batch-result-row strong {
+  min-width: 0;
+  color: #111827;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.batch-result-row small,
+.batch-result-empty {
+  margin: 0;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+@media (max-width: 900px) {
+  .batch-result-header {
+    display: grid;
+  }
+
+  .batch-result-counts {
+    justify-content: flex-start;
+  }
+
+  .batch-result-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .settings-form-column {
   display: grid;
   gap: 16px;

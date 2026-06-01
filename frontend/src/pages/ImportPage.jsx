@@ -393,11 +393,7 @@ export function ActivityImportPanel() {
           </div>
 
           {batchError ? <div className="error-banner">{batchError}</div> : null}
-          {batchResult ? (
-            <div className="success-banner">
-              {`${batchResult.imported?.length || 0} ${t("imported")}, ${batchResult.skipped?.length || 0} ${t("skipped")}, ${batchResult.errors?.length || 0} ${t("errors")}`}
-            </div>
-          ) : null}
+          <BatchImportSummary result={batchResult} t={t} />
 
           {batchResult?.errors?.length ? (
             <section className="app-panel import-panel compact">
@@ -429,6 +425,70 @@ export function ActivityImportPanel() {
       </div>
     </section>
   );
+}
+
+function BatchImportSummary({ result, t }) {
+  if (!result) return null;
+  const imported = result.imported || [];
+  const skipped = result.skipped || [];
+  const errors = result.errors || [];
+
+  return (
+    <section className="batch-result-summary">
+      <div className="batch-result-header">
+        <div>
+          <p className="eyebrow">{t("Batch Import Summary")}</p>
+          <h3>{t("What happened to the selected files")}</h3>
+          <p>{t("Skipped files are duplicates already present in your activities.")}</p>
+        </div>
+        <div className="batch-result-counts" aria-label={t("Batch import counts")}>
+          <span className="success">{imported.length} {t("imported")}</span>
+          <span>{skipped.length} {t("skipped")}</span>
+          <span className={errors.length ? "error" : ""}>{errors.length} {t("errors")}</span>
+        </div>
+      </div>
+
+      <div className="batch-result-grid">
+        <BatchImportGroup title={t("Imported files")} items={imported} tone="success" t={t} />
+        <BatchImportGroup title={t("Skipped duplicates")} items={skipped} tone="neutral" t={t} />
+        <BatchImportGroup title={t("Failed files")} items={errors} tone="error" t={t} />
+      </div>
+    </section>
+  );
+}
+
+function BatchImportGroup({ title, items, tone, t }) {
+  return (
+    <div className={`batch-result-group ${tone}`}>
+      <div className="batch-result-group-header">
+        <h4>{title}</h4>
+        <span>{items.length}</span>
+      </div>
+      {items.length ? (
+        <div className="batch-result-list">
+          {items.map((item, index) => (
+            <div className="batch-result-row" key={`${item.filename || title}-${index}`}>
+              <strong>{item.filename || t("Unknown file")}</strong>
+              <small>{formatBatchImportMeta(item, t)}</small>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="batch-result-empty">{t("No files in this group")}</p>
+      )}
+    </div>
+  );
+}
+
+function formatBatchImportMeta(item, t) {
+  const parts = [];
+  if (item.date) parts.push(item.date);
+  if (item.imported_date) parts.push(item.imported_date);
+  if (item.activity_type) parts.push(t(getActivityTypeLabel(item.activity_type)));
+  if (Number.isInteger(item.activity_index)) parts.push(`${t("Activity")} ${item.activity_index + 1}`);
+  if (item.detail) parts.push(item.detail);
+  if (item.summary) parts.push(item.summary);
+  return parts.filter(Boolean).join(" | ") || t("No detail available");
 }
 
 export function StravaImportPanel() {
