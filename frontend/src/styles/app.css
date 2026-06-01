@@ -180,15 +180,6 @@ label {
   position: relative;
 }
 
-.more-menu summary {
-  cursor: pointer;
-  list-style: none;
-}
-
-.more-menu summary::-webkit-details-marker {
-  display: none;
-}
-
 .more-menu-trigger::after {
   content: "";
   width: 7px;
@@ -199,20 +190,27 @@ label {
   transform: translateY(-2px) rotate(45deg);
 }
 
+.more-menu-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+  background: rgba(15, 23, 42, 0.08);
+}
+
 .more-menu-panel {
   position: absolute;
-  top: calc(100% + 14px);
+  top: 62px;
   left: 50%;
   z-index: 30;
   display: grid;
-  grid-template-columns: repeat(3, minmax(150px, 1fr));
-  gap: 24px;
-  width: min(920px, calc(100vw - 36px));
+  grid-template-columns: repeat(3, minmax(170px, 1fr));
+  gap: 14px;
+  width: min(760px, calc(100vw - 36px));
   border: 1px solid rgba(20, 83, 76, 0.16);
-  border-radius: 0;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 30px 70px rgba(15, 23, 42, 0.14);
-  padding: 26px;
+  padding: 14px;
   transform: translateX(-50%);
   backdrop-filter: blur(18px);
 }
@@ -220,12 +218,15 @@ label {
 .more-menu-section {
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 10px;
 }
 
 .more-menu-section span {
-  border-bottom: 1px solid rgba(148, 163, 184, 0.28);
-  padding: 0 0 12px;
+  padding: 0 2px 4px;
   color: #32645f;
   font-size: 12px;
   font-weight: 800;
@@ -235,15 +236,16 @@ label {
 .more-menu-section a {
   justify-content: flex-start;
   width: 100%;
-  border-radius: 0;
-  padding: 12px 0;
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px 12px;
   color: #172033;
   box-shadow: none;
 }
 
 .more-menu-section a:hover,
 .more-menu-section a.active {
-  background: transparent;
+  background: #ecfdf5;
   color: #0f766e;
   box-shadow: none;
   transform: none;
@@ -5701,6 +5703,7 @@ select[multiple] {
 
   .more-menu {
     min-width: 0;
+    position: static;
   }
 
   .more-menu-trigger::after {
@@ -5728,15 +5731,27 @@ select[multiple] {
   .more-menu-panel {
     position: fixed;
     right: 10px;
-    bottom: calc(122px + env(safe-area-inset-bottom));
+    bottom: calc(88px + env(safe-area-inset-bottom));
     left: 10px;
-    grid-template-columns: 1fr;
+    top: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
     min-width: 0;
     width: auto;
-    max-height: min(58vh, 460px);
     margin-top: 0;
-    overflow: auto;
     transform: none;
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .more-menu-section {
+    padding: 8px;
+  }
+
+  .more-menu-section a {
+    min-height: 40px;
+    padding: 9px 10px;
+    white-space: normal;
   }
 
   .summary-grid {

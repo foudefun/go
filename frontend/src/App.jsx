@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./auth/AuthProvider.jsx";
 import { useTranslation } from "./i18n/translations.js";
@@ -64,6 +64,7 @@ function AppLayout() {
   const { user, logout } = useAuth();
   const { t } = useTranslation();
   const location = useLocation();
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const visibleSecondaryNavGroups = user?.isAdmin
     ? secondaryNavGroups.map((group) =>
         group.labelKey === "Tools"
@@ -79,6 +80,19 @@ function AppLayout() {
       group.items.some((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)),
     );
 
+  useEffect(() => {
+    setMoreMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!moreMenuOpen) return undefined;
+    function handleKeyDown(event) {
+      if (event.key === "Escape") setMoreMenuOpen(false);
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [moreMenuOpen]);
+
   return (
     <>
       <header className="topbar">
@@ -92,23 +106,33 @@ function AppLayout() {
               {t(tab.labelKey)}
             </NavLink>
           ))}
-          <details className="more-menu">
-            <summary className={moreMenuIsActive ? "more-menu-trigger active" : "more-menu-trigger"}>
+          <div className="more-menu">
+            <button
+              type="button"
+              className={moreMenuIsActive || moreMenuOpen ? "more-menu-trigger active" : "more-menu-trigger"}
+              aria-expanded={moreMenuOpen}
+              aria-haspopup="menu"
+              onClick={() => setMoreMenuOpen((open) => !open)}
+            >
               {t("More")}
-            </summary>
-            <div className="more-menu-panel">
-              {visibleSecondaryNavGroups.map((group) => (
-                <div className="more-menu-section" key={group.labelKey}>
-                  <span>{t(group.labelKey)}</span>
-                  {group.items.map((item) => (
-                    <NavLink key={item.to} to={item.to}>
-                      {t(item.labelKey)}
-                    </NavLink>
+            </button>
+            {moreMenuOpen ? (
+              <div className="more-menu-layer" role="presentation" onMouseDown={() => setMoreMenuOpen(false)}>
+                <div className="more-menu-panel" role="menu" aria-label={t("More")} onMouseDown={(event) => event.stopPropagation()}>
+                  {visibleSecondaryNavGroups.map((group) => (
+                    <div className="more-menu-section" key={group.labelKey}>
+                      <span>{t(group.labelKey)}</span>
+                      {group.items.map((item) => (
+                        <NavLink key={item.to} to={item.to} role="menuitem" onClick={() => setMoreMenuOpen(false)}>
+                          {t(item.labelKey)}
+                        </NavLink>
+                      ))}
+                    </div>
                   ))}
                 </div>
-              ))}
-            </div>
-          </details>
+              </div>
+            ) : null}
+          </div>
         </nav>
         <div className="nav-cluster account-cluster">
           <details className="account-menu">
