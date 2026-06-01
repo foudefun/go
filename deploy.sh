@@ -10,5 +10,7 @@ fi
 
 python3 scripts/import_equipment_brands.py
 python3 scripts/import_equipment_models.py
+docker builder prune -af || true
+docker image prune -af || true
 docker compose -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.prod.yml ps
