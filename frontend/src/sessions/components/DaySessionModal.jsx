@@ -472,6 +472,44 @@ function ActivityMetricFields({ activity, t }) {
   );
 }
 
+function ActivityDetailOverview({ activity, activityIndex, date, t }) {
+  const typeLabel = String(activity?.activity_type || "").trim()
+    ? t(getActivityTypeLabel(activity.activity_type))
+    : t("No activity");
+  const title = getActivityTitle(activity, activityIndex, t);
+  const metrics = buildActivityMetricFields(activity).slice(0, 4);
+
+  return (
+    <section className="activity-detail-overview" aria-label={t("Activity detail")}>
+      <div className="activity-detail-overview-header">
+        <div>
+          <p className="eyebrow">{t("Activity detail")}</p>
+          <h3>{title}</h3>
+          <div className="activity-detail-meta">
+            <span>{date}</span>
+            <span
+              className="activity-type-badge compact"
+              style={{ backgroundColor: getActivityTypeColor(activity?.activity_type) }}
+            >
+              {typeLabel}
+            </span>
+          </div>
+        </div>
+      </div>
+      {metrics.length ? (
+        <div className="activity-detail-metrics" aria-label={t("Key metrics")}>
+          {metrics.map((metric) => (
+            <div className="activity-detail-metric" key={metric.label}>
+              <span>{t(metric.label)}</span>
+              <strong>{metric.value}</strong>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function getPowerSeries(activity) {
   const sourceFiles = Array.isArray(activity?.source_files) ? activity.source_files : [];
   const preferredSource = getPreferredMetricSource(activity, "power");
@@ -1191,7 +1229,7 @@ export default function DaySessionModal({
       <section className="day-modal" role="dialog" aria-modal="true" aria-label={t("Edit date", { date })} onMouseDown={(event) => event.stopPropagation()}>
         <header className="day-modal-header">
           <div>
-            <p className="eyebrow">{t("Day Editor")}</p>
+            <p className="eyebrow">{hasActivityEditor ? t("Activity detail") : t("Day Editor")}</p>
             <div className="day-modal-title-row">
               <h2>{date}</h2>
               {headerActivityLabel ? (
@@ -1279,6 +1317,13 @@ export default function DaySessionModal({
 
               {hasActivityEditor ? (
                 <>
+                  <ActivityDetailOverview
+                    activity={activeActivity}
+                    activityIndex={activeIndex ?? savedActivities.length}
+                    date={date}
+                    t={t}
+                  />
+
                   <ActivityTypePicker
                     value={activeActivity.activity_type}
                     search={activityTypeSearch}
@@ -1303,55 +1348,63 @@ export default function DaySessionModal({
                     <>
                       {activeIndex !== null ? (
                         <>
-                          <div className="form-grid">
-                            <label>
-                              {t("Title")}
-                              <input
-                                value={activeActivity.title || ""}
-                                onChange={(event) => updateActiveActivity({ title: event.target.value })}
-                                placeholder={t("Morning ride, climbing session, match...")}
-                              />
-                            </label>
-                            <label>
-                              {t("Time")}
-                              <input
-                                type="time"
-                                value={activeActivity.physio_time || ""}
-                                onChange={(event) => updateActiveActivity({ physio_time: event.target.value })}
-                              />
-                            </label>
-                          </div>
-
-                          <label>
-                            {t("Details")}
-                            <input
-                              value={activeActivity.activity_details || ""}
-                              onChange={(event) => updateActiveActivity({ activity_details: event.target.value })}
-                              placeholder={t("Duration, zone, location, quick summary...")}
-                            />
-                          </label>
                           <ActivityMetricFields activity={activeActivity} t={t} />
                           <ActivityPowerCurve activity={activeActivity} t={t} />
                           <ActivityTrackMap activity={activeActivity} t={t} />
                           <ActivitySourceQuality activity={activeActivity} t={t} />
-                          <label>
-                            {t("Notes")}
-                            <textarea
-                              value={activeActivity.note || ""}
-                              onChange={(event) => updateActiveActivity({ note: event.target.value })}
-                              placeholder={t("How it felt, context, anything useful for later.")}
-                            />
-                          </label>
+                          <section className="activity-edit-panel" aria-label={t("Edit activity")}>
+                            <div className="section-heading-row">
+                              <div>
+                                <p className="eyebrow">{t("Editable fields")}</p>
+                                <h3>{t("Edit activity")}</h3>
+                              </div>
+                            </div>
+                            <div className="form-grid">
+                              <label>
+                                {t("Title")}
+                                <input
+                                  value={activeActivity.title || ""}
+                                  onChange={(event) => updateActiveActivity({ title: event.target.value })}
+                                  placeholder={t("Morning ride, climbing session, match...")}
+                                />
+                              </label>
+                              <label>
+                                {t("Time")}
+                                <input
+                                  type="time"
+                                  value={activeActivity.physio_time || ""}
+                                  onChange={(event) => updateActiveActivity({ physio_time: event.target.value })}
+                                />
+                              </label>
+                            </div>
 
-                          <ActivityImagePanel
-                            activity={activeActivity}
-                            canManage={activityHasContent(activeActivity)}
-                            uploading={imageStatus === "uploading"}
-                            error={imageError}
-                            onUpload={handleActivityImageUpload}
-                            onDelete={handleActivityImageDelete}
-                            t={t}
-                          />
+                            <label>
+                              {t("Details")}
+                              <input
+                                value={activeActivity.activity_details || ""}
+                                onChange={(event) => updateActiveActivity({ activity_details: event.target.value })}
+                                placeholder={t("Duration, zone, location, quick summary...")}
+                              />
+                            </label>
+                            <label>
+                              {t("Notes")}
+                              <textarea
+                                value={activeActivity.note || ""}
+                                onChange={(event) => updateActiveActivity({ note: event.target.value })}
+                                placeholder={t("How it felt, context, anything useful for later.")}
+                              />
+                            </label>
+
+                            <ActivityImagePanel
+                              activity={activeActivity}
+                              canManage={activityHasContent(activeActivity)}
+                              uploading={imageStatus === "uploading"}
+                              error={imageError}
+                              onUpload={handleActivityImageUpload}
+                              onDelete={handleActivityImageDelete}
+                              t={t}
+                            />
+                          </section>
                         </>
                       ) : null}
 
