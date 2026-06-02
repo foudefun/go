@@ -4121,13 +4121,40 @@ select[multiple] {
 
 .duplicate-activity-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
   border: 1px solid #e3e8f2;
   border-radius: 8px;
   background: #fbfcfe;
   padding: 10px;
+}
+
+.duplicate-activity-selectors {
+  display: grid;
+  gap: 6px;
+  min-width: 92px;
+}
+
+.duplicate-activity-selectors label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.duplicate-activity-selectors input {
+  width: 16px;
+  height: 16px;
+  accent-color: #3f7d78;
+}
+
+.duplicate-activity-body {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
 }
 
 .duplicate-activity-row strong,
@@ -4158,6 +4185,33 @@ select[multiple] {
   color: #42526b;
   padding: 5px 8px;
   white-space: nowrap;
+}
+
+.duplicate-merge-preview {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  border-top: 1px solid #e4e9f2;
+  padding-top: 12px;
+}
+
+.duplicate-merge-preview div {
+  min-width: 0;
+}
+
+.duplicate-merge-preview span,
+.duplicate-merge-preview small {
+  display: block;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.duplicate-merge-preview strong {
+  display: block;
+  color: #111827;
+  overflow-wrap: anywhere;
 }
 
 .import-panel {
@@ -6001,7 +6055,17 @@ select[multiple] {
     grid-template-columns: 1fr;
   }
 
+  .duplicate-activity-selectors {
+    display: flex;
+    min-width: 0;
+  }
+
   .duplicate-activity-meta {
     justify-content: flex-start;
+  }
+
+  .duplicate-merge-preview {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

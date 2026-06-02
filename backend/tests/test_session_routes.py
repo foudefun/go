@@ -121,6 +121,61 @@ def test_activity_cleanup_groups_duplicate_source_ids(client):
     assert {activity["index"] for activity in strava_group["activities"]} == {0, 1}
 
 
+def test_activity_cleanup_merges_selected_duplicates(client):
+    source = {
+        "id": "strava-export-456",
+        "provider": "Strava Export",
+        "filename": "456.fit.gz",
+        "parsed": {"strava_activity_id": "456"},
+        "metrics": {"duration": {"seconds": 2400}, "distance": {"km": 12.4}},
+    }
+    saved = client.post(
+        "/api/session/2026-06-07",
+        json={
+            "activities": [
+                {
+                    "title": "Morning ride",
+                    "activity_type": "velo",
+                    "activity_details": "Import Strava export",
+                    "source_files": [source],
+                },
+                {
+                    "title": "Morning ride copy",
+                    "activity_type": "velo",
+                    "note": "Keep this note",
+                    "source_files": [{**source, "id": "strava-export-456-copy"}],
+                },
+            ]
+        },
+    )
+    assert saved.status_code == 200, saved.text
+
+    merged = client.post(
+        "/api/activity-cleanup/merge",
+        json={"keeper": {"date": "2026-06-07", "index": 0}, "sources": [{"date": "2026-06-07", "index": 1}]},
+    )
+    assert merged.status_code == 200, merged.text
+    assert merged.json()["merged_count"] == 1
+
+    loaded = client.get("/api/session/2026-06-07")
+    assert loaded.status_code == 200, loaded.text
+    activities = loaded.json()["activities"]
+    assert len(activities) == 1
+    activity = activities[0]
+    assert activity["title"] == "Morning ride\nMorning ride copy"
+    assert activity["note"] == "Keep this note"
+    assert len(activity["source_files"]) == 2
+
+    cleanup = client.get("/api/activity-cleanup/duplicates")
+    assert cleanup.status_code == 200, cleanup.text
+    matching_groups = [
+        group
+        for group in cleanup.json()["duplicate_groups"]
+        if any(activity["date"] == "2026-06-07" for activity in group["activities"])
+    ]
+    assert matching_groups == []
+
+
 def test_session_preserves_indoor_climbing_route_attempt_details(client):
     saved = client.post(
         "/api/session/2026-06-05",

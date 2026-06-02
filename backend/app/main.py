@@ -10225,6 +10225,110 @@ def activity_cleanup_fallback_key(record: dict) -> dict | None:
         "reason": "Same day, type, duration, distance and title/details",
     }
 
+
+class ActivityCleanupActivityRef(BaseModel):
+    date: str
+    index: int = Field(ge=0)
+
+
+class ActivityCleanupMergePayload(BaseModel):
+    keeper: ActivityCleanupActivityRef
+    sources: list[ActivityCleanupActivityRef] = Field(default_factory=list)
+
+
+def activity_cleanup_ref_key(ref: ActivityCleanupActivityRef | tuple[str, int]) -> tuple[str, int]:
+    if isinstance(ref, tuple):
+        return ref
+    return (ref.date, int(ref.index))
+
+
+def activity_cleanup_append_unique_text(first: str, second: str) -> str:
+    first = str(first or "").strip()
+    second = str(second or "").strip()
+    if not first:
+        return second
+    if not second or activity_cleanup_normalized_text(first) == activity_cleanup_normalized_text(second):
+        return first
+    return f"{first}\n{second}"
+
+
+def activity_cleanup_merge_objects(items: list[dict]) -> list[dict]:
+    merged = []
+    seen = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        key = json.dumps(item, sort_keys=True, default=str)
+        if key in seen:
+            continue
+        merged.append(item)
+        seen.add(key)
+    return merged
+
+
+def activity_cleanup_merge_source_files(*groups: list[dict]) -> list[dict]:
+    merged = []
+    seen = set()
+    for group in groups:
+        for source in normalize_activity_source_files(group):
+            key = str(source.get("id") or source.get("filename") or json.dumps(source, sort_keys=True, default=str))
+            if key in seen:
+                continue
+            merged.append(source)
+            seen.add(key)
+    return merged
+
+
+def activity_cleanup_merge_metric_preferences(keeper: dict, source: dict, source_files: list[dict]) -> dict:
+    source_ids = {str(item.get("id", "")) for item in source_files if item.get("id")}
+    merged = {}
+    for preferences in (
+        keeper.get("metric_source_preferences", {}),
+        source.get("metric_source_preferences", {}),
+    ):
+        if not isinstance(preferences, dict):
+            continue
+        for metric_name, source_id in preferences.items():
+            source_id = str(source_id or "").strip()
+            if source_id and source_id in source_ids and metric_name not in merged:
+                merged[metric_name] = source_id
+    return normalize_metric_source_preferences(merged, source_files)
+
+
+def activity_cleanup_merge_activities(keeper: dict, source: dict) -> dict:
+    keeper = normalize_activity_entry(keeper)
+    source = normalize_activity_entry(source)
+    source_files = activity_cleanup_merge_source_files(keeper.get("source_files", []), source.get("source_files", []))
+    activity_type = keeper.get("activity_type") or source.get("activity_type")
+    merged = {
+        **keeper,
+        "title": activity_cleanup_append_unique_text(keeper.get("title", ""), source.get("title", "")),
+        "activity_type": activity_type,
+        "activity_details": activity_cleanup_append_unique_text(keeper.get("activity_details", ""), source.get("activity_details", "")),
+        "note": activity_cleanup_append_unique_text(keeper.get("note", ""), source.get("note", "")),
+        "load": max(float(keeper.get("load", 0) or 0), float(source.get("load", 0) or 0)),
+        "physio_time": keeper.get("physio_time") or source.get("physio_time") or "",
+        "image": keeper.get("image") or source.get("image") or "",
+        "exercises": unique_names((keeper.get("exercises", []) or []) + (source.get("exercises", []) or [])),
+        "climbing_routes": activity_cleanup_merge_objects((keeper.get("climbing_routes", []) or []) + (source.get("climbing_routes", []) or [])),
+        "performed_items": activity_cleanup_merge_objects((keeper.get("performed_items", []) or []) + (source.get("performed_items", []) or [])),
+        "used_equipment": activity_cleanup_merge_objects((keeper.get("used_equipment", []) or []) + (source.get("used_equipment", []) or [])),
+        "source_files": source_files,
+        "hangboard_session_id": keeper.get("hangboard_session_id") or source.get("hangboard_session_id"),
+        "hangboard_log": keeper.get("hangboard_log") or source.get("hangboard_log") or {},
+    }
+    merged["metric_source_preferences"] = activity_cleanup_merge_metric_preferences(keeper, source, source_files)
+    return normalize_activity_entry(merged)
+
+
+def activity_cleanup_clear_legacy_activity_fields(payload: dict) -> dict:
+    next_payload = dict(payload)
+    for key, value in DEFAULT_ACTIVITY.items():
+        if key in next_payload:
+            next_payload[key] = [] if isinstance(value, list) else {} if isinstance(value, dict) else value
+    return next_payload
+
+
 @app.get("/api/activity-cleanup/duplicates")
 def get_activity_cleanup_duplicates(current_user: UserModel = Depends(get_current_user)):
     db = get_db()
@@ -10234,8 +10338,11 @@ def get_activity_cleanup_duplicates(current_user: UserModel = Depends(get_curren
         groups_by_key = {}
         for row in rows:
             payload = session_payload_from_row(row)
-            for index, activity in enumerate(build_calendar_activity_entries(payload)):
-                record = activity_cleanup_record(row, normalize_activity_entry(activity), int(activity.get("index", index) if isinstance(activity, dict) else index))
+            for index, activity in enumerate(get_session_activities(payload)):
+                activity = normalize_activity_entry(activity)
+                if not activity_has_history_content(activity):
+                    continue
+                record = activity_cleanup_record(row, activity, index)
                 records.append(record)
                 keys = activity_cleanup_source_keys(record["source_files"])
                 fallback_key = activity_cleanup_fallback_key(record)
@@ -10251,5 +10358,78 @@ def get_activity_cleanup_duplicates(current_user: UserModel = Depends(get_curren
                 duplicate_groups.append({**group, "activities": list(unique.values())})
         duplicate_groups.sort(key=lambda group: (-len(group["activities"]), str(group["reason"])))
         return {"activities_scanned": len(records), "duplicate_groups": duplicate_groups}
+    finally:
+        db.close()
+
+
+@app.post("/api/activity-cleanup/merge")
+def merge_activity_cleanup_duplicates(payload: ActivityCleanupMergePayload, current_user: UserModel = Depends(get_current_user)):
+    keeper_key = activity_cleanup_ref_key(payload.keeper)
+    source_keys = [activity_cleanup_ref_key(source) for source in payload.sources]
+    source_keys = [key for key in dict.fromkeys(source_keys) if key != keeper_key]
+    if not source_keys:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Select at least one duplicate to merge")
+    if len(source_keys) > 25:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Too many activities selected")
+
+    affected_dates = sorted({keeper_key[0], *(key[0] for key in source_keys)})
+    db = get_db()
+    try:
+        rows_by_date = {}
+        activities_by_ref = {}
+        for date_str in affected_dates:
+            row = get_session_obj(db, current_user.username, date_str)
+            if not row:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Session not found for {date_str}")
+            payload_for_row = session_payload_from_row(row)
+            activities = [normalize_activity_entry(item) for item in get_session_activities(payload_for_row)]
+            rows_by_date[date_str] = {"row": row, "payload": payload_for_row, "activities": activities}
+            for index, activity in enumerate(activities):
+                activities_by_ref[(date_str, index)] = activity
+
+        if keeper_key not in activities_by_ref:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Keeper activity not found")
+        missing_source = next((key for key in source_keys if key not in activities_by_ref), None)
+        if missing_source:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Duplicate activity not found for {missing_source[0]}")
+
+        merged_activity = activities_by_ref[keeper_key]
+        for source_key in source_keys:
+            merged_activity = activity_cleanup_merge_activities(merged_activity, activities_by_ref[source_key])
+
+        removed_refs = set(source_keys)
+        for date_str, row_info in rows_by_date.items():
+            next_activities = []
+            new_keeper_index = 0
+            for index, activity in enumerate(row_info["activities"]):
+                ref_key = (date_str, index)
+                if ref_key == keeper_key:
+                    new_keeper_index = len(next_activities)
+                    next_activities.append(merged_activity)
+                elif ref_key in removed_refs:
+                    continue
+                else:
+                    next_activities.append(activity)
+
+            next_payload = activity_cleanup_clear_legacy_activity_fields(row_info["payload"])
+            next_payload["activities"] = next_activities
+            next_payload["draft_active_activity_index"] = new_keeper_index if date_str == keeper_key[0] and next_activities else 0
+            row_info["row"].data = json.dumps(normalize_session_payload(next_payload))
+
+        write_audit_log(
+            db,
+            current_user.username,
+            "merge_duplicate_activities",
+            "activity_cleanup",
+            current_user.username,
+            f"Merged {len(source_keys)} duplicate activity(s) into {keeper_key[0]} #{keeper_key[1]}",
+        )
+        db.commit()
+        return {
+            "ok": True,
+            "merged_count": len(source_keys),
+            "keeper": {"date": keeper_key[0], "index": keeper_key[1]},
+            "activity": activity_cleanup_record(rows_by_date[keeper_key[0]]["row"], merged_activity, keeper_key[1]),
+        }
     finally:
         db.close()
