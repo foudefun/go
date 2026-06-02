@@ -1411,65 +1411,71 @@ export default function DaySessionModal({
 
                   {!showImportPanel ? (
                     <>
-                      {activeIndex !== null ? (
+                      {(activeIndex !== null || isNewActivityDraft) ? (
                         <>
                           <ActivityMetricFields activity={activeActivity} t={t} />
                           <ActivityPowerCurve activity={activeActivity} t={t} />
                           <ActivityTrackMap activity={activeActivity} t={t} />
                           <ActivitySourceQuality activity={activeActivity} t={t} />
-                          <section className="activity-edit-panel" aria-label={t("Edit activity")}>
-                            <div className="section-heading-row">
+                          <details
+                            className="activity-edit-panel"
+                            aria-label={t("Edit activity")}
+                            {...(isNewActivityDraft ? { open: true } : {})}
+                          >
+                            <summary className="section-heading-row">
                               <div>
                                 <p className="eyebrow">{t("Editable fields")}</p>
                                 <h3>{t("Edit activity")}</h3>
                               </div>
-                            </div>
-                            <div className="form-grid">
+                            </summary>
+                            <div className="activity-edit-panel-body">
+                              <div className="form-grid">
+                                <label>
+                                  {t("Title")}
+                                  <input
+                                    value={activeActivity.title || ""}
+                                    onChange={(event) => updateActiveActivity({ title: event.target.value })}
+                                    placeholder={t("Morning ride, climbing session, match...")}
+                                  />
+                                </label>
+                                <label>
+                                  {t("Time")}
+                                  <input
+                                    type="time"
+                                    value={activeActivity.physio_time || ""}
+                                    onChange={(event) => updateActiveActivity({ physio_time: event.target.value })}
+                                  />
+                                </label>
+                              </div>
+
                               <label>
-                                {t("Title")}
+                                {t("Details")}
                                 <input
-                                  value={activeActivity.title || ""}
-                                  onChange={(event) => updateActiveActivity({ title: event.target.value })}
-                                  placeholder={t("Morning ride, climbing session, match...")}
+                                  value={activeActivity.activity_details || ""}
+                                  onChange={(event) => updateActiveActivity({ activity_details: event.target.value })}
+                                  placeholder={t("Duration, zone, location, quick summary...")}
                                 />
                               </label>
                               <label>
-                                {t("Time")}
-                                <input
-                                  type="time"
-                                  value={activeActivity.physio_time || ""}
-                                  onChange={(event) => updateActiveActivity({ physio_time: event.target.value })}
+                                {t("Notes")}
+                                <textarea
+                                  value={activeActivity.note || ""}
+                                  onChange={(event) => updateActiveActivity({ note: event.target.value })}
+                                  placeholder={t("How it felt, context, anything useful for later.")}
                                 />
                               </label>
+
+                              <ActivityImagePanel
+                                activity={activeActivity}
+                                canManage={activityHasContent(activeActivity)}
+                                uploading={imageStatus === "uploading"}
+                                error={imageError}
+                                onUpload={handleActivityImageUpload}
+                                onDelete={handleActivityImageDelete}
+                                t={t}
+                              />
                             </div>
-
-                            <label>
-                              {t("Details")}
-                              <input
-                                value={activeActivity.activity_details || ""}
-                                onChange={(event) => updateActiveActivity({ activity_details: event.target.value })}
-                                placeholder={t("Duration, zone, location, quick summary...")}
-                              />
-                            </label>
-                            <label>
-                              {t("Notes")}
-                              <textarea
-                                value={activeActivity.note || ""}
-                                onChange={(event) => updateActiveActivity({ note: event.target.value })}
-                                placeholder={t("How it felt, context, anything useful for later.")}
-                              />
-                            </label>
-
-                            <ActivityImagePanel
-                              activity={activeActivity}
-                              canManage={activityHasContent(activeActivity)}
-                              uploading={imageStatus === "uploading"}
-                              error={imageError}
-                              onUpload={handleActivityImageUpload}
-                              onDelete={handleActivityImageDelete}
-                              t={t}
-                            />
-                          </section>
+                          </details>
                         </>
                       ) : null}
 

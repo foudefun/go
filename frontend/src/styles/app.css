@@ -3591,11 +3591,43 @@ select[multiple] {
 }
 
 .activity-edit-panel {
-  display: grid;
-  gap: 14px;
   border: 1px solid #dce4f0;
   border-radius: 12px;
   background: #fff;
+  padding: 0;
+  overflow: hidden;
+}
+
+.activity-edit-panel summary {
+  padding: 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.activity-edit-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.activity-edit-panel summary::after {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid #42526b;
+  border-bottom: 2px solid #42526b;
+  transform: translateY(-3px) rotate(45deg);
+}
+
+.activity-edit-panel[open] summary {
+  border-bottom: 1px solid #edf2f7;
+}
+
+.activity-edit-panel[open] summary::after {
+  transform: translateY(3px) rotate(225deg);
+}
+
+.activity-edit-panel-body {
+  display: grid;
+  gap: 14px;
   padding: 14px;
 }
 
