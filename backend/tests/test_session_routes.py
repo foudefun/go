@@ -92,6 +92,35 @@ def test_calendar_does_not_show_type_only_strength_activity(client):
     assert row["activity_types"] == []
 
 
+def test_activity_cleanup_groups_duplicate_source_ids(client):
+    source = {
+        "id": "strava-export-123",
+        "provider": "Strava Export",
+        "filename": "123.fit.gz",
+        "parsed": {"strava_activity_id": "123"},
+        "metrics": {"duration": {"seconds": 1800}, "distance": {"km": 8.2}},
+    }
+    saved = client.post(
+        "/api/session/2026-06-06",
+        json={
+            "activities": [
+                {"title": "Morning run", "activity_type": "course_a_pied", "source_files": [source]},
+                {"title": "Morning run duplicate", "activity_type": "course_a_pied", "source_files": [{**source, "id": "strava-export-123-copy"}]},
+            ]
+        },
+    )
+    assert saved.status_code == 200, saved.text
+
+    cleanup = client.get("/api/activity-cleanup/duplicates")
+    assert cleanup.status_code == 200, cleanup.text
+    payload = cleanup.json()
+    assert payload["activities_scanned"] == 2
+    groups = payload["duplicate_groups"]
+    strava_group = next(group for group in groups if group["reason"] == "Same Strava activity id")
+    assert len(strava_group["activities"]) == 2
+    assert {activity["index"] for activity in strava_group["activities"]} == {0, 1}
+
+
 def test_session_preserves_indoor_climbing_route_attempt_details(client):
     saved = client.post(
         "/api/session/2026-06-05",

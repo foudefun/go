@@ -5,6 +5,7 @@ import { useTranslation } from "./i18n/translations.js";
 import ClimbingPage from "./climbing/pages/ClimbingPage.jsx";
 import OutdoorClimbingPage from "./climbing/pages/OutdoorClimbingPage.jsx";
 import AccountPage from "./pages/AccountPage.jsx";
+import ActivityCleanupPage from "./pages/ActivityCleanupPage.jsx";
 import ActivitiesPage from "./pages/ActivitiesPage.jsx";
 import AdminPage from "./pages/AdminPage.jsx";
 import CalendarPage from "./pages/CalendarPage.jsx";
@@ -56,7 +57,10 @@ const secondaryNavGroups = [
   },
   {
     labelKey: "Tools",
-    items: [{ to: "/import", labelKey: "Import" }],
+    items: [
+      { to: "/import", labelKey: "Import" },
+      { to: "/activity-cleanup", labelKey: "Activity cleanup" },
+    ],
   },
 ];
 
@@ -181,6 +185,7 @@ function AppLayout() {
         <Route path="/outdoor-routes/:routeId" element={<OutdoorRouteDetailPage />} />
         <Route path="/hangboard" element={<HangboardPage />} />
         <Route path="/import" element={<ImportPage />} />
+        <Route path="/activity-cleanup" element={<ActivityCleanupPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route

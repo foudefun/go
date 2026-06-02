@@ -10168,3 +10168,88 @@ def get_calendar(
         return out
     finally:
         db.close()
+
+def activity_cleanup_normalized_text(value) -> str:
+    return " ".join(str(value or "").strip().lower().split())
+
+def activity_cleanup_metric_value(source_files: list[dict], metric_key: str, value_key: str) -> float:
+    for source in source_files:
+        if not isinstance(source, dict):
+            continue
+        metrics = source.get("metrics") if isinstance(source.get("metrics"), dict) else {}
+        metric = metrics.get(metric_key) if isinstance(metrics.get(metric_key), dict) else {}
+        value = normalize_optional_float(metric.get(value_key))
+        if value is not None and value > 0:
+            return value
+    return 0.0
+
+def activity_cleanup_source_keys(source_files: list[dict]) -> list[dict]:
+    keys = []
+    for source in source_files:
+        if not isinstance(source, dict):
+            continue
+        parsed = source.get("parsed") if isinstance(source.get("parsed"), dict) else {}
+        strava_id = str(parsed.get("strava_activity_id", "") or "").strip()
+        filename = activity_cleanup_normalized_text(source.get("filename") or parsed.get("source_file") or parsed.get("file"))
+        if strava_id:
+            keys.append({"key": f"strava:{strava_id}", "reason": "Same Strava activity id"})
+        if filename:
+            keys.append({"key": f"file:{filename}", "reason": "Same source filename"})
+    return keys
+
+def activity_cleanup_record(row: SessionModel, activity: dict, index: int) -> dict:
+    source_files = normalize_activity_source_files(activity.get("source_files", []))
+    return {
+        "id": f"{row.date}-{index}",
+        "date": row.date,
+        "index": index,
+        "title": str(activity.get("title", "") or "").strip() or ACTIVITY_LABELS.get(activity.get("activity_type", ""), {}).get("fr", "") or "Activity",
+        "details": str(activity.get("activity_details", "") or "").strip(),
+        "activity_type": str(activity.get("activity_type", "") or "").strip(),
+        "source_count": len(source_files),
+        "distance_km": activity_cleanup_metric_value(source_files, "distance", "km"),
+        "duration_seconds": activity_cleanup_metric_value(source_files, "duration", "seconds"),
+        "source_files": source_files,
+    }
+
+def activity_cleanup_fallback_key(record: dict) -> dict | None:
+    title = activity_cleanup_normalized_text(record.get("title"))
+    details = activity_cleanup_normalized_text(record.get("details"))
+    duration_minutes = round(float(record.get("duration_seconds") or 0) / 60)
+    distance_tenths = round(float(record.get("distance_km") or 0) * 10)
+    title_part = title or details[:42]
+    if not title_part and not duration_minutes and not distance_tenths:
+        return None
+    return {
+        "key": f"same-day:{record.get('date')}:{record.get('activity_type')}:{duration_minutes}:{distance_tenths}:{title_part}",
+        "reason": "Same day, type, duration, distance and title/details",
+    }
+
+@app.get("/api/activity-cleanup/duplicates")
+def get_activity_cleanup_duplicates(current_user: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        rows = db.query(SessionModel).filter_by(username=current_user.username).order_by(SessionModel.date.desc()).all()
+        records = []
+        groups_by_key = {}
+        for row in rows:
+            payload = session_payload_from_row(row)
+            for index, activity in enumerate(build_calendar_activity_entries(payload)):
+                record = activity_cleanup_record(row, normalize_activity_entry(activity), int(activity.get("index", index) if isinstance(activity, dict) else index))
+                records.append(record)
+                keys = activity_cleanup_source_keys(record["source_files"])
+                fallback_key = activity_cleanup_fallback_key(record)
+                if fallback_key:
+                    keys.append(fallback_key)
+                for item in keys:
+                    group = groups_by_key.setdefault(item["key"], {"key": item["key"], "reason": item["reason"], "activities": []})
+                    group["activities"].append({key: value for key, value in record.items() if key != "source_files"})
+        duplicate_groups = []
+        for group in groups_by_key.values():
+            unique = {activity["id"]: activity for activity in group["activities"]}
+            if len(unique) > 1:
+                duplicate_groups.append({**group, "activities": list(unique.values())})
+        duplicate_groups.sort(key=lambda group: (-len(group["activities"]), str(group["reason"])))
+        return {"activities_scanned": len(records), "duplicate_groups": duplicate_groups}
+    finally:
+        db.close()
