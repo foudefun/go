@@ -363,6 +363,16 @@ class AuditLogModel(Base):
     summary = Column(Text)
     created_at = Column(String, nullable=False)
 
+class ImportBatchModel(Base):
+    __tablename__ = "import_batches"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    source = Column(String, nullable=False)
+    status = Column(String, nullable=False)
+    summary = Column(Text)
+    items_json = Column(Text, nullable=False)
+    created_at = Column(String, nullable=False)
+
 class ClimbingAreaModel(Base):
     __tablename__ = "climbing_areas"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -6089,6 +6099,69 @@ def serialize_strava_export_preview_record(filename: str, parsed: dict, existing
         "existing": existing or None,
     }
 
+def normalize_import_batch_item(item: dict, status_value: str) -> dict:
+    status_value = str(status_value or "").strip() or "imported"
+    date_value = str(item.get("imported_date") or item.get("date") or "").strip()
+    activity_index = normalize_optional_int(item.get("activity_index"))
+    record = {
+        "status": status_value,
+        "filename": str(item.get("filename") or item.get("name") or item.get("strava_activity_id") or "").strip(),
+        "date": date_value,
+        "activity_index": activity_index,
+        "activity_type": normalize_activity_type(item.get("activity_type", "")),
+        "summary": str(item.get("summary", "") or "").strip(),
+        "detail": str(item.get("detail", "") or "").strip(),
+        "strava_activity_id": str(item.get("strava_activity_id", "") or "").strip(),
+    }
+    return {key: value for key, value in record.items() if value not in ("", None)}
+
+def create_import_batch_record(db, username: str, source: str, result: dict):
+    imported = [normalize_import_batch_item(item, "imported") for item in result.get("imported", []) if isinstance(item, dict)]
+    skipped = [normalize_import_batch_item(item, "skipped") for item in result.get("skipped", []) if isinstance(item, dict)]
+    errors = [normalize_import_batch_item(item, "error") for item in result.get("errors", []) if isinstance(item, dict)]
+    items = imported + skipped + errors
+    if not items:
+        return None
+    other_count = sum(1 for item in imported if item.get("activity_type") == "other")
+    summary = {
+        "imported": len(imported),
+        "skipped": len(skipped),
+        "errors": len(errors),
+        "other": other_count,
+    }
+    status_value = "needs_review" if errors or other_count else "complete"
+    row = ImportBatchModel(
+        username=username,
+        source=str(source or "").strip() or "activity_import",
+        status=status_value,
+        summary=json.dumps(summary, ensure_ascii=False),
+        items_json=json.dumps(items, ensure_ascii=False),
+        created_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+    )
+    db.add(row)
+    return row
+
+def serialize_import_batch(row: ImportBatchModel) -> dict:
+    summary = parse_json_field(row.summary, {})
+    items = parse_json_field(row.items_json, [])
+    if not isinstance(summary, dict):
+        summary = {}
+    if not isinstance(items, list):
+        items = []
+    return {
+        "id": row.id,
+        "source": row.source,
+        "status": row.status,
+        "summary": {
+            "imported": int(summary.get("imported", 0) or 0),
+            "skipped": int(summary.get("skipped", 0) or 0),
+            "errors": int(summary.get("errors", 0) or 0),
+            "other": int(summary.get("other", 0) or 0),
+        },
+        "items": [item for item in items if isinstance(item, dict)],
+        "created_at": row.created_at,
+    }
+
 def import_strava_export_file_into_db(db, username: str, path: Path) -> dict:
     parsed = parse_strava_export_file(path)
     strava_activity_id = str(parsed.get("strava_activity_id", "") or "")
@@ -9776,6 +9849,19 @@ def import_strava_activities(payload: dict, current_user: UserModel = Depends(ge
             else:
                 skipped.append(activity_id)
         connection.last_import_at = datetime.now(timezone.utc).isoformat()
+        create_import_batch_record(
+            db,
+            current_user.username,
+            "strava_api",
+            {
+                "imported": imported,
+                "skipped": [
+                    item if isinstance(item, dict) else {"strava_activity_id": str(item), "detail": "Already imported"}
+                    for item in skipped
+                ],
+                "errors": [],
+            },
+        )
         write_audit_log(db, current_user.username, "import_strava_activities", "strava", current_user.username, f"Imported {len(imported)} Strava activities, skipped {len(skipped)}")
         db.commit()
         return {"ok": True, "imported": imported, "skipped": skipped}
@@ -9852,6 +9938,12 @@ def import_strava_export(payload: dict, current_user: UserModel = Depends(get_cu
                 errors.append({"filename": filename, "detail": exc.detail})
             except Exception as exc:
                 errors.append({"filename": filename, "detail": str(exc)})
+        create_import_batch_record(
+            db,
+            current_user.username,
+            "strava_export_folder",
+            {"imported": imported, "skipped": skipped, "errors": errors},
+        )
         write_audit_log(
             db,
             current_user.username,
@@ -9927,6 +10019,12 @@ async def import_uploaded_strava_export(
                 errors.append({"filename": filename, "detail": exc.detail})
             except Exception as exc:
                 errors.append({"filename": filename, "detail": str(exc)})
+        create_import_batch_record(
+            db,
+            current_user.username,
+            "strava_export_upload",
+            {"imported": imported, "skipped": skipped, "errors": errors},
+        )
         write_audit_log(
             db,
             current_user.username,
@@ -10013,16 +10111,7 @@ async def import_activity_file(
             title=title,
             note=note,
         )
-        write_audit_log(
-            db,
-            current_user.username,
-            "import_activity_file",
-            "session",
-            result["date"],
-            f"Imported {selected_format.upper()} activity into {result['date']} ({result['activity_type']})",
-        )
-        db.commit()
-        return {
+        response_payload = {
             "ok": True,
             "imported_date": result["date"],
             "activity_index": result["activity_index"],
@@ -10035,6 +10124,39 @@ async def import_activity_file(
             "distance_km": parsed_activity.get("distance_km"),
             "duration": parsed_activity.get("duration", ""),
         }
+        create_import_batch_record(
+            db,
+            current_user.username,
+            "activity_file",
+            {"imported": [{**response_payload, "filename": filename}], "skipped": [], "errors": []},
+        )
+        write_audit_log(
+            db,
+            current_user.username,
+            "import_activity_file",
+            "session",
+            result["date"],
+            f"Imported {selected_format.upper()} activity into {result['date']} ({result['activity_type']})",
+        )
+        db.commit()
+        return response_payload
+    finally:
+        db.close()
+
+
+@app.get("/api/import/history")
+def get_import_history(limit: int = 10, current_user: UserModel = Depends(get_current_user)):
+    safe_limit = max(1, min(int(limit or 10), 50))
+    db = get_db()
+    try:
+        rows = (
+            db.query(ImportBatchModel)
+            .filter_by(username=current_user.username)
+            .order_by(ImportBatchModel.id.desc())
+            .limit(safe_limit)
+            .all()
+        )
+        return {"batches": [serialize_import_batch(row) for row in rows]}
     finally:
         db.close()
 

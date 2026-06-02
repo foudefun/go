@@ -93,3 +93,9 @@ export function importUploadedStravaExportFiles(files, { activityTypeOverride = 
     body: formData,
   });
 }
+
+export function getImportHistory({ limit = 10 } = {}) {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  return api(`/import/history?${params.toString()}`);
+}

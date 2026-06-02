@@ -4326,6 +4326,12 @@ select[multiple] {
   color: #9f1d1d;
 }
 
+.batch-result-counts .warning {
+  border-color: #f6d599;
+  background: #fff7e6;
+  color: #8a4b0f;
+}
+
 .batch-result-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4400,6 +4406,87 @@ select[multiple] {
   line-height: 1.35;
 }
 
+.import-history-list {
+  display: grid;
+  gap: 14px;
+}
+
+.import-history-batch {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+}
+
+.import-history-table {
+  display: grid;
+  border: 1px solid #e3e8f2;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.import-history-row {
+  display: grid;
+  grid-template-columns: 98px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  background: #ffffff;
+  border-top: 1px solid #e8edf5;
+  padding: 10px 12px;
+}
+
+.import-history-row:first-child {
+  border-top: 0;
+}
+
+.import-history-row.error {
+  background: #fff8f8;
+}
+
+.import-history-row.skipped {
+  background: #fbfcfe;
+}
+
+.import-history-row strong,
+.import-history-row small {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.import-history-row strong {
+  color: #111827;
+}
+
+.import-history-row small {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.import-history-status {
+  border: 1px solid #d7deea;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #445066;
+  padding: 5px 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.import-history-row.imported .import-history-status {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.import-history-row.error .import-history-status {
+  border-color: #f3b3b3;
+  background: #fff5f5;
+  color: #9f1d1d;
+}
+
 @media (max-width: 900px) {
   .batch-result-header {
     display: grid;
@@ -4411,6 +4498,11 @@ select[multiple] {
 
   .batch-result-grid {
     grid-template-columns: 1fr;
+  }
+
+  .import-history-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
   }
 }
 

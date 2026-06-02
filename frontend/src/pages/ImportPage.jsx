@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createStravaConnectUrl,
   disconnectStrava,
+  getImportHistory,
   getStravaActivities,
   getStravaExportPreview,
   getStravaStatus,
@@ -22,6 +23,7 @@ import {
   summarizeProgramImport,
 } from "../domain/importTools.js";
 import { useTranslation } from "../i18n/translations.js";
+import DaySessionModal from "../sessions/components/DaySessionModal.jsx";
 
 export function ProgramImportPanel() {
   const { t } = useTranslation();
@@ -489,6 +491,158 @@ function formatBatchImportMeta(item, t) {
   if (item.detail) parts.push(item.detail);
   if (item.summary) parts.push(item.summary);
   return parts.filter(Boolean).join(" | ") || t("No detail available");
+}
+
+function formatImportBatchSource(source, t) {
+  const labels = {
+    activity_file: "Activity File",
+    strava_api: "Strava",
+    strava_export_folder: "Strava Export Folder",
+    strava_export_upload: "Upload Export",
+  };
+  return t(labels[source] || source || "Import");
+}
+
+function ImportHistoryPanel() {
+  const { t } = useTranslation();
+  const [batches, setBatches] = useState([]);
+  const [status, setStatus] = useState("loading");
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [modalActivity, setModalActivity] = useState(null);
+
+  async function loadHistory() {
+    setStatus("loading");
+    setError("");
+    try {
+      const payload = await getImportHistory({ limit: 20 });
+      setBatches(Array.isArray(payload.batches) ? payload.batches : []);
+      setStatus("idle");
+    } catch (loadError) {
+      setError(loadError.message);
+      setStatus("idle");
+    }
+  }
+
+  useEffect(() => {
+    loadHistory();
+  }, []);
+
+  const filteredBatches = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return batches;
+    return batches
+      .map((batch) => ({
+        ...batch,
+        items: (batch.items || []).filter((item) => (
+          `${item.filename || ""} ${item.summary || ""} ${item.detail || ""} ${item.date || ""} ${item.activity_type || ""}`
+            .toLowerCase()
+            .includes(needle)
+        )),
+      }))
+      .filter((batch) => batch.items.length);
+  }, [batches, query]);
+
+  return (
+    <section className="import-layout single">
+      <div className="settings-form-column">
+        <section className="app-panel import-panel">
+          <div>
+            <p className="eyebrow">{t("Import Review")}</p>
+            <h2>{t("Import history")}</h2>
+            <p>{t("Review recent imports, skipped duplicates, files saved as Other, and files that still need attention.")}</p>
+          </div>
+          <div className="form-grid">
+            <label>
+              {t("Search")}
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("Filename, date, type...")} />
+            </label>
+            <div className="day-modal-actions align-end">
+              <button type="button" className="secondary-action" onClick={loadHistory} disabled={status === "loading"}>
+                {status === "loading" ? t("Loading...") : t("Refresh")}
+              </button>
+            </div>
+          </div>
+          <div className="day-modal-actions">
+            <a className="secondary-action link-action" href="/activity-cleanup">{t("Open duplicate cleanup")}</a>
+          </div>
+        </section>
+
+        {error ? <div className="error-banner">{error}</div> : null}
+
+        {filteredBatches.length ? (
+          <section className="import-history-list">
+            {filteredBatches.map((batch) => (
+              <ImportHistoryBatch batch={batch} key={batch.id} onOpenActivity={setModalActivity} t={t} />
+            ))}
+          </section>
+        ) : status !== "loading" && !error ? (
+          <div className="app-panel empty-state">{t("No import history yet.")}</div>
+        ) : null}
+      </div>
+
+      {modalActivity ? (
+        <DaySessionModal
+          date={modalActivity.date}
+          initialActivityIndex={modalActivity.activity_index}
+          onClose={() => setModalActivity(null)}
+          onSaved={loadHistory}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function ImportHistoryBatch({ batch, onOpenActivity, t }) {
+  const summary = batch.summary || {};
+  const items = Array.isArray(batch.items) ? batch.items : [];
+  return (
+    <article className="app-panel import-history-batch">
+      <div className="batch-result-header">
+        <div>
+          <p className="eyebrow">{formatImportBatchSource(batch.source, t)}</p>
+          <h3>{formatImportDate(batch.created_at)}</h3>
+          <p>{batch.status === "needs_review" ? t("This import needs review.") : t("This import looks clean.")}</p>
+        </div>
+        <div className="batch-result-counts">
+          <span className="success">{summary.imported || 0} {t("imported")}</span>
+          <span>{summary.skipped || 0} {t("skipped")}</span>
+          <span className={(summary.other || 0) ? "warning" : ""}>{summary.other || 0} {t("Other")}</span>
+          <span className={(summary.errors || 0) ? "error" : ""}>{summary.errors || 0} {t("errors")}</span>
+        </div>
+      </div>
+      <div className="import-history-table">
+        {items.map((item, index) => (
+          <ImportHistoryRow item={item} key={`${item.status}-${item.filename || item.strava_activity_id || index}`} onOpenActivity={onOpenActivity} t={t} />
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function ImportHistoryRow({ item, onOpenActivity, t }) {
+  const canOpen = item.status === "imported" && item.date && Number.isInteger(item.activity_index);
+  return (
+    <div className={`import-history-row ${item.status || "imported"}`}>
+      <span className="import-history-status">{t(item.status || "imported")}</span>
+      <div>
+        <strong>{item.filename || item.strava_activity_id || t("Unknown file")}</strong>
+        <small>{formatBatchImportMeta(item, t)}</small>
+      </div>
+      {canOpen ? (
+        <button type="button" className="secondary-action" onClick={() => onOpenActivity(item)}>
+          {t("Open activity")}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function formatImportDate(value) {
+  if (!value) return "";
+  const dateValue = new Date(value);
+  if (Number.isNaN(dateValue.getTime())) return value;
+  return dateValue.toLocaleString();
 }
 
 export function StravaImportPanel() {
@@ -980,12 +1134,16 @@ export default function ImportPage() {
           <button type="button" className={mode === "strava" ? "active" : ""} onClick={() => setMode("strava")}>
             {t("Strava")}
           </button>
+          <button type="button" className={mode === "history" ? "active" : ""} onClick={() => setMode("history")}>
+            {t("History")}
+          </button>
         </div>
       </section>
 
       {mode === "program" ? <ProgramImportPanel /> : null}
       {mode === "activity" ? <ActivityImportPanel /> : null}
       {mode === "strava" ? <StravaImportPanel /> : null}
+      {mode === "history" ? <ImportHistoryPanel /> : null}
     </main>
   );
 }

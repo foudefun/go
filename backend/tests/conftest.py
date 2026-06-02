@@ -87,6 +87,7 @@ def clean_exercise_rows():
         db.query(main.OutdoorOtherLocationModel).delete()
         db.query(main.HangboardSessionModel).delete()
         db.query(main.HangboardTemplateModel).delete()
+        db.query(main.ImportBatchModel).delete()
         db.query(main.StravaOAuthStateModel).delete()
         db.query(main.StravaConnectionModel).delete()
         db.query(main.SessionModel).delete()

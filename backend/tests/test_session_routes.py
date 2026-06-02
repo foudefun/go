@@ -176,6 +176,48 @@ def test_activity_cleanup_merges_selected_duplicates(client):
     assert matching_groups == []
 
 
+def test_import_history_returns_batch_summary(client):
+    db = main.SessionLocal()
+    try:
+        main.create_import_batch_record(
+            db,
+            "admin",
+            "strava_export_upload",
+            {
+                "imported": [
+                    {
+                        "filename": "ride.fit.gz",
+                        "date": "2026-06-08",
+                        "activity_index": 0,
+                        "activity_type": "velo",
+                        "summary": "Velo | Distance 12 km",
+                    },
+                    {
+                        "filename": "unknown.fit.gz",
+                        "date": "2026-06-09",
+                        "activity_index": 1,
+                        "activity_type": "other",
+                    },
+                ],
+                "skipped": [{"filename": "duplicate.fit.gz", "date": "2026-06-08"}],
+                "errors": [{"filename": "broken.fit.gz", "detail": "Could not parse"}],
+            },
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    history = client.get("/api/import/history")
+    assert history.status_code == 200, history.text
+    batches = history.json()["batches"]
+    assert len(batches) == 1
+    batch = batches[0]
+    assert batch["source"] == "strava_export_upload"
+    assert batch["status"] == "needs_review"
+    assert batch["summary"] == {"imported": 2, "skipped": 1, "errors": 1, "other": 1}
+    assert [item["status"] for item in batch["items"]] == ["imported", "imported", "skipped", "error"]
+
+
 def test_session_preserves_indoor_climbing_route_attempt_details(client):
     saved = client.post(
         "/api/session/2026-06-05",
