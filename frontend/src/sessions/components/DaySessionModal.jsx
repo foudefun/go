@@ -1061,6 +1061,12 @@ export default function DaySessionModal({
   const saveActionLabel = getSaveActionLabel({ draftActivity, showPlanEditor, hasActivityEditor, t });
   const saveScopeLabel = getSaveScopeLabel({ draftActivity, showPlanEditor, hasActivityEditor, t });
   const saveFlowNote = getSaveFlowNote({ draftActivity, showPlanEditor, hasActivityEditor, t });
+  const hasFooterMoreActions = Boolean(
+    draftActivity ||
+    (activeIndex !== null && savedActivities.length > 1) ||
+    (activeIndex !== null && savedActivities[activeIndex]) ||
+    (!hasActivityEditor && !planExists && !showPlanEditor),
+  );
 
   function updateActiveActivity(patch) {
     if (activeIndex === null) {
@@ -1507,45 +1513,52 @@ export default function DaySessionModal({
                 <button type="button" className="primary-action" onClick={handleSave} disabled={status === "saving"}>
                   {status === "saving" ? t("Saving...") : saveActionLabel}
                 </button>
-                {draftActivity ? (
-                  <button type="button" onClick={cancelDraftActivity}>
-                    {t("Discard new activity")}
-                  </button>
-                ) : null}
-                {activeIndex !== null && savedActivities.length > 1 ? (
-                  <div className="activity-merge-control">
-                    <label>
-                      {t("Merge into")}
-                      <select value={mergeTargetIndex} onChange={(event) => setMergeTargetIndex(event.target.value)}>
-                        <option value="">{t("Choose target activity")}</option>
-                        {savedActivities.map((activity, index) =>
-                          index === activeIndex ? null : (
-                            <option value={index} key={`${index}-${activity.title}-${activity.activity_type}`}>
-                              {getActivityTitle(activity, index, t)}
-                            </option>
-                          ),
-                        )}
-                      </select>
-                    </label>
-                    <button
-                      type="button"
-                      className="secondary-action"
-                      disabled={status === "saving" || mergeTargetIndex === ""}
-                      onClick={mergeSelectedActivity}
-                    >
-                      {t("Merge")}
-                    </button>
-                  </div>
-                ) : null}
-                {activeIndex !== null && savedActivities[activeIndex] ? (
-                  <button type="button" className="danger-action" onClick={deleteSelectedActivity} disabled={status === "saving"}>
-                    {t("Delete activity")}
-                  </button>
-                ) : null}
-                {!hasActivityEditor && !planExists && !showPlanEditor ? (
-                  <button type="button" onClick={() => setShowPlanEditor(true)}>
-                    {t("Plan a future activity")}
-                  </button>
+                {hasFooterMoreActions ? (
+                  <details className="modal-more-actions">
+                    <summary>{t("More actions")}</summary>
+                    <div className="modal-more-actions-panel">
+                      {draftActivity ? (
+                        <button type="button" onClick={cancelDraftActivity}>
+                          {t("Discard new activity")}
+                        </button>
+                      ) : null}
+                      {activeIndex !== null && savedActivities.length > 1 ? (
+                        <div className="activity-merge-control">
+                          <label>
+                            {t("Merge into")}
+                            <select value={mergeTargetIndex} onChange={(event) => setMergeTargetIndex(event.target.value)}>
+                              <option value="">{t("Choose target activity")}</option>
+                              {savedActivities.map((activity, index) =>
+                                index === activeIndex ? null : (
+                                  <option value={index} key={`${index}-${activity.title}-${activity.activity_type}`}>
+                                    {getActivityTitle(activity, index, t)}
+                                  </option>
+                                ),
+                              )}
+                            </select>
+                          </label>
+                          <button
+                            type="button"
+                            className="secondary-action"
+                            disabled={status === "saving" || mergeTargetIndex === ""}
+                            onClick={mergeSelectedActivity}
+                          >
+                            {t("Merge")}
+                          </button>
+                        </div>
+                      ) : null}
+                      {activeIndex !== null && savedActivities[activeIndex] ? (
+                        <button type="button" className="danger-action" onClick={deleteSelectedActivity} disabled={status === "saving"}>
+                          {t("Delete activity")}
+                        </button>
+                      ) : null}
+                      {!hasActivityEditor && !planExists && !showPlanEditor ? (
+                        <button type="button" onClick={() => setShowPlanEditor(true)}>
+                          {t("Plan a future activity")}
+                        </button>
+                      ) : null}
+                    </div>
+                  </details>
                 ) : null}
               </div>
             </section>

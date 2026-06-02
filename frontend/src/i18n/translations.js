@@ -329,6 +329,7 @@ const FR = {
   'Merge "{source}" into "{target}"? Existing calendar references will move to the target exercise.': "Fusionner \"{source}\" dans \"{target}\" ? Les references du calendrier seront deplacees vers l'exercice cible.",
   "Movement family": "Famille de mouvement",
   "Morning ride, climbing session, match...": "Sortie velo du matin, escalade, match...",
+  "More actions": "Plus d'actions",
   "Muscle impact": "Impact musculaire",
   "Muscle note EN": "Note muscles EN",
   "Muscle note FR": "Note muscles FR",
