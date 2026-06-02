@@ -271,6 +271,7 @@ const FR = {
   "Activity metrics": "Metriques d'activite",
   "Activity sources": "Sources de l'activite",
   "Activity Type": "Type d'activite",
+  "Activities on this day": "Activites du jour",
   "Add route": "Ajouter une voie",
   "Add route to activity": "Ajouter la voie a l'activite",
   "Attach file": "Joindre un fichier",

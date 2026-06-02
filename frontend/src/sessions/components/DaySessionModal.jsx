@@ -1310,7 +1310,12 @@ export default function DaySessionModal({
           <div className={shouldShowActivitySidebar ? "day-editor-grid" : "day-editor-grid no-activity-sidebar"}>
             {shouldShowActivitySidebar ? (
               <aside className="day-activity-list">
-                {isNewActivityDraft ? <div className="activity-select active draft">{t("New activity")}</div> : null}
+                <div className="day-activity-list-header">
+                  <p className="eyebrow">{t("Activities on this day")}</p>
+                  <span>{t("Activity count", { count: savedActivities.length + (isNewActivityDraft ? 1 : 0) })}</span>
+                </div>
+                <div className="day-activity-switcher">
+                  {isNewActivityDraft ? <div className="activity-select active draft">{t("New activity")}</div> : null}
                 {savedActivities.map((activity, index) => (
                   <button
                     type="button"
@@ -1328,6 +1333,7 @@ export default function DaySessionModal({
                     <span>{t(getActivityTypeLabel(activity.activity_type))}</span>
                   </button>
                 ))}
+                </div>
               </aside>
             ) : null}
 
