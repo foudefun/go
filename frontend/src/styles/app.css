@@ -3637,6 +3637,59 @@ select[multiple] {
   line-height: 1.1;
 }
 
+.activity-work-panel {
+  border: 1px solid #dce4f0;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.activity-work-panel summary {
+  padding: 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.activity-work-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.activity-work-panel summary::after {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid #42526b;
+  border-bottom: 2px solid #42526b;
+  transform: translateY(-3px) rotate(45deg);
+}
+
+.activity-work-panel[open] summary {
+  border-bottom: 1px solid #edf2f7;
+}
+
+.activity-work-panel[open] summary::after {
+  transform: translateY(3px) rotate(225deg);
+}
+
+.activity-work-panel > .strength-editor,
+.activity-work-panel > .climbing-route-editor {
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  padding: 14px;
+}
+
+.activity-work-panel > .strength-editor > .strength-editor-header,
+.activity-work-panel > .climbing-route-editor > .strength-editor-header {
+  display: none;
+}
+
+.activity-work-panel summary > span {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .notice-panel {
   display: grid;
   gap: 4px;

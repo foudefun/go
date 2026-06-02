@@ -1480,18 +1480,44 @@ export default function DaySessionModal({
                       ) : null}
 
                       {isActiveStrengthActivity ? (
-                        <StrengthEditor
-                          activity={activeActivity}
-                          exercises={exerciseList}
-                          loading={exerciseStatus === "loading"}
-                          error={exerciseError}
-                          onChange={updateActiveActivity}
-                          sessionDate={date}
-                        />
+                        <details
+                          className="activity-work-panel"
+                          aria-label={t("Strength performed items")}
+                          {...(isNewActivityDraft ? { open: true } : {})}
+                        >
+                          <summary className="section-heading-row">
+                            <div>
+                              <p className="eyebrow">{t("Strength Details")}</p>
+                              <h3>{t("Performed items")}</h3>
+                            </div>
+                            <span>{t("Item count", { count: activeActivity.performed_items?.length || 0 })}</span>
+                          </summary>
+                          <StrengthEditor
+                            activity={activeActivity}
+                            exercises={exerciseList}
+                            loading={exerciseStatus === "loading"}
+                            error={exerciseError}
+                            onChange={updateActiveActivity}
+                            sessionDate={date}
+                          />
+                        </details>
                       ) : null}
 
                       {isActiveClimbingActivity ? (
-                        <ClimbingRouteEditor activity={activeActivity} onChange={updateActiveActivity} />
+                        <details
+                          className="activity-work-panel"
+                          aria-label={t("Indoor climbing routes")}
+                          {...(isNewActivityDraft ? { open: true } : {})}
+                        >
+                          <summary className="section-heading-row">
+                            <div>
+                              <p className="eyebrow">{t("Indoor climbing")}</p>
+                              <h3>{t("Routes done")}</h3>
+                            </div>
+                            <span>{t("Route count", { count: activeActivity.climbing_routes?.length || 0 })}</span>
+                          </summary>
+                          <ClimbingRouteEditor activity={activeActivity} onChange={updateActiveActivity} />
+                        </details>
                       ) : null}
 
                       {((hasAdvancedStrengthData && !isActiveStrengthActivity) || (hasClimbingLogData && !isActiveClimbingActivity)) && (
