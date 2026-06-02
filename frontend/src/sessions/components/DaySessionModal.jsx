@@ -326,6 +326,37 @@ function ActivityTypePicker({ value, search, onSearchChange, onSelect, t }) {
   );
 }
 
+function ActivityDetailActions({
+  activity,
+  showTypePicker,
+  showImportPanel,
+  onToggleTypePicker,
+  onToggleImportPanel,
+  t,
+}) {
+  const typeLabel = String(activity?.activity_type || "").trim()
+    ? t(getActivityTypeLabel(activity.activity_type))
+    : t("Choose activity type");
+  const sourceCount = Array.isArray(activity?.source_files) ? activity.source_files.length : 0;
+
+  return (
+    <div className="activity-detail-actions">
+      <div>
+        <span>{t("Activity Type")}</span>
+        <strong>{typeLabel}</strong>
+      </div>
+      <div className="compact-actions">
+        <button type="button" className={showTypePicker ? "secondary-action active" : "secondary-action"} onClick={onToggleTypePicker}>
+          {showTypePicker ? t("Hide type picker") : t("Change type")}
+        </button>
+        <button type="button" className={showImportPanel ? "secondary-action active" : "secondary-action"} onClick={onToggleImportPanel}>
+          {sourceCount ? t("Manage sources count", { count: sourceCount }) : t("Manage sources")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ActivityImagePanel({ activity, canManage, uploading, error, onUpload, onDelete, t }) {
   const fileRef = useRef(null);
   const imageUrl = String(activity?.image || "").trim();
@@ -939,6 +970,7 @@ export default function DaySessionModal({
   const [sourceError, setSourceError] = useState("");
   const [activityTypeSearch, setActivityTypeSearch] = useState("");
   const [showImportPanel, setShowImportPanel] = useState(false);
+  const [showActivityTypePicker, setShowActivityTypePicker] = useState(false);
   const [mergeTargetIndex, setMergeTargetIndex] = useState("");
 
   useEffect(() => {
@@ -957,6 +989,7 @@ export default function DaySessionModal({
         setActivityTypeSearch("");
         setMergeTargetIndex("");
         setShowImportPanel(Boolean(initialShowImportPanel));
+        setShowActivityTypePicker(Boolean(createNewOnOpen));
         setActiveIndex(
           createNewOnOpen
             ? null
@@ -1052,12 +1085,14 @@ export default function DaySessionModal({
     setActivityTypeSearch("");
     setMergeTargetIndex("");
     setShowImportPanel(false);
+    setShowActivityTypePicker(true);
   }
 
   function cancelDraftActivity() {
     setDraftActivity(null);
     setActivityTypeSearch("");
     setMergeTargetIndex("");
+    setShowActivityTypePicker(false);
     setActiveIndex(savedActivities.length ? 0 : 0);
   }
 
@@ -1127,6 +1162,8 @@ export default function DaySessionModal({
     if (!session) return;
     setDraftActivity(buildActivityFromPlan(session));
     setActiveIndex(null);
+    setShowActivityTypePicker(true);
+    setShowImportPanel(false);
   }
 
   async function handleSave() {
@@ -1155,6 +1192,7 @@ export default function DaySessionModal({
     setSession({ ...normalized, activities: nextActivities });
     setActiveIndex(Math.max(0, Math.min(normalized.draft_active_activity_index || 0, Math.max(nextActivities.length - 1, 0))));
     setDraftActivity(null);
+    setShowActivityTypePicker(false);
   }
 
   async function handleActivityImageUpload(file) {
@@ -1276,6 +1314,8 @@ export default function DaySessionModal({
                       setActiveIndex(index);
                       setMergeTargetIndex("");
                       setShowImportPanel(false);
+                      setShowActivityTypePicker(false);
+                      setActivityTypeSearch("");
                     }}
                   >
                     <strong>{getActivityTitle(activity, index, t)}</strong>
@@ -1324,13 +1364,32 @@ export default function DaySessionModal({
                     t={t}
                   />
 
-                  <ActivityTypePicker
-                    value={activeActivity.activity_type}
-                    search={activityTypeSearch}
-                    onSearchChange={setActivityTypeSearch}
-                    onSelect={(activityType) => updateActiveActivity({ activity_type: activityType })}
-                    t={t}
-                  />
+                  {isNewActivityDraft ? null : (
+                    <ActivityDetailActions
+                      activity={activeActivity}
+                      showTypePicker={showActivityTypePicker}
+                      showImportPanel={showImportPanel}
+                      onToggleTypePicker={() => {
+                        setShowActivityTypePicker((current) => !current);
+                        setActivityTypeSearch("");
+                      }}
+                      onToggleImportPanel={() => setShowImportPanel((current) => !current)}
+                      t={t}
+                    />
+                  )}
+
+                  {(isNewActivityDraft || showActivityTypePicker) ? (
+                    <ActivityTypePicker
+                      value={activeActivity.activity_type}
+                      search={activityTypeSearch}
+                      onSearchChange={setActivityTypeSearch}
+                      onSelect={(activityType) => {
+                        updateActiveActivity({ activity_type: activityType });
+                        if (!isNewActivityDraft) setShowActivityTypePicker(false);
+                      }}
+                      t={t}
+                    />
+                  ) : null}
 
                   {showImportPanel ? (
                     <ActivitySourceFilesPanel

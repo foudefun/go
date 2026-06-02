@@ -3553,6 +3553,43 @@ select[multiple] {
   overflow-wrap: anywhere;
 }
 
+.activity-detail-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #dce4f0;
+  border-radius: 10px;
+  background: #fbfcfe;
+  padding: 12px;
+}
+
+.activity-detail-actions > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.activity-detail-actions span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.activity-detail-actions strong {
+  color: #172033;
+  font-size: 16px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.activity-detail-actions .secondary-action.active {
+  border-color: #32645f;
+  background: #eef5f4;
+  color: #244f4b;
+}
+
 .activity-edit-panel {
   display: grid;
   gap: 14px;
@@ -4686,6 +4723,11 @@ select[multiple] {
 
   .activity-detail-overview-header {
     display: grid;
+  }
+
+  .activity-detail-actions {
+    display: grid;
+    align-items: stretch;
   }
 }
 
