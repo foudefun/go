@@ -1480,7 +1480,18 @@ select[multiple] {
 }
 
 .activity-track-thumb rect {
-  fill: #eef6f0;
+  fill: #e7f3ef;
+}
+
+.activity-track-thumb-terrain {
+  fill: none;
+  stroke: rgba(15, 118, 110, 0.16);
+  stroke-linecap: round;
+  stroke-width: 12;
+}
+
+.activity-track-thumb-terrain.secondary {
+  stroke: rgba(37, 99, 235, 0.1);
 }
 
 .activity-track-thumb line {
@@ -1493,7 +1504,19 @@ select[multiple] {
   stroke: #166534;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 4;
+  stroke-width: 4.5;
+}
+
+.activity-track-thumb-start {
+  fill: #22c55e;
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+
+.activity-track-thumb-finish {
+  fill: #ef4444;
+  stroke: #fff;
+  stroke-width: 1.5;
 }
 
 .activity-trace-thumb {
@@ -3650,7 +3673,7 @@ select[multiple] {
 
 .activity-map-background path {
   fill: none;
-  stroke: rgba(22, 101, 52, 0.16);
+  stroke: rgba(22, 101, 52, 0.18);
   stroke-linecap: round;
   stroke-width: 16;
 }
@@ -3734,6 +3757,78 @@ select[multiple] {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 3;
+}
+
+.activity-source-quality {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #dce4f0;
+  border-radius: 12px;
+  background: #fff;
+  padding: 12px;
+}
+
+.activity-source-quality h3 {
+  margin: 0;
+  color: #172033;
+}
+
+.activity-source-quality-list {
+  display: grid;
+  gap: 8px;
+}
+
+.activity-source-quality-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 1.2fr);
+  gap: 12px;
+  align-items: start;
+  border: 1px solid #e6edf5;
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 10px;
+}
+
+.activity-source-quality-row strong,
+.activity-source-quality-row span,
+.activity-source-quality-row small {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.activity-source-quality-row > div > strong {
+  color: #172033;
+}
+
+.activity-source-quality-row > div > span,
+.activity-source-quality-row > div > small {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.activity-source-quality-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.activity-source-quality-facts span {
+  border: 1px solid #dce4f0;
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+  color: #667085;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.activity-source-quality-facts strong {
+  color: #172033;
+  font-size: 14px;
+  text-transform: none;
 }
 
 .section-heading-row {
@@ -4503,6 +4598,11 @@ select[multiple] {
   .import-history-row {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .activity-source-quality-row,
+  .activity-source-quality-facts {
+    grid-template-columns: 1fr;
   }
 }
 

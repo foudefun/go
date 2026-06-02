@@ -549,6 +549,16 @@ function buildElevationProfile(points, width = 600, height = 130) {
   };
 }
 
+function calculateElevationGain(altitudeValues) {
+  if (!Array.isArray(altitudeValues) || altitudeValues.length < 2) return 0;
+  return altitudeValues.reduce((total, value, index) => {
+    if (index === 0) return total;
+    const previous = altitudeValues[index - 1];
+    const gain = value - previous;
+    return gain > 0 ? total + gain : total;
+  }, 0);
+}
+
 function ActivityPowerCurve({ activity, t }) {
   const points = getPowerSeries(activity);
   if (points.length < 2) return null;
@@ -647,6 +657,71 @@ function ActivityTrackMap({ activity, t }) {
           </svg>
         </div>
       ) : null}
+    </section>
+  );
+}
+
+function getSourceQualityRows(activity, t) {
+  const sourceFiles = Array.isArray(activity?.source_files) ? activity.source_files : [];
+  return sourceFiles.map((source, index) => {
+    const points = Array.isArray(source.series?.points) ? source.series.points : [];
+    const gpsPoints = points.filter((point) => Number.isFinite(Number(point.lat)) && Number.isFinite(Number(point.lon)));
+    const altitudeValues = points.map((point) => Number(point.altitude_m)).filter(Number.isFinite);
+    const metrics = source.metrics || {};
+    const distance = formatMetricValue("distance", metrics.distance);
+    const duration = formatMetricValue("duration", metrics.duration);
+    const elevationGain = calculateElevationGain(altitudeValues);
+    const elevationRange = altitudeValues.length
+      ? `${Math.round(Math.min(...altitudeValues))}-${Math.round(Math.max(...altitudeValues))} m`
+      : "";
+    return {
+      id: source.id || `${source.filename || "source"}-${index}`,
+      title: getSourceTitle(source, index),
+      filename: source.filename || "",
+      format: source.file_format?.toUpperCase() || "",
+      provider: source.provider || "",
+      facts: [
+        distance ? { label: "Distance", value: distance } : null,
+        duration ? { label: "Duration", value: duration } : null,
+        elevationGain ? { label: "Elevation gain", value: `${Math.round(elevationGain)} m` } : null,
+        gpsPoints.length ? { label: "GPS points", value: `${gpsPoints.length}` } : null,
+        elevationRange ? { label: "Elevation range", value: elevationRange } : null,
+      ].filter(Boolean),
+      warning: !gpsPoints.length && points.length ? t("No GPS coordinates in source") : "",
+    };
+  });
+}
+
+function ActivitySourceQuality({ activity, t }) {
+  const rows = getSourceQualityRows(activity, t);
+  if (!rows.length) return null;
+  return (
+    <section className="activity-source-quality" aria-label={t("Source quality")}>
+      <div className="section-heading-row">
+        <div>
+          <p className="eyebrow">{t("Source quality")}</p>
+          <h3>{t("Import confidence")}</h3>
+        </div>
+      </div>
+      <div className="activity-source-quality-list">
+        {rows.map((row) => (
+          <article className="activity-source-quality-row" key={row.id}>
+            <div>
+              <strong>{row.title}</strong>
+              <span>{[row.provider, row.format, row.filename].filter(Boolean).join(" | ")}</span>
+              {row.warning ? <small>{row.warning}</small> : null}
+            </div>
+            <div className="activity-source-quality-facts">
+              {row.facts.map((fact) => (
+                <span key={fact.label}>
+                  <strong>{fact.value}</strong>
+                  {t(fact.label)}
+                </span>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
@@ -1258,6 +1333,7 @@ export default function DaySessionModal({
                           <ActivityMetricFields activity={activeActivity} t={t} />
                           <ActivityPowerCurve activity={activeActivity} t={t} />
                           <ActivityTrackMap activity={activeActivity} t={t} />
+                          <ActivitySourceQuality activity={activeActivity} t={t} />
                           <label>
                             {t("Notes")}
                             <textarea

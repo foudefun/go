@@ -83,6 +83,14 @@ function buildTrackPolyline(points, width = 120, height = 84, padding = 10) {
 function ActivityTrackThumbnail({ sourceFiles, t }) {
   const points = getTrackPointsFromSources(sourceFiles);
   const polyline = buildTrackPolyline(points);
+  const projected = polyline
+    ? polyline.split(" ").map((item) => {
+        const [x, y] = item.split(",").map(Number);
+        return { x, y };
+      })
+    : [];
+  const start = projected[0];
+  const finish = projected[projected.length - 1];
   if (!polyline) {
     return (
       <span className="activity-trace-thumb">
@@ -95,6 +103,8 @@ function ActivityTrackThumbnail({ sourceFiles, t }) {
     <span className="activity-track-thumb" aria-label={t("GPS track")}>
       <svg viewBox="0 0 120 84" role="img" aria-label={t("GPS track")}>
         <rect x="0" y="0" width="120" height="84" rx="8" />
+        <path className="activity-track-thumb-terrain" d="M -6 25 C 20 15, 34 34, 53 26 S 88 13, 126 27" />
+        <path className="activity-track-thumb-terrain secondary" d="M -8 62 C 18 48, 37 70, 58 58 S 91 47, 128 64" />
         <g>
           <line x1="0" y1="28" x2="120" y2="28" />
           <line x1="0" y1="56" x2="120" y2="56" />
@@ -102,6 +112,8 @@ function ActivityTrackThumbnail({ sourceFiles, t }) {
           <line x1="80" y1="0" x2="80" y2="84" />
         </g>
         <polyline points={polyline} />
+        {start ? <circle className="activity-track-thumb-start" cx={start.x} cy={start.y} r="3.5" /> : null}
+        {finish ? <circle className="activity-track-thumb-finish" cx={finish.x} cy={finish.y} r="3.5" /> : null}
       </svg>
     </span>
   );
