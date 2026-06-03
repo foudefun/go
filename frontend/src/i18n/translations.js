@@ -698,6 +698,7 @@ const FR = {
   "Loading admin data...": "Chargement des donnees admin...",
   "Manual activity": "Manuel",
   "minimum 8 characters": "minimum 8 caracteres",
+  "More failed files": "{count} autre(s) fichier(s) en erreur",
   "Morning ride, Zwift test...": "Sortie du matin, test Zwift...",
   "Name, grade, style": "Nom, cotation, style",
   "New password": "Nouveau mot de passe",

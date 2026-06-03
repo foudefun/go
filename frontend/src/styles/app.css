@@ -5025,6 +5025,40 @@ select[multiple] {
   white-space: nowrap;
 }
 
+.retry-error-list {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #f1c2c2;
+  border-radius: 8px;
+  background: #fffafa;
+  padding: 10px;
+}
+
+.retry-error-row {
+  display: grid;
+  gap: 2px;
+  border-top: 1px solid #f3d5d5;
+  padding-top: 6px;
+}
+
+.retry-error-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.retry-error-row strong {
+  color: #7f1d1d;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.retry-error-row small,
+.retry-error-more {
+  color: #9f1d1d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .import-dropzone {
   display: grid;
   place-items: center;

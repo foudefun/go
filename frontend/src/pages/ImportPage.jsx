@@ -439,8 +439,16 @@ export function ActivityImportPanel() {
               <button type="button" className="secondary-action" onClick={retryBatchErrors} disabled={batchStatus === "importing" || !retryActivityType}>
                 {batchStatus === "importing" ? t("Importing...") : t("Retry Failed Files")}
               </button>
-              <div className="error-banner">
-                {batchResult.errors.slice(0, 8).map((item) => `${item.filename}: ${item.detail}`).join(" | ")}
+              <div className="retry-error-list" aria-label={t("Failed files")}>
+                {batchResult.errors.slice(0, 6).map((item, index) => (
+                  <div className="retry-error-row" key={`${item.filename || "failed"}-${index}`}>
+                    <strong>{item.filename || t("Unknown file")}</strong>
+                    <small>{item.detail || t("No detail available")}</small>
+                  </div>
+                ))}
+                {batchResult.errors.length > 6 ? (
+                  <small className="retry-error-more">{t("More failed files", { count: batchResult.errors.length - 6 })}</small>
+                ) : null}
               </div>
             </section>
           ) : null}
