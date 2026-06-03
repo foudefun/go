@@ -1275,7 +1275,7 @@ select[multiple] {
 .month-day-summary {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
 }
 
 .month-day-activity-list,

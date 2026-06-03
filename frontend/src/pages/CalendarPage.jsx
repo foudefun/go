@@ -102,10 +102,35 @@ function getActivityEntries(row) {
   }));
 }
 
+function normalizeCalendarText(value) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .replace(/\b(cycling|walking|running)\s+\(virtual activity\)\s*/gi, "")
+    .replace(/\b(cycling|walking|running)\s*/gi, "")
+    .trim();
+}
+
+function isGenericCalendarPart(part) {
+  return (
+    /^Fichier:/i.test(part) ||
+    /^Import\s+(FIT|GPX|TCX|Strava)/i.test(part) ||
+    /^(course|run|running|velo|v[ée]lo|bike|cycling|vtt|hike|hiking|walking|randonn[ée]e|musculation|strength)$/i.test(part)
+  );
+}
+
+function isUsefulCalendarMetric(part) {
+  return /^(dur|duration|distance|d\+|denivel|elevation|puissance|power|avg|average|fc|heart|cadence|calories|\d+\s*ex\.?)/i.test(part);
+}
+
+function truncateCalendarSummary(value, maxLength = 42) {
+  const text = normalizeCalendarText(value);
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1).trim()}...` : text;
+}
+
 function compactCalendarSummary(entry) {
-  const title = String(entry?.title || "").trim();
-  if (title) return title;
-  let text = String(entry?.summary || entry?.details || "").trim();
+  const title = truncateCalendarSummary(entry?.title);
+  if (title && !/^Import\s+(FIT|GPX|TCX|Strava)/i.test(title)) return title;
+  let text = normalizeCalendarText(entry?.summary || entry?.details);
   if (!text) return "";
   text = text
     .replaceAll("RandonnÃƒÆ’Ã‚Â©e", "Randonnée")
@@ -122,12 +147,13 @@ function compactCalendarSummary(entry) {
     .trim();
   const parts = text
     .split("|")
-    .map((part) => part.trim())
+    .map((part) => normalizeCalendarText(part))
     .filter(Boolean)
-    .filter((part) => !/^Fichier:/i.test(part))
-    .filter((part) => !/^Import\s+(FIT|GPX|TCX|Strava)/i.test(part));
-  if (parts.length > 3) return parts.slice(0, 3).join(" | ");
-  return parts.join(" | ") || text;
+    .filter((part) => !isGenericCalendarPart(part));
+  const metrics = parts.filter(isUsefulCalendarMetric);
+  const usefulParts = metrics.length ? metrics : parts;
+  if (usefulParts.length) return usefulParts.slice(0, 2).map((part) => truncateCalendarSummary(part, 28)).join(" | ");
+  return truncateCalendarSummary(text);
 }
 function hasTarget(row) {
   return row?.target_load !== null && row?.target_load !== undefined;
