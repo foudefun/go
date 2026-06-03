@@ -1483,7 +1483,33 @@ select[multiple] {
 
 .activity-list-panel {
   display: grid;
-  gap: 10px;
+  gap: 18px;
+}
+
+.activity-date-group {
+  display: grid;
+  gap: 8px;
+}
+
+.activity-date-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px;
+}
+
+.activity-date-heading span {
+  color: #172033;
+  font-size: 15px;
+  font-weight: 900;
+  text-transform: capitalize;
+}
+
+.activity-date-heading small {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .activity-list-row {

@@ -17,6 +17,26 @@ function getLocalTodayIso() {
   return formatLocalDateIso(new Date());
 }
 
+function parseLocalDateIso(dateValue) {
+  const [year, month, day] = String(dateValue || "").split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function formatActivityDateHeading(dateValue, language, t) {
+  if (dateValue === getLocalTodayIso()) {
+    return t("Today");
+  }
+  const date = parseLocalDateIso(dateValue);
+  if (!date) return dateValue || "";
+  const locale = language === "fr" ? "fr-FR" : "en-US";
+  return new Intl.DateTimeFormat(locale, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(date);
+}
+
 function formatMetricValue(metricKey, values) {
   if (!values || typeof values !== "object") return "";
   if (metricKey === "distance") {
@@ -175,6 +195,11 @@ function buildActivityTitle(entry, t) {
   return String(entry.summary || "").trim() || t("Activity");
 }
 
+function getActivityKicker(activity, t) {
+  const label = activity.activityType ? getActivityTypeLabel(activity.activityType) : "Activity";
+  return t(label);
+}
+
 export default function ActivitiesPage() {
   const { language, t } = useTranslation();
   const location = useLocation();
@@ -266,6 +291,22 @@ export default function ActivitiesPage() {
         : activities,
     [activities, activityTypeFilter],
   );
+  const activityGroups = useMemo(() => {
+    const groups = [];
+    for (const activity of filteredActivities) {
+      const previousGroup = groups[groups.length - 1];
+      if (previousGroup?.date === activity.date) {
+        previousGroup.activities.push(activity);
+      } else {
+        groups.push({
+          date: activity.date,
+          label: formatActivityDateHeading(activity.date, language, t),
+          activities: [activity],
+        });
+      }
+    }
+    return groups;
+  }, [filteredActivities, language, t]);
   const currentFilterLabel = useMemo(() => {
     if (!activityTypeFilter) return t("All types");
     const selectedType = ACTIVITY_TYPES.find((activityType) => activityType.value === activityTypeFilter);
@@ -365,40 +406,48 @@ export default function ActivitiesPage() {
       {error ? <div className="error-banner">{error}</div> : null}
       {status === "loading" ? <div className="empty-state">{t("Loading activities...")}</div> : null}
       <section className="activity-list-panel">
-        {filteredActivities.map((activity) => {
-          const metrics = getActivityMetrics(activity);
-          return (
-            <button className="app-panel activity-list-row clickable-card" type="button" key={activity.id} onClick={() => openExistingActivity(activity)}>
-              <span className="activity-thumb" aria-hidden="true">
-                {activity.image ? (
-                  <img src={activity.image} alt="" />
-                ) : activity.sourceCount ? (
-                  <ActivityTrackThumbnail sourceFiles={activity.sourceFiles} t={t} />
-                ) : (
-                  <span className="activity-type-thumb" style={{ backgroundColor: getActivityTypeColor(activity.activityType) }}>
-                    {t(getActivityTypeLabel(activity.activityType))}
+        {activityGroups.map((group) => (
+          <div className="activity-date-group" key={group.date}>
+            <div className="activity-date-heading">
+              <span>{group.label}</span>
+              <small>{t("Activity count", { count: group.activities.length })}</small>
+            </div>
+            {group.activities.map((activity) => {
+              const metrics = getActivityMetrics(activity);
+              return (
+                <button className="app-panel activity-list-row clickable-card" type="button" key={activity.id} onClick={() => openExistingActivity(activity)}>
+                  <span className="activity-thumb" aria-hidden="true">
+                    {activity.image ? (
+                      <img src={activity.image} alt="" />
+                    ) : activity.sourceCount ? (
+                      <ActivityTrackThumbnail sourceFiles={activity.sourceFiles} t={t} />
+                    ) : (
+                      <span className="activity-type-thumb" style={{ backgroundColor: getActivityTypeColor(activity.activityType) }}>
+                        {t(getActivityTypeLabel(activity.activityType))}
+                      </span>
+                    )}
                   </span>
-                )}
-              </span>
-              <span className="activity-list-main">
-                <span>{activity.date}</span>
-                <strong>{activity.title}</strong>
-                {activity.details ? <small>{activity.details}</small> : null}
-              </span>
-              <span className="activity-list-meta">
-                {metrics.map((metric) => (
-                  <span className="activity-metric-chip" key={metric.key}>{metric.value}</span>
-                ))}
-                {activity.sourceFiles.length ? (
-                  <span className="activity-source-chip">{t("Imported source count", { count: activity.sourceFiles.length })}</span>
-                ) : null}
-                {!metrics.length && !activity.sourceFiles.length ? (
-                  <span className="activity-source-chip">{t("Manual activity")}</span>
-                ) : null}
-              </span>
-            </button>
-          );
-        })}
+                  <span className="activity-list-main">
+                    <span>{getActivityKicker(activity, t)}</span>
+                    <strong>{activity.title}</strong>
+                    {activity.details ? <small>{activity.details}</small> : null}
+                  </span>
+                  <span className="activity-list-meta">
+                    {metrics.map((metric) => (
+                      <span className="activity-metric-chip" key={metric.key}>{metric.value}</span>
+                    ))}
+                    {activity.sourceFiles.length ? (
+                      <span className="activity-source-chip">{t("Imported source count", { count: activity.sourceFiles.length })}</span>
+                    ) : null}
+                    {!metrics.length && !activity.sourceFiles.length ? (
+                      <span className="activity-source-chip">{t("Manual activity")}</span>
+                    ) : null}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
         {!filteredActivities.length && status !== "loading" && !error ? (
           <div className="app-panel empty-state">{t("No recent activities loaded.")}</div>
         ) : null}
