@@ -371,14 +371,9 @@ export default function ActivitiesPage() {
           </div>
         </div>
         <div className="activity-toolbar-secondary">
-          <div className="activity-import-actions" aria-label={t("Import")}>
-            <button type="button" onClick={openImportActivity}>
-              {t("Import Activity")}
-            </button>
-            <button type="button" onClick={() => setImportDialogMode("program")}>
-              {t("Import Program")}
-            </button>
-          </div>
+          <button className="activity-import-trigger" type="button" onClick={openImportActivity}>
+            {t("Import")}
+          </button>
           <span className="activity-results-summary">
             {t("Showing activities", { count: filteredActivities.length, type: currentFilterLabel })}
           </span>
