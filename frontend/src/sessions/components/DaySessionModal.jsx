@@ -667,6 +667,27 @@ function calculateElevationGain(altitudeValues) {
   }, 0);
 }
 
+function getSvgPointFromEvent(event) {
+  const svg = event.currentTarget;
+  if (typeof svg.createSVGPoint === "function") {
+    const point = svg.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    const matrix = svg.getScreenCTM();
+    if (matrix) {
+      return point.matrixTransform(matrix.inverse());
+    }
+  }
+  const rect = svg.getBoundingClientRect();
+  const viewBox = svg.viewBox?.baseVal;
+  const width = viewBox?.width || rect.width || 1;
+  const height = viewBox?.height || rect.height || 1;
+  return {
+    x: ((event.clientX - rect.left) / Math.max(rect.width, 1)) * width,
+    y: ((event.clientY - rect.top) / Math.max(rect.height, 1)) * height,
+  };
+}
+
 function ActivityPowerCurve({ activity, t }) {
   const points = getPowerSeries(activity);
   const [hoverPoint, setHoverPoint] = useState(null);
@@ -705,8 +726,7 @@ function ActivityPowerCurve({ activity, t }) {
   const tooltipY = hoverPoint ? Math.max(hoverY - 34, paddingTop + 2) : 0;
 
   function handleHover(event) {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const localX = ((event.clientX - rect.left) / rect.width) * width;
+    const localX = getSvgPointFromEvent(event).x;
     const time = Math.min(Math.max(((localX - paddingLeft) / plotWidth) * maxTime, 0), maxTime);
     const nearest = points.reduce((best, point) =>
       Math.abs(point.t - time) < Math.abs(best.t - time) ? point : best,
@@ -799,8 +819,7 @@ function ActivityTrackMap({ activity, t }) {
 
   function handleElevationHover(event) {
     if (!elevationProfile?.points?.length) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const localX = ((event.clientX - rect.left) / rect.width) * elevationProfile.width;
+    const localX = getSvgPointFromEvent(event).x;
     const nearest = elevationProfile.points.reduce((best, point) =>
       Math.abs(point.x - localX) < Math.abs(best.x - localX) ? point : best,
     elevationProfile.points[0]);
