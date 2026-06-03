@@ -1358,12 +1358,14 @@ export default function DaySessionModal({
 
               {hasActivityEditor ? (
                 <>
-                  <ActivityDetailOverview
-                    activity={activeActivity}
-                    activityIndex={activeIndex ?? savedActivities.length}
-                    date={date}
-                    t={t}
-                  />
+                  {isNewActivityDraft ? null : (
+                    <ActivityDetailOverview
+                      activity={activeActivity}
+                      activityIndex={activeIndex ?? savedActivities.length}
+                      date={date}
+                      t={t}
+                    />
+                  )}
 
                   {isNewActivityDraft ? null : (
                     <ActivityDetailActions
@@ -1408,10 +1410,14 @@ export default function DaySessionModal({
                     <>
                       {(activeIndex !== null || isNewActivityDraft) ? (
                         <>
-                          <ActivityMetricFields activity={activeActivity} t={t} />
-                          <ActivityPowerCurve activity={activeActivity} t={t} />
-                          <ActivityTrackMap activity={activeActivity} t={t} />
-                          <ActivitySourceQuality activity={activeActivity} t={t} />
+                          {isNewActivityDraft ? null : (
+                            <>
+                              <ActivityMetricFields activity={activeActivity} t={t} />
+                              <ActivityPowerCurve activity={activeActivity} t={t} />
+                              <ActivityTrackMap activity={activeActivity} t={t} />
+                              <ActivitySourceQuality activity={activeActivity} t={t} />
+                            </>
+                          )}
                           <details
                             className="activity-edit-panel"
                             aria-label={t("Edit activity")}
