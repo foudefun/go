@@ -590,31 +590,70 @@ function projectTrackPoints(points, width, height, padding) {
   });
 }
 
-function buildElevationProfile(points, width = 600, height = 130) {
+function buildElevationProfile(points, width = 600, height = 190) {
   const altitudePoints = points
     .map((point, index) => ({
       index,
+      t: Number(point.t || 0),
       altitude: Number(point.altitude_m),
     }))
     .filter((point) => Number.isFinite(point.altitude));
   if (altitudePoints.length < 2) return null;
-  const paddingX = 18;
-  const paddingY = 16;
+  const paddingLeft = 56;
+  const paddingRight = 18;
+  const paddingTop = 18;
+  const paddingBottom = 34;
+  const plotWidth = width - paddingLeft - paddingRight;
+  const plotHeight = height - paddingTop - paddingBottom;
   const minAltitude = Math.min(...altitudePoints.map((point) => point.altitude));
   const maxAltitude = Math.max(...altitudePoints.map((point) => point.altitude));
   const altitudeSpan = Math.max(maxAltitude - minAltitude, 1);
+  const maxTime = Math.max(...points.map((point) => Number(point.t || 0)), 0);
   const indexSpan = Math.max(points.length - 1, 1);
+  const xForPoint = (point) => {
+    if (maxTime > 0 && Number.isFinite(point.t)) {
+      return paddingLeft + (point.t / maxTime) * plotWidth;
+    }
+    return paddingLeft + (point.index / indexSpan) * plotWidth;
+  };
+  const yForAltitude = (altitude) => paddingTop + plotHeight - ((altitude - minAltitude) / altitudeSpan) * plotHeight;
+  const projectedPoints = altitudePoints.map((point) => ({
+    ...point,
+    x: xForPoint(point),
+    y: yForAltitude(point.altitude),
+  }));
   const polyline = altitudePoints
     .map((point) => {
-      const x = paddingX + (point.index / indexSpan) * (width - paddingX * 2);
-      const y = height - paddingY - ((point.altitude - minAltitude) / altitudeSpan) * (height - paddingY * 2);
+      const x = xForPoint(point);
+      const y = yForAltitude(point.altitude);
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(" ");
+  const altitudeTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+    const value = minAltitude + altitudeSpan * ratio;
+    return {
+      value: Math.round(value),
+      y: yForAltitude(value),
+    };
+  });
+  const timeTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => ({
+    value: maxTime * ratio,
+    x: paddingLeft + ratio * plotWidth,
+  }));
   return {
+    altitudeTicks,
+    height,
+    maxTime,
     polyline,
+    points: projectedPoints,
+    paddingBottom,
+    paddingLeft,
+    paddingRight,
+    paddingTop,
     minAltitude: Math.round(minAltitude),
     maxAltitude: Math.round(maxAltitude),
+    timeTicks,
+    width,
   };
 }
 
@@ -630,21 +669,51 @@ function calculateElevationGain(altitudeValues) {
 
 function ActivityPowerCurve({ activity, t }) {
   const points = getPowerSeries(activity);
+  const [hoverPoint, setHoverPoint] = useState(null);
   if (points.length < 2) return null;
   const width = 600;
-  const height = 160;
-  const paddingX = 18;
-  const paddingY = 18;
+  const height = 190;
+  const paddingLeft = 48;
+  const paddingRight = 18;
+  const paddingTop = 18;
+  const paddingBottom = 34;
+  const plotWidth = width - paddingLeft - paddingRight;
+  const plotHeight = height - paddingTop - paddingBottom;
   const maxTime = Math.max(...points.map((point) => point.t), 1);
   const maxPower = Math.max(...points.map((point) => point.power), 1);
   const avgPower = points.reduce((sum, point) => sum + point.power, 0) / points.length;
+  const xForTime = (time) => paddingLeft + (time / maxTime) * plotWidth;
+  const yForPower = (power) => paddingTop + plotHeight - (power / maxPower) * plotHeight;
   const polyline = points
     .map((point) => {
-      const x = paddingX + (point.t / maxTime) * (width - paddingX * 2);
-      const y = height - paddingY - (point.power / maxPower) * (height - paddingY * 2);
+      const x = xForTime(point.t);
+      const y = yForPower(point.power);
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(" ");
+  const powerTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => ({
+    value: Math.round(maxPower * ratio),
+    y: yForPower(maxPower * ratio),
+  }));
+  const timeTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => ({
+    value: maxTime * ratio,
+    x: xForTime(maxTime * ratio),
+  }));
+  const hoverX = hoverPoint ? xForTime(hoverPoint.t) : 0;
+  const hoverY = hoverPoint ? yForPower(hoverPoint.power) : 0;
+  const tooltipX = hoverPoint ? Math.min(Math.max(hoverX + 10, paddingLeft), width - 128) : 0;
+  const tooltipY = hoverPoint ? Math.max(hoverY - 34, paddingTop + 2) : 0;
+
+  function handleHover(event) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const localX = ((event.clientX - rect.left) / rect.width) * width;
+    const time = Math.min(Math.max(((localX - paddingLeft) / plotWidth) * maxTime, 0), maxTime);
+    const nearest = points.reduce((best, point) =>
+      Math.abs(point.t - time) < Math.abs(best.t - time) ? point : best,
+    points[0]);
+    setHoverPoint(nearest);
+  }
+
   return (
     <section className="activity-power-curve" aria-label={t("Power curve")}>
       <div className="section-heading-row">
@@ -652,12 +721,49 @@ function ActivityPowerCurve({ activity, t }) {
           <p className="eyebrow">{t("Power curve")}</p>
           <h3>{`${Math.round(avgPower)} W ${t("avg")} / ${Math.round(maxPower)} W ${t("max")}`}</h3>
         </div>
-        <span>{formatDurationSeconds(maxTime)}</span>
+        <span>{hoverPoint ? `${formatDurationSeconds(hoverPoint.t)} | ${Math.round(hoverPoint.power)} W` : formatDurationSeconds(maxTime)}</span>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("Power over time")}>
-        <line x1={paddingX} y1={height - paddingY} x2={width - paddingX} y2={height - paddingY} />
-        <line x1={paddingX} y1={paddingY} x2={paddingX} y2={height - paddingY} />
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={t("Power over time")}
+        onMouseMove={handleHover}
+        onMouseLeave={() => setHoverPoint(null)}
+      >
+        <g className="activity-chart-grid">
+          {powerTicks.map((tick) => (
+            <line key={`power-grid-${tick.value}`} x1={paddingLeft} y1={tick.y} x2={width - paddingRight} y2={tick.y} />
+          ))}
+          {timeTicks.map((tick) => (
+            <line key={`time-grid-${tick.value}`} x1={tick.x} y1={paddingTop} x2={tick.x} y2={height - paddingBottom} />
+          ))}
+        </g>
+        <line className="activity-chart-axis" x1={paddingLeft} y1={height - paddingBottom} x2={width - paddingRight} y2={height - paddingBottom} />
+        <line className="activity-chart-axis" x1={paddingLeft} y1={paddingTop} x2={paddingLeft} y2={height - paddingBottom} />
+        <g className="activity-chart-labels">
+          {powerTicks.map((tick) => (
+            <text key={`power-label-${tick.value}`} x={paddingLeft - 8} y={tick.y + 4} textAnchor="end">
+              {tick.value} W
+            </text>
+          ))}
+          {timeTicks.map((tick) => (
+            <text key={`time-label-${tick.value}`} x={tick.x} y={height - 9} textAnchor="middle">
+              {formatDurationSeconds(tick.value)}
+            </text>
+          ))}
+        </g>
         <polyline points={polyline} />
+        {hoverPoint ? (
+          <g className="activity-chart-hover">
+            <line x1={hoverX} y1={paddingTop} x2={hoverX} y2={height - paddingBottom} />
+            <circle cx={hoverX} cy={hoverY} r="5" />
+            <g transform={`translate(${tooltipX} ${tooltipY})`}>
+              <rect width="118" height="30" rx="6" />
+              <text x="8" y="13">{formatDurationSeconds(hoverPoint.t)}</text>
+              <text x="8" y="25">{Math.round(hoverPoint.power)} W</text>
+            </g>
+          </g>
+        ) : null}
       </svg>
     </section>
   );
@@ -665,6 +771,7 @@ function ActivityPowerCurve({ activity, t }) {
 
 function ActivityTrackMap({ activity, t }) {
   const { source, points } = getTrackSeries(activity);
+  const [hoverElevationPoint, setHoverElevationPoint] = useState(null);
   if (points.length < 2) return null;
 
   const width = 600;
@@ -681,6 +788,24 @@ function ActivityTrackMap({ activity, t }) {
     ? `${Math.round(Math.min(...altitudeValues))}-${Math.round(Math.max(...altitudeValues))} m`
     : "";
   const elevationProfile = buildElevationProfile(points);
+  const hoverElevationX = hoverElevationPoint?.x || 0;
+  const hoverElevationY = hoverElevationPoint?.y || 0;
+  const elevationTooltipX = elevationProfile && hoverElevationPoint
+    ? Math.min(Math.max(hoverElevationX + 10, elevationProfile.paddingLeft), elevationProfile.width - 136)
+    : 0;
+  const elevationTooltipY = elevationProfile && hoverElevationPoint
+    ? Math.max(hoverElevationY - 34, elevationProfile.paddingTop + 2)
+    : 0;
+
+  function handleElevationHover(event) {
+    if (!elevationProfile?.points?.length) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const localX = ((event.clientX - rect.left) / rect.width) * elevationProfile.width;
+    const nearest = elevationProfile.points.reduce((best, point) =>
+      Math.abs(point.x - localX) < Math.abs(best.x - localX) ? point : best,
+    elevationProfile.points[0]);
+    setHoverElevationPoint(nearest);
+  }
 
   return (
     <section className="activity-track-map" aria-label={t("Activity route")}>
@@ -718,11 +843,53 @@ function ActivityTrackMap({ activity, t }) {
         <div className="activity-elevation-profile">
           <div className="section-heading-row compact">
             <strong>{t("Elevation profile")}</strong>
-            <span>{`${elevationProfile.minAltitude}-${elevationProfile.maxAltitude} m`}</span>
+            <span>
+              {hoverElevationPoint
+                ? `${formatDurationSeconds(hoverElevationPoint.t)} | ${Math.round(hoverElevationPoint.altitude)} m`
+                : `${elevationProfile.minAltitude}-${elevationProfile.maxAltitude} m`}
+            </span>
           </div>
-          <svg viewBox="0 0 600 130" role="img" aria-label={t("Elevation profile")}>
-            <line x1="18" y1="114" x2="582" y2="114" />
+          <svg
+            viewBox={`0 0 ${elevationProfile.width} ${elevationProfile.height}`}
+            role="img"
+            aria-label={t("Elevation profile")}
+            onMouseMove={handleElevationHover}
+            onMouseLeave={() => setHoverElevationPoint(null)}
+          >
+            <g className="activity-chart-grid">
+              {elevationProfile.altitudeTicks.map((tick) => (
+                <line key={`elevation-grid-${tick.value}`} x1={elevationProfile.paddingLeft} y1={tick.y} x2={elevationProfile.width - elevationProfile.paddingRight} y2={tick.y} />
+              ))}
+              {elevationProfile.timeTicks.map((tick) => (
+                <line key={`elevation-time-grid-${tick.value}`} x1={tick.x} y1={elevationProfile.paddingTop} x2={tick.x} y2={elevationProfile.height - elevationProfile.paddingBottom} />
+              ))}
+            </g>
+            <line className="activity-chart-axis" x1={elevationProfile.paddingLeft} y1={elevationProfile.height - elevationProfile.paddingBottom} x2={elevationProfile.width - elevationProfile.paddingRight} y2={elevationProfile.height - elevationProfile.paddingBottom} />
+            <line className="activity-chart-axis" x1={elevationProfile.paddingLeft} y1={elevationProfile.paddingTop} x2={elevationProfile.paddingLeft} y2={elevationProfile.height - elevationProfile.paddingBottom} />
+            <g className="activity-chart-labels">
+              {elevationProfile.altitudeTicks.map((tick) => (
+                <text key={`elevation-label-${tick.value}`} x={elevationProfile.paddingLeft - 8} y={tick.y + 4} textAnchor="end">
+                  {tick.value} m
+                </text>
+              ))}
+              {elevationProfile.timeTicks.map((tick) => (
+                <text key={`elevation-time-label-${tick.value}`} x={tick.x} y={elevationProfile.height - 9} textAnchor="middle">
+                  {formatDurationSeconds(tick.value)}
+                </text>
+              ))}
+            </g>
             <polyline points={elevationProfile.polyline} />
+            {hoverElevationPoint ? (
+              <g className="activity-chart-hover">
+                <line x1={hoverElevationX} y1={elevationProfile.paddingTop} x2={hoverElevationX} y2={elevationProfile.height - elevationProfile.paddingBottom} />
+                <circle cx={hoverElevationX} cy={hoverElevationY} r="5" />
+                <g transform={`translate(${elevationTooltipX} ${elevationTooltipY})`}>
+                  <rect width="126" height="30" rx="6" />
+                  <text x="8" y="13">{formatDurationSeconds(hoverElevationPoint.t)}</text>
+                  <text x="8" y="25">{Math.round(hoverElevationPoint.altitude)} m</text>
+                </g>
+              </g>
+            ) : null}
           </svg>
         </div>
       ) : null}

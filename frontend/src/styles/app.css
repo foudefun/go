@@ -4064,13 +4064,30 @@ select[multiple] {
 
 .activity-power-curve svg {
   width: 100%;
-  height: 180px;
+  height: 210px;
   overflow: visible;
+  cursor: crosshair;
 }
 
 .activity-power-curve line {
   stroke: #dce4f0;
   stroke-width: 2;
+}
+
+.activity-chart-grid line {
+  stroke: #eef2f7;
+  stroke-width: 1;
+}
+
+.activity-chart-axis {
+  stroke: #c7d2e3;
+}
+
+.activity-chart-labels text {
+  fill: #667085;
+  font-size: 11px;
+  font-weight: 800;
+  pointer-events: none;
 }
 
 .activity-power-curve polyline {
@@ -4079,6 +4096,34 @@ select[multiple] {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 3;
+  pointer-events: none;
+}
+
+.activity-chart-hover {
+  pointer-events: none;
+}
+
+.activity-chart-hover line {
+  stroke: #1f4b7a;
+  stroke-dasharray: 4 4;
+  stroke-width: 1.5;
+}
+
+.activity-chart-hover circle {
+  fill: #fff;
+  stroke: #2563eb;
+  stroke-width: 3;
+}
+
+.activity-chart-hover rect {
+  fill: #172033;
+  opacity: 0.94;
+}
+
+.activity-chart-hover text {
+  fill: #fff;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .activity-track-map {
@@ -4184,7 +4229,8 @@ select[multiple] {
 
 .activity-elevation-profile svg {
   width: 100%;
-  height: 130px;
+  height: 210px;
+  cursor: crosshair;
   overflow: visible;
 }
 
@@ -4199,6 +4245,7 @@ select[multiple] {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 3;
+  pointer-events: none;
 }
 
 .activity-source-quality {
