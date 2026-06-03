@@ -1047,12 +1047,6 @@ export default function DaySessionModal({
   const hasActivityEditor = activeIndex === null ? Boolean(draftActivity) : Boolean(savedActivities[activeIndex]);
   const isNewActivityDraft = activeIndex === null && Boolean(draftActivity);
   const shouldShowActivitySidebar = savedActivities.length > 1 || isNewActivityDraft;
-  const headerActivityLabel = String(activeActivity.activity_type || "").trim()
-    ? t(getActivityTypeLabel(activeActivity.activity_type))
-    : "";
-  const headerActivityTitle = hasActivityEditor
-    ? getActivityTitle(activeActivity, activeIndex ?? savedActivities.length, t)
-    : "";
   const targetSummary = useMemo(() => {
     if (!session) return "";
     return session.target_load !== null && session.target_load !== undefined
@@ -1275,22 +1269,16 @@ export default function DaySessionModal({
         <header className="day-modal-header">
           <div>
             <p className="eyebrow">{hasActivityEditor ? t("Activity detail") : t("Day Editor")}</p>
-            <div className="day-modal-title-row">
-              <h2>{date}</h2>
-              {headerActivityLabel ? (
-                <span
-                  className="activity-type-badge compact"
-                  style={{ backgroundColor: getActivityTypeColor(activeActivity.activity_type) }}
-                >
-                  {headerActivityLabel}
-                </span>
-              ) : null}
-            </div>
-            {headerActivityTitle && headerActivityTitle !== headerActivityLabel ? (
-              <span>{headerActivityTitle}</span>
-            ) : session ? (
-              <span>{targetSummary}</span>
-            ) : null}
+            {hasActivityEditor ? (
+              <span>{date}</span>
+            ) : (
+              <>
+                <div className="day-modal-title-row">
+                  <h2>{date}</h2>
+                </div>
+                {session ? <span>{targetSummary}</span> : null}
+              </>
+            )}
           </div>
           <div className="day-modal-actions">
             {session && status !== "loading" && !isNewActivityDraft ? (
