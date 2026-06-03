@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   createStravaConnectUrl,
   disconnectStrava,
@@ -24,6 +25,13 @@ import {
 } from "../domain/importTools.js";
 import { useTranslation } from "../i18n/translations.js";
 import DaySessionModal from "../sessions/components/DaySessionModal.jsx";
+
+const IMPORT_MODES = new Set(["activity", "program", "strava", "history"]);
+
+function getImportMode(searchParams) {
+  const requestedMode = searchParams.get("mode");
+  return IMPORT_MODES.has(requestedMode) ? requestedMode : "activity";
+}
 
 export function ProgramImportPanel() {
   const { t } = useTranslation();
@@ -1146,7 +1154,20 @@ export function StravaImportPanel() {
 
 export default function ImportPage() {
   const { t } = useTranslation();
-  const [mode, setMode] = useState("program");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const mode = getImportMode(searchParams);
+
+  function setMode(nextMode) {
+    setSearchParams((currentParams) => {
+      const nextParams = new URLSearchParams(currentParams);
+      if (nextMode === "activity") {
+        nextParams.delete("mode");
+      } else {
+        nextParams.set("mode", nextMode);
+      }
+      return nextParams;
+    });
+  }
 
   return (
     <main className="page-shell">
