@@ -1142,6 +1142,12 @@ select[multiple] {
   gap: 6px;
 }
 
+.chart-legend-row.stacked {
+  gap: 10px;
+  margin-top: -4px;
+  font-size: 12px;
+}
+
 .legend-dot {
   width: 10px;
   height: 10px;
@@ -1191,6 +1197,11 @@ select[multiple] {
 .chart-bar.secondary {
   fill: #2563eb;
   opacity: 0.82;
+}
+
+.chart-bar[style] {
+  stroke: #fff;
+  stroke-width: 1;
 }
 
 .chart-line.primary {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCalendar } from "../api/calendarApi.js";
 import { getExercises } from "../api/exerciseApi.js";
-import { ACTIVITY_TYPES, getActivityTypeLabel } from "../domain/activityTypes.js";
+import { ACTIVITY_TYPES, getActivityTypeColor, getActivityTypeLabel } from "../domain/activityTypes.js";
 import { getExerciseLabel } from "../domain/exerciseLibrary.js";
 import { useTranslation } from "../i18n/translations.js";
 import {
@@ -80,6 +80,18 @@ function rowHasSelectedMetric(row, metricA, metricB) {
   return normalizeChartValue(row, metricA) > 0 || (metricB && normalizeChartValue(row, metricB) > 0);
 }
 
+function buildStackedChartRows(baseRows, typedRowsByActivityType) {
+  const rowsByLabel = new Map((Array.isArray(baseRows) ? baseRows : []).map((row) => [row.label, { ...row, stacks: {} }]));
+  for (const [activityType, rows] of typedRowsByActivityType) {
+    for (const row of rows) {
+      const current = rowsByLabel.get(row.label) || { label: row.label, stacks: {} };
+      current.stacks = { ...(current.stacks || {}), [activityType]: row };
+      rowsByLabel.set(row.label, current);
+    }
+  }
+  return Array.from(rowsByLabel.values()).sort((left, right) => String(left.label).localeCompare(String(right.label)));
+}
+
 function isWholeNumberMetric(metricKey) {
   return ["activity_count", "exercise_sessions", "strength_items", "sets", "total_reps", "calories"].includes(metricKey);
 }
@@ -114,11 +126,44 @@ function buildBarItems(rows, metricKey, maxValue, width, height, padding, offset
   });
 }
 
-function StatsChart({ rows, metricA, metricB, t }) {
+function buildStackedBarItems(rows, metricKey, maxValue, width, height, padding, offsetRatio, widthRatio, stackTypes) {
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const slotWidth = chartWidth / Math.max(rows.length, 1);
+  const barWidth = Math.max(4, slotWidth * widthRatio);
+  const baseY = height - padding.bottom;
+  return rows.flatMap((row, index) => {
+    const slotX = padding.left + index * slotWidth;
+    const x = slotX + slotWidth * offsetRatio - barWidth / 2;
+    let stackedValue = 0;
+    return stackTypes.flatMap((type) => {
+      const value = normalizeChartValue(row.stacks?.[type.value], metricKey);
+      if (!value) return [];
+      const previousValue = stackedValue;
+      stackedValue += value;
+      const y = baseY - (stackedValue / (maxValue || 1)) * chartHeight;
+      const segmentHeight = ((stackedValue - previousValue) / (maxValue || 1)) * chartHeight;
+      return [{
+        color: getActivityTypeColor(type.value),
+        height: segmentHeight,
+        label: row.label,
+        labelX: slotX + slotWidth / 2,
+        type,
+        value,
+        width: barWidth,
+        x,
+        y,
+      }];
+    });
+  });
+}
+
+function StatsChart({ rows, metricA, metricB, stackTypes = [], t }) {
   const width = 900;
   const height = 360;
   const padding = { top: 30, right: metricB ? 82 : 42, bottom: 58, left: 64 };
   const chartRows = rows;
+  const isStacked = stackTypes.length > 1;
 
   if (!chartRows.length) {
     return <div className="empty-state compact">{t("No data for the selected variables.")}</div>;
@@ -127,8 +172,14 @@ function StatsChart({ rows, metricA, metricB, t }) {
   const maxValueA = Math.max(...chartRows.map((row) => normalizeChartValue(row, metricA)), 1);
   const maxValueB = metricB ? Math.max(...chartRows.map((row) => normalizeChartValue(row, metricB)), 1) : 0;
   const axisTicksA = buildAxisTicks(maxValueA, metricA);
-  const barsA = buildBarItems(chartRows, metricA, maxValueA, width, height, padding, metricB ? 0.38 : 0.5, metricB ? 0.32 : 0.52);
-  const barsB = metricB ? buildBarItems(chartRows, metricB, maxValueB, width, height, padding, 0.62, 0.32) : [];
+  const barsA = isStacked
+    ? buildStackedBarItems(chartRows, metricA, maxValueA, width, height, padding, metricB ? 0.38 : 0.5, metricB ? 0.32 : 0.52, stackTypes)
+    : buildBarItems(chartRows, metricA, maxValueA, width, height, padding, metricB ? 0.38 : 0.5, metricB ? 0.32 : 0.52);
+  const barsB = metricB
+    ? (isStacked
+      ? buildStackedBarItems(chartRows, metricB, maxValueB, width, height, padding, 0.62, 0.32, stackTypes)
+      : buildBarItems(chartRows, metricB, maxValueB, width, height, padding, 0.62, 0.32))
+    : [];
   const xLabels = chartRows.filter((_, index) => index === 0 || index === chartRows.length - 1 || index % Math.ceil(chartRows.length / 6) === 0);
   const metricALabel = t(getStatMetric(metricA).label);
   const metricBLabel = metricB ? t(getStatMetric(metricB).label) : "";
@@ -139,6 +190,13 @@ function StatsChart({ rows, metricA, metricB, t }) {
         <span><i className="legend-dot primary" />{metricALabel} · max {formatStatValue(maxValueA, metricA)}</span>
         {metricB ? <span><i className="legend-dot secondary" />{metricBLabel} · max {formatStatValue(maxValueB, metricB)}</span> : null}
       </div>
+      {isStacked ? (
+        <div className="chart-legend-row stacked">
+          {stackTypes.map((type) => (
+            <span key={type.value}><i className="legend-dot" style={{ backgroundColor: getActivityTypeColor(type.value) }} />{t(getActivityTypeLabel(type.value))}</span>
+          ))}
+        </div>
+      ) : null}
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("Statistics chart")}>
         <line x1={padding.left} y1={height - padding.bottom} x2={width - padding.right} y2={height - padding.bottom} className="chart-axis" />
         <line x1={padding.left} y1={padding.top} x2={padding.left} y2={height - padding.bottom} className="chart-axis" />
@@ -155,13 +213,31 @@ function StatsChart({ rows, metricA, metricB, t }) {
           );
         })}
         {barsA.map((bar) => (
-          <rect key={`${bar.label}-a`} x={bar.x} y={bar.y} width={bar.width} height={bar.height} rx="4" className="chart-bar primary">
-            <title>{`${bar.label} - ${metricALabel}: ${formatStatValue(bar.value, metricA)}`}</title>
+          <rect
+            key={`${bar.label}-a-${bar.type?.value || "single"}`}
+            x={bar.x}
+            y={bar.y}
+            width={bar.width}
+            height={bar.height}
+            rx={isStacked ? "0" : "4"}
+            className="chart-bar primary"
+            style={bar.color ? { fill: bar.color } : undefined}
+          >
+            <title>{`${bar.label} - ${bar.type ? `${t(getActivityTypeLabel(bar.type.value))} - ` : ""}${metricALabel}: ${formatStatValue(bar.value, metricA)}`}</title>
           </rect>
         ))}
         {barsB.map((bar) => (
-          <rect key={`${bar.label}-b`} x={bar.x} y={bar.y} width={bar.width} height={bar.height} rx="4" className="chart-bar secondary">
-            <title>{`${bar.label} - ${metricBLabel}: ${formatStatValue(bar.value, metricB)}`}</title>
+          <rect
+            key={`${bar.label}-b-${bar.type?.value || "single"}`}
+            x={bar.x}
+            y={bar.y}
+            width={bar.width}
+            height={bar.height}
+            rx={isStacked ? "0" : "4"}
+            className="chart-bar secondary"
+            style={bar.color ? { fill: bar.color } : undefined}
+          >
+            <title>{`${bar.label} - ${bar.type ? `${t(getActivityTypeLabel(bar.type.value))} - ` : ""}${metricBLabel}: ${formatStatValue(bar.value, metricB)}`}</title>
           </rect>
         ))}
         {xLabels.map((row) => {
@@ -340,6 +416,21 @@ export default function StatisticsPage() {
   );
   const chartRows = period === "monthly" ? monthlyRows : dailyRows;
   const plottedRows = useMemo(() => chartRows.filter((row) => rowHasSelectedMetric(row, safeMetricA, safeMetricB)), [chartRows, safeMetricA, safeMetricB]);
+  const stackActivityTypes = useMemo(
+    () => (statsMode === "activities" && !activityType ? availableActivityTypes : []),
+    [activityType, availableActivityTypes, statsMode],
+  );
+  const stackedRows = useMemo(() => {
+    if (!stackActivityTypes.length) return [];
+    const typedRows = stackActivityTypes.map((type) => {
+      const typedDailyRows = buildDailyStats(rows, type.value);
+      return [type.value, period === "monthly" ? buildMonthlyStats(typedDailyRows) : typedDailyRows];
+    });
+    return buildStackedChartRows(chartRows, typedRows);
+  }, [chartRows, period, rows, stackActivityTypes]);
+  const visibleChartRows = stackActivityTypes.length
+    ? stackedRows.filter((row) => rowHasSelectedMetric(row, safeMetricA, safeMetricB))
+    : plottedRows;
   const selectedActivityLabel = activityType ? t(getActivityTypeLabel(activityType)) : t("All types");
   const showPowerCurve = statsMode === "activities" && activityType === "velo";
   const primaryPowerCurve = useMemo(
@@ -463,9 +554,9 @@ export default function StatisticsPage() {
             <h2>{t(getStatMetric(safeMetricA).label)}{safeMetricB ? ` / ${t(getStatMetric(safeMetricB).label)}` : ""}</h2>
             <span className="muted-text">{statsMode === "exercises" ? selectedExerciseLabel : selectedActivityLabel}</span>
           </div>
-          <span>{t("Rows visible", { count: plottedRows.length })}</span>
+          <span>{t("Rows visible", { count: visibleChartRows.length })}</span>
         </div>
-        <StatsChart rows={plottedRows} metricA={safeMetricA} metricB={safeMetricB} t={t} />
+        <StatsChart rows={visibleChartRows} metricA={safeMetricA} metricB={safeMetricB} stackTypes={stackActivityTypes} t={t} />
       </section>
 
       {showPowerCurve ? (
