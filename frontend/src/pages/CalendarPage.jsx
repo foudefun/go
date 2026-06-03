@@ -338,26 +338,30 @@ export default function CalendarPage() {
               <div>{t("Target")}</div>
               <div>{t("Status")}</div>
             </div>
-            {rows.map((row) => (
-              <button className="react-table-row clickable-row" type="button" role="row" key={row.date} onClick={() => setSelectedDate(row.date)}>
-                <div>
-                  <strong>{row.date}</strong>
-                  <small>{t("Day number", { day: row.rehab_day })}</small>
-                </div>
-                <div>
-                  <strong className="calendar-list-badges">
-                    {getActivityEntries(row).length
-                      ? getActivityEntries(row).map((entry, index) => (
-                          <ActivityBadge entry={entry} key={`${row.date}-${entry.activity_type}-${index}`} />
-                        ))
-                      : formatActivityTypes(row)}
-                  </strong>
-                  <small>{(row.activity_summaries || []).join(" | ") || row.activity_details || "-"}</small>
-                </div>
-                <div>{hasTarget(row) ? `${row.target_load} kg` : "-"}</div>
-                <div>{row.status || "todo"}</div>
-              </button>
-            ))}
+            {rows.map((row) => {
+              const activityEntries = getActivityEntries(row);
+              const summaries = activityEntries.map(compactCalendarSummary).filter(Boolean);
+              return (
+                <button className="react-table-row clickable-row" type="button" role="row" key={row.date} onClick={() => setSelectedDate(row.date)}>
+                  <div>
+                    <strong>{row.date}</strong>
+                    <small>{t("Day number", { day: row.rehab_day })}</small>
+                  </div>
+                  <div>
+                    <strong className="calendar-list-badges">
+                      {activityEntries.length
+                        ? activityEntries.map((entry, index) => (
+                            <ActivityBadge entry={entry} key={`${row.date}-${entry.activity_type}-${index}`} />
+                          ))
+                        : formatActivityTypes(row)}
+                    </strong>
+                    <small>{summaries.join(" | ") || compactCalendarSummary({ summary: row.activity_details }) || "-"}</small>
+                  </div>
+                  <div>{hasTarget(row) ? `${row.target_load} kg` : "-"}</div>
+                  <div>{row.status || "todo"}</div>
+                </button>
+              );
+            })}
           </div>
         ) : null}
       </section>
