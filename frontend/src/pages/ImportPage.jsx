@@ -79,7 +79,7 @@ export function ProgramImportPanel() {
   }
 
   return (
-    <section className="import-layout">
+    <section className="import-layout single">
       <div className="settings-form-column">
         <section className="app-panel import-panel">
           <div>
@@ -160,19 +160,19 @@ export function ProgramImportPanel() {
                 })}
           </div>
         ) : null}
+        <details className="import-options-panel">
+          <summary>
+            <span>{t("AI Helper")}</span>
+          </summary>
+          <div className="import-options-body">
+            <p>{t("Use this prompt to convert a free-text program into the importer JSON shape.")}</p>
+            <textarea className="import-prompt compact" value={aiPrompt} readOnly />
+            <button type="button" className="secondary-action" onClick={copyPrompt}>
+              {t("Copy Prompt")}
+            </button>
+          </div>
+        </details>
       </div>
-
-      <section className="app-panel import-panel">
-        <div>
-          <p className="eyebrow">{t("AI Helper")}</p>
-          <h2>{t("Prompt Template")}</h2>
-          <p>{t("Use this prompt to convert a free-text program into the importer JSON shape.")}</p>
-        </div>
-        <textarea className="import-prompt" value={aiPrompt} readOnly />
-        <button type="button" className="secondary-action" onClick={copyPrompt}>
-          {t("Copy Prompt")}
-        </button>
-      </section>
     </section>
   );
 }

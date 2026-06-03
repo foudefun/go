@@ -5092,6 +5092,10 @@ select[multiple] {
   line-height: 1.45;
 }
 
+.import-prompt.compact {
+  min-height: 220px;
+}
+
 .import-summary-text {
   display: block;
   margin-top: 8px;
