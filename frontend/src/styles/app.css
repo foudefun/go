@@ -5127,19 +5127,17 @@ select[multiple] {
 
 .batch-result-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 
 .batch-result-group {
   display: grid;
   align-content: start;
-  gap: 10px;
   min-width: 0;
   border: 1px solid #e3e8f2;
   border-radius: 8px;
   background: #fbfcfe;
-  padding: 12px;
+  overflow: hidden;
 }
 
 .batch-result-group.success {
@@ -5155,9 +5153,27 @@ select[multiple] {
   justify-content: space-between;
   gap: 10px;
   align-items: center;
+  cursor: pointer;
+  list-style: none;
+  padding: 11px 12px;
+}
+
+.batch-result-group-header::-webkit-details-marker {
+  display: none;
+}
+
+.batch-result-group-header::after {
+  color: #667085;
+  content: "+";
+  font-weight: 900;
+}
+
+.batch-result-group[open] .batch-result-group-header::after {
+  content: "-";
 }
 
 .batch-result-group-header span {
+  margin-left: auto;
   color: #667085;
   font-size: 13px;
   font-weight: 800;
@@ -5168,7 +5184,8 @@ select[multiple] {
   gap: 8px;
   max-height: 340px;
   overflow: auto;
-  padding-right: 4px;
+  border-top: 1px solid #e8edf5;
+  padding: 10px 12px 12px;
 }
 
 .batch-result-row {
@@ -5197,6 +5214,8 @@ select[multiple] {
   font-size: 12px;
   font-weight: 700;
   line-height: 1.35;
+  border-top: 1px solid #e8edf5;
+  padding: 10px 12px 12px;
 }
 
 .import-history-list {

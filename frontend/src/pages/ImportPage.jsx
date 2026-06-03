@@ -475,19 +475,19 @@ function BatchImportSummary({ result, t }) {
       <div className="batch-result-grid">
         <BatchImportGroup title={t("Imported files")} items={imported} tone="success" t={t} />
         <BatchImportGroup title={t("Skipped duplicates")} items={skipped} tone="neutral" t={t} />
-        <BatchImportGroup title={t("Failed files")} items={errors} tone="error" t={t} />
+        <BatchImportGroup title={t("Failed files")} items={errors} tone="error" t={t} defaultOpen={Boolean(errors.length)} />
       </div>
     </section>
   );
 }
 
-function BatchImportGroup({ title, items, tone, t }) {
+function BatchImportGroup({ title, items, tone, t, defaultOpen = false }) {
   return (
-    <div className={`batch-result-group ${tone}`}>
-      <div className="batch-result-group-header">
+    <details className={`batch-result-group ${tone}`} open={defaultOpen}>
+      <summary className="batch-result-group-header">
         <h4>{title}</h4>
         <span>{items.length}</span>
-      </div>
+      </summary>
       {items.length ? (
         <div className="batch-result-list">
           {items.map((item, index) => (
@@ -500,7 +500,7 @@ function BatchImportGroup({ title, items, tone, t }) {
       ) : (
         <p className="batch-result-empty">{t("No files in this group")}</p>
       )}
-    </div>
+    </details>
   );
 }
 
