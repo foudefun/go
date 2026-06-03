@@ -303,7 +303,7 @@ export default function OutdoorClimbingPage() {
             <div className="route-list">
               {visibleRoutes.map((route) => (
                 <div className="route-list-item" key={route.id}>
-                  <span className="route-color" style={{ background: route.color || "#f97316" }} />
+                  <span className="route-color" style={{ background: route.color || "#B7791F" }} />
                   <div>
                     <strong>{route.name}</strong>
                     <span>

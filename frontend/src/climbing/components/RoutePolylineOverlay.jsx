@@ -24,7 +24,7 @@ export default function RoutePolylineOverlay({ routes, opacity, showNames, showG
             <polyline
               points={buildPolyline(points)}
               fill="none"
-              stroke={route.color || "#f97316"}
+              stroke={route.color || "#B7791F"}
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={route.danger_flag ? 0.012 : 0.009}
@@ -36,7 +36,7 @@ export default function RoutePolylineOverlay({ routes, opacity, showNames, showG
                 className="route-label"
                 x={Number(labelPoint?.x || 0)}
                 y={Number(labelPoint?.y || 0)}
-                fill={route.color || "#f97316"}
+                fill={route.color || "#B7791F"}
                 fontSize={0.034}
               >
                 {label}
