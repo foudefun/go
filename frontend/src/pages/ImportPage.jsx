@@ -186,6 +186,7 @@ export function ActivityImportPanel() {
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
   const [activityTypeOverride, setActivityTypeOverride] = useState("");
+  const [activityImportMode, setActivityImportMode] = useState("single");
   const [batchFiles, setBatchFiles] = useState([]);
   const [status, setStatus] = useState("idle");
   const [batchStatus, setBatchStatus] = useState("idle");
@@ -281,7 +282,17 @@ export function ActivityImportPanel() {
   return (
     <section className="import-layout single">
       <div className="settings-form-column">
-        <section className="app-panel import-panel">
+        <div className="activity-file-mode-switch" aria-label={t("Activity file")}>
+          <button type="button" className={activityImportMode === "single" ? "active" : ""} onClick={() => setActivityImportMode("single")}>
+            {t("Activity file")}
+          </button>
+          <button type="button" className={activityImportMode === "batch" ? "active" : ""} onClick={() => setActivityImportMode("batch")}>
+            {t("Batch Import")}
+          </button>
+        </div>
+
+        {activityImportMode === "single" ? (
+          <section className="app-panel import-panel">
           <div>
             <p className="eyebrow">{t("Activity File")}</p>
             <h2>{t("Import An Activity")}</h2>
@@ -340,7 +351,8 @@ export function ActivityImportPanel() {
           <button type="button" className="primary-action" onClick={handleImport} disabled={status === "importing"}>
             {status === "importing" ? t("Importing...") : t("Import Activity")}
           </button>
-        </section>
+          </section>
+        ) : null}
 
         {error ? <div className="error-banner">{error}</div> : null}
         {result ? (
@@ -353,7 +365,8 @@ export function ActivityImportPanel() {
           </div>
         ) : null}
 
-        <section className="app-panel import-panel">
+        {activityImportMode === "batch" ? (
+          <section className="app-panel import-panel">
           <div>
             <p className="eyebrow">{t("Batch Import")}</p>
             <h2>{t("Import Multiple Activities")}</h2>
@@ -423,7 +436,8 @@ export function ActivityImportPanel() {
               </div>
             </section>
           ) : null}
-        </section>
+          </section>
+        ) : null}
       </div>
     </section>
   );

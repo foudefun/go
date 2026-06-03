@@ -4562,6 +4562,31 @@ select[multiple] {
   box-shadow: 0 5px 16px rgba(15, 23, 42, 0.08);
 }
 
+.activity-file-mode-switch {
+  display: inline-flex;
+  width: fit-content;
+  gap: 4px;
+  border: 1px solid #d8e2ef;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 4px;
+}
+
+.activity-file-mode-switch button {
+  min-height: 36px;
+  border-color: transparent;
+  background: transparent;
+  color: #475467;
+  font-size: 13px;
+}
+
+.activity-file-mode-switch button.active {
+  border-color: #d8e2ef;
+  background: #fff;
+  color: #172033;
+  box-shadow: 0 5px 16px rgba(15, 23, 42, 0.08);
+}
+
 .admin-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
@@ -6767,6 +6792,12 @@ select[multiple] {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     margin-inline: 16px;
+  }
+
+  .activity-file-mode-switch {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
   }
 
   .day-editor-grid,
