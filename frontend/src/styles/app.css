@@ -4990,6 +4990,31 @@ select[multiple] {
   padding: 14px;
 }
 
+.import-selection-preview {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 10px 12px;
+}
+
+.import-selection-preview span {
+  color: #344054;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.import-selection-preview small {
+  display: block;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .import-dropzone {
   display: grid;
   place-items: center;

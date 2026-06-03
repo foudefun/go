@@ -312,15 +312,8 @@ export function ActivityImportPanel() {
             />
             <span>{t("Activity file")}</span>
             <strong>{file ? file.name : t("Choose activity file")}</strong>
-            <small>{t("FIT, GPX or TCX")}</small>
+            <small>{file ? t("Detected format", { format: detectedFormat.toUpperCase() }) : t("FIT, GPX or TCX")}</small>
           </label>
-
-          {file ? (
-            <div className="notice-panel">
-              <span>{file.name}</span>
-              <span>{t("Detected format", { format: detectedFormat.toUpperCase() })}</span>
-            </div>
-          ) : null}
 
           <details className="import-options-panel">
             <summary>
@@ -408,8 +401,8 @@ export function ActivityImportPanel() {
           </div>
 
           {batchFiles.length ? (
-            <div className="notice-panel">
-              <span>{t("Selected files")}: {batchFiles.length}</span>
+            <div className="import-selection-preview">
+              <span>{t("Selected files count", { count: batchFiles.length })}</span>
               <small>{batchFiles.slice(0, 5).map((item) => item.webkitRelativePath || item.name).join(", ")}{batchFiles.length > 5 ? "..." : ""}</small>
             </div>
           ) : null}
