@@ -1402,7 +1402,15 @@ select[multiple] {
 
   .activity-list-meta {
     grid-column: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
     justify-items: start;
+  }
+
+  .activity-metric-chip,
+  .activity-source-chip {
+    padding: 4px 7px;
   }
 }
 
@@ -1639,7 +1647,31 @@ select[multiple] {
 }
 
 .activity-list-meta {
+  align-content: center;
   justify-items: end;
+}
+
+.activity-metric-chip,
+.activity-source-chip {
+  max-width: 100%;
+  border-radius: 999px;
+  padding: 5px 8px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.activity-metric-chip {
+  border: 1px solid #cfe7df;
+  background: #eef8f3;
+  color: #205f5b !important;
+  font-weight: 900;
+}
+
+.activity-source-chip {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #667085 !important;
+  font-size: 12px !important;
 }
 
 .migration-panel {
