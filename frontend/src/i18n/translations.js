@@ -197,6 +197,7 @@ const FR = {
   "Plan Details": "Details du plan",
   "Plan notes": "Notes du plan",
   "Plan title": "Titre du plan",
+  "Plan context": "Contexte du plan",
   "Planned activity": "Activite planifiee",
   "Planned session": "Seance planifiee",
   "Planned time": "Heure planifiee",

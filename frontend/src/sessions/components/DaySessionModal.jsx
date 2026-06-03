@@ -1328,21 +1328,25 @@ export default function DaySessionModal({
 
             <section className="day-form">
               {planExists && !showPlanEditor ? (
-                <section className="day-plan-summary">
-                  <div>
-                    <p className="eyebrow">{t("Plan")}</p>
-                    <h3>{getPlanTitle(session, t)}</h3>
+                <details className={hasActivityEditor ? "day-plan-summary compact" : "day-plan-summary"} {...(!hasActivityEditor ? { open: true } : {})}>
+                  <summary className="section-heading-row">
+                    <div>
+                      <p className="eyebrow">{hasActivityEditor ? t("Plan context") : t("Plan")}</p>
+                      <h3>{getPlanTitle(session, t)}</h3>
+                    </div>
                     <span>{getPlanSummary(session, t)}</span>
+                  </summary>
+                  <div className="day-plan-summary-body">
+                    <div className="compact-actions">
+                      <button type="button" className="primary-action" onClick={startFromPlan}>
+                        {t("Start from plan")}
+                      </button>
+                      <button type="button" onClick={() => setShowPlanEditor(true)}>
+                        {t("Edit plan")}
+                      </button>
+                    </div>
                   </div>
-                  <div className="compact-actions">
-                    <button type="button" className="primary-action" onClick={startFromPlan}>
-                      {t("Start from plan")}
-                    </button>
-                    <button type="button" onClick={() => setShowPlanEditor(true)}>
-                      {t("Edit plan")}
-                    </button>
-                  </div>
-                </section>
+                </details>
               ) : null}
 
               {showPlanEditor ? (
