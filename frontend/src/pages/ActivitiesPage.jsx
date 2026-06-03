@@ -266,6 +266,11 @@ export default function ActivitiesPage() {
         : activities,
     [activities, activityTypeFilter],
   );
+  const currentFilterLabel = useMemo(() => {
+    if (!activityTypeFilter) return t("All types");
+    const selectedType = ACTIVITY_TYPES.find((activityType) => activityType.value === activityTypeFilter);
+    return t(selectedType?.label || activityTypeFilter);
+  }, [activityTypeFilter, t]);
 
   const availableActivityTypes = useMemo(() => {
     const values = new Set(activities.map((activity) => activity.activityType).filter(Boolean));
@@ -300,40 +305,62 @@ export default function ActivitiesPage() {
       <section className="module-header">
         <div>
           <p className="eyebrow">{t("Training")}</p>
-          <h1>{t("Activities")}</h1>
+          <h1>{t("Activity Log")}</h1>
+          <p>{t("Activity log lead")}</p>
         </div>
       </section>
-      <section className="calendar-toolbar app-panel activity-toolbar">
-        <div className="activity-add-controls">
-          <label>
-            {t("Date")}
-            <input
-              type="date"
-              value={activityDate}
-              onChange={(event) => setActivityDate(event.target.value || getLocalTodayIso())}
-            />
-          </label>
-          <button className="primary-action" type="button" onClick={openNewActivity}>
-            {t("+ Activity")}
-          </button>
-          <button type="button" onClick={openImportActivity}>
-            {t("Import Activity")}
-          </button>
-          <button type="button" onClick={() => setImportDialogMode("program")}>
-            {t("Import Program")}
-          </button>
+      <section className="app-panel activity-toolbar">
+        <div className="activity-toolbar-primary">
+          <div>
+            <p className="eyebrow">{t("Quick add")}</p>
+            <strong>{t("Choose a date, then add or import.")}</strong>
+          </div>
+          <div className="activity-add-controls">
+            <label>
+              {t("Date")}
+              <input
+                type="date"
+                value={activityDate}
+                onChange={(event) => setActivityDate(event.target.value || getLocalTodayIso())}
+              />
+            </label>
+            <button className="primary-action" type="button" onClick={openNewActivity}>
+              {t("+ Activity")}
+            </button>
+          </div>
         </div>
-        <label className="activity-filter-control">
-          {t("Activity Type")}
-          <select value={activityTypeFilter} onChange={(event) => setActivityTypeFilter(event.target.value)}>
-            <option value="">{t("All types")}</option>
-            {availableActivityTypes.map((activityType) => (
-              <option key={activityType.value} value={activityType.value}>
-                {t(activityType.label)}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="activity-toolbar-secondary">
+          <div className="activity-import-actions" aria-label={t("Import")}>
+            <button type="button" onClick={openImportActivity}>
+              {t("Import Activity")}
+            </button>
+            <button type="button" onClick={() => setImportDialogMode("program")}>
+              {t("Import Program")}
+            </button>
+          </div>
+          <span className="activity-results-summary">
+            {t("Showing activities", { count: filteredActivities.length, type: currentFilterLabel })}
+          </span>
+        </div>
+      </section>
+      <section className="activity-filter-strip" aria-label={t("Activity Type")}>
+        <button
+          type="button"
+          className={!activityTypeFilter ? "active" : ""}
+          onClick={() => setActivityTypeFilter("")}
+        >
+          {t("All types")}
+        </button>
+        {availableActivityTypes.map((activityType) => (
+          <button
+            type="button"
+            key={activityType.value}
+            className={activityTypeFilter === activityType.value ? "active" : ""}
+            onClick={() => setActivityTypeFilter(activityType.value)}
+          >
+            {t(activityType.label)}
+          </button>
+        ))}
       </section>
       {error ? <div className="error-banner">{error}</div> : null}
       {status === "loading" ? <div className="empty-state">{t("Loading activities...")}</div> : null}
