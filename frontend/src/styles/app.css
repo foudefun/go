@@ -1568,6 +1568,13 @@ select[multiple] {
   font-size: 13px;
 }
 
+.activity-list-main small {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .activity-list-meta {
   justify-items: end;
 }

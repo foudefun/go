@@ -140,6 +140,28 @@ function translateGeneratedActivityDetails(value, language) {
     .replaceAll("running", "course");
 }
 
+function compactActivityDetails(value) {
+  const text = String(value || "")
+    .replace(/\s+/g, " ")
+    .replace(/\b(cycling|walking|running)\s+\(virtual activity\)\s*/gi, "")
+    .replace(/\b(cycling|walking|running)\s*/gi, "")
+    .trim();
+  if (!text) return "";
+  const parts = text
+    .split("|")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => !/^File:/i.test(part))
+    .filter((part) => !/^Fichier:/i.test(part))
+    .filter((part) => !/^Import/i.test(part))
+    .filter((part) => !/^(course|run|velo|v[ée]lo|bike|vtt|hike|hiking|walking|randonn[ée]e|musculation|strength)$/i.test(part));
+  const usefulParts = parts.length ? parts : [text];
+  return usefulParts
+    .slice(0, 2)
+    .map((part) => (part.length > 36 ? `${part.slice(0, 35).trim()}...` : part))
+    .join(" | ");
+}
+
 function buildActivityTitle(entry, t) {
   const title = String(entry.title || "").trim();
   if (title) return title;
@@ -222,7 +244,7 @@ export default function ActivitiesPage() {
               index: Number(entry.index ?? index),
               date: row.date,
               title: buildActivityTitle(entry, t),
-              details: translateGeneratedActivityDetails(entry.details || (entry.title ? entry.summary : ""), language),
+              details: compactActivityDetails(translateGeneratedActivityDetails(entry.details || (entry.title ? entry.summary : ""), language)),
               activityType: entry.activity_type || "",
               image: entry.image || "",
               sourceFiles,
