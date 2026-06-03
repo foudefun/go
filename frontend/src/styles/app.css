@@ -4947,6 +4947,49 @@ select[multiple] {
   font-weight: 700;
 }
 
+.import-options-panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fbfcfe;
+  overflow: hidden;
+}
+
+.import-options-panel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+  padding: 12px 14px;
+}
+
+.import-options-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.import-options-panel summary::after {
+  color: #667085;
+  content: "+";
+  font-weight: 900;
+}
+
+.import-options-panel[open] summary::after {
+  content: "-";
+}
+
+.import-options-panel summary span {
+  color: #344054;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.import-options-body {
+  display: grid;
+  gap: 14px;
+  border-top: 1px solid #e2e8f0;
+  padding: 14px;
+}
+
 .import-dropzone {
   display: grid;
   place-items: center;

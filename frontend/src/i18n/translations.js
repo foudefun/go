@@ -684,6 +684,7 @@ const FR = {
   "Import finished summary": "Import termine. Seances : {sessions}, exercices crees : {created}, exercices mis a jour : {updated}.",
   "Import Program": "Importer le programme",
   Import: "Import",
+  "Import options": "Options d'import",
   "Imported source count": "{count} import(s)",
   "Importing...": "Import en cours...",
   "Initial password": "Mot de passe initial",

@@ -322,33 +322,40 @@ export function ActivityImportPanel() {
             </div>
           ) : null}
 
-          <div className="form-grid">
-            <label>
-              {t("Date override")}
-              <input type="date" value={dateOverride} onChange={(event) => setDateOverride(event.target.value)} />
-            </label>
-            <label>
-              {t("Activity type override")}
-              <select value={activityTypeOverride} onChange={(event) => setActivityTypeOverride(event.target.value)}>
-                <option value="">{t("Use file sport")}</option>
-                {ACTIVITY_TYPES.filter((activityType) => activityType.value).map((activityType) => (
-                  <option value={activityType.value} key={activityType.value}>
-                    {t(activityType.label)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+          <details className="import-options-panel">
+            <summary>
+              <span>{t("Import options")}</span>
+            </summary>
+            <div className="import-options-body">
+              <div className="form-grid">
+                <label>
+                  {t("Date override")}
+                  <input type="date" value={dateOverride} onChange={(event) => setDateOverride(event.target.value)} />
+                </label>
+                <label>
+                  {t("Activity type override")}
+                  <select value={activityTypeOverride} onChange={(event) => setActivityTypeOverride(event.target.value)}>
+                    <option value="">{t("Use file sport")}</option>
+                    {ACTIVITY_TYPES.filter((activityType) => activityType.value).map((activityType) => (
+                      <option value={activityType.value} key={activityType.value}>
+                        {t(activityType.label)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
 
-          <label>
-            {t("Title")}
-            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t("Morning ride, Zwift test...")} />
-          </label>
+              <label>
+                {t("Title")}
+                <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t("Morning ride, Zwift test...")} />
+              </label>
 
-          <label>
-            {t("Note")}
-            <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder={t("Optional note added to the imported summary")} />
-          </label>
+              <label>
+                {t("Note")}
+                <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder={t("Optional note added to the imported summary")} />
+              </label>
+            </div>
+          </details>
 
           <button type="button" className="primary-action" onClick={handleImport} disabled={status === "importing"}>
             {status === "importing" ? t("Importing...") : t("Import Activity")}
