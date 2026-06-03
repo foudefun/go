@@ -29,6 +29,7 @@ export function ProgramImportPanel() {
   const { t } = useTranslation();
   const [format, setFormat] = useState("json");
   const [content, setContent] = useState("");
+  const [programFileName, setProgramFileName] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
@@ -46,6 +47,7 @@ export function ProgramImportPanel() {
     const text = await file.text();
     setFormat(detectProgramImportFormat(text, file.name));
     setContent(text);
+    setProgramFileName(file.name || "");
     setError("");
     setResult(null);
   }
@@ -99,9 +101,11 @@ export function ProgramImportPanel() {
                 ))}
               </select>
             </label>
-            <label>
-              {t("File")}
+            <label className="import-file-picker compact">
               <input type="file" accept=".json,.csv,text/csv,application/json" onChange={(event) => loadFile(event.target.files?.[0])} />
+              <span>{t("File")}</span>
+              <strong>{programFileName || t("Choose program file")}</strong>
+              <small>{programFileName ? t("Detected format", { format: format.toUpperCase() }) : t("JSON or CSV")}</small>
             </label>
           </div>
 

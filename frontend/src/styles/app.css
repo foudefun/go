@@ -4917,6 +4917,11 @@ select[multiple] {
   padding: 14px;
 }
 
+.import-file-picker.compact {
+  min-height: 0;
+  padding-block: 10px;
+}
+
 .import-file-picker:hover {
   border-color: #9fb0c8;
   background: #fff;
