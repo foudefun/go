@@ -765,13 +765,14 @@ function ActivitySourceQuality({ activity, t }) {
   const rows = getSourceQualityRows(activity, t);
   if (!rows.length) return null;
   return (
-    <section className="activity-source-quality" aria-label={t("Source quality")}>
-      <div className="section-heading-row">
+    <details className="activity-source-quality" aria-label={t("Source quality")}>
+      <summary className="section-heading-row">
         <div>
           <p className="eyebrow">{t("Source quality")}</p>
-          <h3>{t("Import confidence")}</h3>
+          <h3>{t("Import details")}</h3>
         </div>
-      </div>
+        <span>{t("Source count", { count: rows.length })}</span>
+      </summary>
       <div className="activity-source-quality-list">
         {rows.map((row) => (
           <article className="activity-source-quality-row" key={row.id}>
@@ -791,7 +792,7 @@ function ActivitySourceQuality({ activity, t }) {
           </article>
         ))}
       </div>
-    </section>
+    </details>
   );
 }
 

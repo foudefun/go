@@ -181,6 +181,7 @@ const FR = {
   Hiking: "Randonnee",
   "Indicative load": "Charge indicative",
   "Import confidence": "Confiance de l'import",
+  "Import details": "Details de l'import",
   "Inferred line": "Ligne estimee",
   "Inferred lines": "Lignes estimees",
   "Intent, constraints, equipment, route plan...": "Intention, contraintes, materiel, plan de voie...",

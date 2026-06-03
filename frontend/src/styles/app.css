@@ -3991,12 +3991,37 @@ select[multiple] {
 }
 
 .activity-source-quality {
-  display: grid;
-  gap: 10px;
   border: 1px solid #dce4f0;
   border-radius: 12px;
   background: #fff;
+  overflow: hidden;
+}
+
+.activity-source-quality summary {
   padding: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.activity-source-quality summary::-webkit-details-marker {
+  display: none;
+}
+
+.activity-source-quality summary::after {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid #42526b;
+  border-bottom: 2px solid #42526b;
+  transform: translateY(-3px) rotate(45deg);
+}
+
+.activity-source-quality[open] summary {
+  border-bottom: 1px solid #edf2f7;
+}
+
+.activity-source-quality[open] summary::after {
+  transform: translateY(3px) rotate(225deg);
 }
 
 .activity-source-quality h3 {
@@ -4004,9 +4029,16 @@ select[multiple] {
   color: #172033;
 }
 
+.activity-source-quality summary > span {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .activity-source-quality-list {
   display: grid;
   gap: 8px;
+  padding: 12px;
 }
 
 .activity-source-quality-row {
