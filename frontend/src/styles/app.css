@@ -861,6 +861,27 @@ label {
   width: min(1080px, calc(100vw - 28px));
 }
 
+.import-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 18px 22px 14px;
+}
+
+.import-dialog-header h2 {
+  margin: 0;
+  color: #182230;
+  font-size: clamp(28px, 3vw, 40px);
+  line-height: 1.05;
+}
+
+.import-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .import-dialog .import-layout {
   width: 100%;
 }
@@ -4517,8 +4538,28 @@ select[multiple] {
 }
 
 .import-mode-toolbar {
-  justify-content: start;
-  margin-bottom: 16px;
+  display: inline-flex;
+  gap: 4px;
+  margin: 16px 22px 10px;
+  border: 1px solid #d8e2ef;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 4px;
+}
+
+.import-mode-toolbar button {
+  min-height: 36px;
+  border-color: transparent;
+  background: transparent;
+  color: #475467;
+  font-size: 13px;
+}
+
+.import-mode-toolbar button.active {
+  border-color: #d8e2ef;
+  background: #fff;
+  color: #172033;
+  box-shadow: 0 5px 16px rgba(15, 23, 42, 0.08);
 }
 
 .admin-layout {
@@ -6713,11 +6754,19 @@ select[multiple] {
   }
 
   .day-modal-header,
+  .import-dialog-header,
   .day-modal-actions,
+  .import-dialog-actions,
   .activity-merge-control,
   .day-plan-summary-body {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .import-mode-toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-inline: 16px;
   }
 
   .day-editor-grid,

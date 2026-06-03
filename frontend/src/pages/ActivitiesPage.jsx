@@ -468,24 +468,22 @@ export default function ActivitiesPage() {
       {importDialogMode ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setImportDialogMode("")}>
           <section className="day-modal import-dialog" role="dialog" aria-modal="true" aria-label={t("Import")} onMouseDown={(event) => event.stopPropagation()}>
-            <header className="day-modal-header">
+            <header className="import-dialog-header">
               <div>
                 <p className="eyebrow">{t("Data")}</p>
                 <h2>{t("Import")}</h2>
               </div>
-              <div className="day-modal-actions">
+              <div className="import-dialog-actions">
                 <button type="button" onClick={() => setImportDialogMode("")}>{t("Close")}</button>
               </div>
             </header>
-            <section className="calendar-toolbar app-panel import-mode-toolbar">
-              <div className="view-switch">
-                <button type="button" className={importDialogMode === "activity" ? "active" : ""} onClick={() => setImportDialogMode("activity")}>
-                  {t("Activity File")}
-                </button>
-                <button type="button" className={importDialogMode === "program" ? "active" : ""} onClick={() => setImportDialogMode("program")}>
-                  {t("Program")}
-                </button>
-              </div>
+            <section className="import-mode-toolbar" aria-label={t("Import")}>
+              <button type="button" className={importDialogMode === "activity" ? "active" : ""} onClick={() => setImportDialogMode("activity")}>
+                {t("Activity File")}
+              </button>
+              <button type="button" className={importDialogMode === "program" ? "active" : ""} onClick={() => setImportDialogMode("program")}>
+                {t("Program")}
+              </button>
             </section>
             {importDialogMode === "activity" ? <ActivityImportPanel /> : <ProgramImportPanel />}
           </section>
