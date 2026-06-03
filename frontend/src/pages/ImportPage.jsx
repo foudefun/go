@@ -188,6 +188,7 @@ export function ActivityImportPanel() {
   const [activityTypeOverride, setActivityTypeOverride] = useState("");
   const [activityImportMode, setActivityImportMode] = useState("single");
   const [batchFiles, setBatchFiles] = useState([]);
+  const [batchSelectionSource, setBatchSelectionSource] = useState("");
   const [status, setStatus] = useState("idle");
   const [batchStatus, setBatchStatus] = useState("idle");
   const [retryActivityType, setRetryActivityType] = useState("");
@@ -230,9 +231,10 @@ export function ActivityImportPanel() {
     }
   }
 
-  function setBatchSelection(fileList) {
+  function setBatchSelection(fileList, source) {
     const nextFiles = Array.from(fileList || []).filter((item) => /\.(fit|gpx|tcx)(\.gz)?$/i.test(item.name || ""));
     setBatchFiles(nextFiles);
+    setBatchSelectionSource(nextFiles.length ? source : "");
     setBatchResult(null);
     setRetryActivityType("");
     setBatchError(nextFiles.length ? "" : t("Choose FIT, GPX, or TCX activity files."));
@@ -376,26 +378,26 @@ export function ActivityImportPanel() {
           </div>
 
           <div className="form-grid import-picker-grid">
-            <label className="import-file-picker">
+            <label className={batchSelectionSource === "files" ? "import-file-picker selected" : "import-file-picker"}>
               <input
                 type="file"
                 multiple
                 accept=".fit,.fit.gz,.gpx,.gpx.gz,.tcx,.tcx.gz,application/gzip,application/octet-stream,application/gpx+xml,application/xml,text/xml"
-                onChange={(event) => setBatchSelection(event.target.files)}
+                onChange={(event) => setBatchSelection(event.target.files, "files")}
               />
               <span>{t("Activity files")}</span>
-              <strong>{batchFiles.length ? t("Selected files count", { count: batchFiles.length }) : t("Choose activity files")}</strong>
+              <strong>{batchSelectionSource === "files" ? t("Selected files count", { count: batchFiles.length }) : t("Choose activity files")}</strong>
               <small>{t("FIT, GPX or TCX")}</small>
             </label>
-            <label className="import-file-picker">
+            <label className={batchSelectionSource === "folder" ? "import-file-picker selected" : "import-file-picker"}>
               <input
                 ref={folderRef}
                 type="file"
                 multiple
-                onChange={(event) => setBatchSelection(event.target.files)}
+                onChange={(event) => setBatchSelection(event.target.files, "folder")}
               />
               <span>{t("Folder")}</span>
-              <strong>{batchFiles.length ? t("Selected files count", { count: batchFiles.length }) : t("Choose a folder")}</strong>
+              <strong>{batchSelectionSource === "folder" ? t("Selected files count", { count: batchFiles.length }) : t("Choose a folder")}</strong>
               <small>{t("Device export folder")}</small>
             </label>
           </div>

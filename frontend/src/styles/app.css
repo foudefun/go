@@ -4922,6 +4922,16 @@ select[multiple] {
   background: #fff;
 }
 
+.import-file-picker.selected {
+  border-color: #2f7a76;
+  background: #eef8f3;
+}
+
+.import-file-picker.selected span,
+.import-file-picker.selected small {
+  color: #205f5b;
+}
+
 .import-file-picker input[type="file"] {
   position: absolute;
   inset: 0;
