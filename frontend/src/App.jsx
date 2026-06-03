@@ -167,41 +167,41 @@ function AppLayout() {
             </div>
           </details>
         </div>
-        <nav className="mobile-tabs" aria-label="Primary mobile">
-          {mobilePrimaryTabs.map((tab) => (
-            <NavLink className={isActiveTab(tab) ? "active" : ""} key={tab.to} to={tab.to}>
-              {t(tab.labelKey)}
-            </NavLink>
-          ))}
-          <div className="more-menu">
-            <button
-              type="button"
-              className={mobileMoreMenuIsActive || moreMenuOpen ? "more-menu-trigger active" : "more-menu-trigger"}
-              aria-expanded={moreMenuOpen}
-              aria-haspopup="menu"
-              onClick={() => setMoreMenuOpen((open) => !open)}
-            >
-              {t("More")}
-            </button>
-            {moreMenuOpen ? (
-              <div className="more-menu-layer" role="presentation" onMouseDown={() => setMoreMenuOpen(false)}>
-                <div className="more-menu-panel mobile-more-panel" role="menu" aria-label={t("More")} onMouseDown={(event) => event.stopPropagation()}>
-                  {mobileNavGroups.map((group) => (
-                    <div className="more-menu-section" key={group.labelKey}>
-                      <span>{t(group.labelKey)}</span>
-                      {group.items.map((item) => (
-                        <NavLink key={item.to} to={item.to} role="menuitem" onClick={() => setMoreMenuOpen(false)}>
-                          {t(item.labelKey)}
-                        </NavLink>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </nav>
       </header>
+      <nav className="mobile-tabs" aria-label="Primary mobile">
+        {mobilePrimaryTabs.map((tab) => (
+          <NavLink className={isActiveTab(tab) ? "active" : ""} key={tab.to} to={tab.to}>
+            {t(tab.labelKey)}
+          </NavLink>
+        ))}
+        <div className="more-menu">
+          <button
+            type="button"
+            className={mobileMoreMenuIsActive || moreMenuOpen ? "more-menu-trigger active" : "more-menu-trigger"}
+            aria-expanded={moreMenuOpen}
+            aria-haspopup="menu"
+            onClick={() => setMoreMenuOpen((open) => !open)}
+          >
+            {t("More")}
+          </button>
+          {moreMenuOpen ? (
+            <div className="more-menu-layer" role="presentation" onMouseDown={() => setMoreMenuOpen(false)}>
+              <div className="more-menu-panel mobile-more-panel" role="menu" aria-label={t("More")} onMouseDown={(event) => event.stopPropagation()}>
+                {mobileNavGroups.map((group) => (
+                  <div className="more-menu-section" key={group.labelKey}>
+                    <span>{t(group.labelKey)}</span>
+                    {group.items.map((item) => (
+                      <NavLink key={item.to} to={item.to} role="menuitem" onClick={() => setMoreMenuOpen(false)}>
+                        {t(item.labelKey)}
+                      </NavLink>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </nav>
       <Routes>
         <Route path="/" element={<Navigate to="/today" replace />} />
         <Route path="/today" element={<TodayPage />} />
