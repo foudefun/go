@@ -4901,6 +4901,52 @@ select[multiple] {
   line-height: 1.5;
 }
 
+.import-picker-grid {
+  align-items: stretch;
+}
+
+.import-file-picker {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  min-height: 112px;
+  border: 1px solid #d8e2ef;
+  border-radius: 8px;
+  background: #f8fafc;
+  cursor: pointer;
+  padding: 14px;
+}
+
+.import-file-picker:hover {
+  border-color: #9fb0c8;
+  background: #fff;
+}
+
+.import-file-picker input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.import-file-picker span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.import-file-picker strong {
+  color: #172033;
+  overflow-wrap: anywhere;
+}
+
+.import-file-picker small {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .import-dropzone {
   display: grid;
   place-items: center;

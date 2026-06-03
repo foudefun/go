@@ -299,8 +299,7 @@ export function ActivityImportPanel() {
             <p>{t("Add a new activity from a device file without overwriting existing activities on that day.")}</p>
           </div>
 
-          <label>
-            {t("Activity file")}
+          <label className="import-file-picker">
             <input
               ref={fileRef}
               type="file"
@@ -311,6 +310,9 @@ export function ActivityImportPanel() {
                 setError("");
               }}
             />
+            <span>{t("Activity file")}</span>
+            <strong>{file ? file.name : t("Choose activity file")}</strong>
+            <small>{t("FIT, GPX or TCX")}</small>
           </label>
 
           {file ? (
@@ -373,24 +375,28 @@ export function ActivityImportPanel() {
             <p>{t("Choose several FIT, GPX, or TCX files, or select a folder from your computer, then import them in one step.")}</p>
           </div>
 
-          <div className="form-grid">
-            <label>
-              {t("Activity files")}
+          <div className="form-grid import-picker-grid">
+            <label className="import-file-picker">
               <input
                 type="file"
                 multiple
                 accept=".fit,.fit.gz,.gpx,.gpx.gz,.tcx,.tcx.gz,application/gzip,application/octet-stream,application/gpx+xml,application/xml,text/xml"
                 onChange={(event) => setBatchSelection(event.target.files)}
               />
+              <span>{t("Activity files")}</span>
+              <strong>{batchFiles.length ? t("Selected files count", { count: batchFiles.length }) : t("Choose activity files")}</strong>
+              <small>{t("FIT, GPX or TCX")}</small>
             </label>
-            <label>
-              {t("Folder")}
+            <label className="import-file-picker">
               <input
                 ref={folderRef}
                 type="file"
                 multiple
                 onChange={(event) => setBatchSelection(event.target.files)}
               />
+              <span>{t("Folder")}</span>
+              <strong>{batchFiles.length ? t("Selected files count", { count: batchFiles.length }) : t("Choose a folder")}</strong>
+              <small>{t("Device export folder")}</small>
             </label>
           </div>
 
