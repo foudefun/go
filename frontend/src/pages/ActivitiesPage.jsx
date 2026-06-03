@@ -414,21 +414,28 @@ export default function ActivitiesPage() {
             </div>
             {group.activities.map((activity) => {
               const metrics = getActivityMetrics(activity);
+              const hasVisualPreview = Boolean(activity.image || activity.sourceCount);
               return (
-                <button className="app-panel activity-list-row clickable-card" type="button" key={activity.id} onClick={() => openExistingActivity(activity)}>
-                  <span className="activity-thumb" aria-hidden="true">
-                    {activity.image ? (
-                      <img src={activity.image} alt="" />
-                    ) : activity.sourceCount ? (
-                      <ActivityTrackThumbnail sourceFiles={activity.sourceFiles} t={t} />
-                    ) : (
-                      <span className="activity-type-thumb" style={{ backgroundColor: getActivityTypeColor(activity.activityType) }}>
-                        {t(getActivityTypeLabel(activity.activityType))}
-                      </span>
-                    )}
-                  </span>
+                <button
+                  className={`app-panel activity-list-row clickable-card${hasVisualPreview ? "" : " activity-list-row-compact"}`}
+                  type="button"
+                  key={activity.id}
+                  onClick={() => openExistingActivity(activity)}
+                >
+                  {hasVisualPreview ? (
+                    <span className="activity-thumb" aria-hidden="true">
+                      {activity.image ? (
+                        <img src={activity.image} alt="" />
+                      ) : (
+                        <ActivityTrackThumbnail sourceFiles={activity.sourceFiles} t={t} />
+                      )}
+                    </span>
+                  ) : null}
                   <span className="activity-list-main">
-                    <span>{getActivityKicker(activity, t)}</span>
+                    <span className="activity-list-kicker">
+                      <span className="activity-type-dot" style={{ backgroundColor: getActivityTypeColor(activity.activityType) }} aria-hidden="true" />
+                      {getActivityKicker(activity, t)}
+                    </span>
                     <strong>{activity.title}</strong>
                     {activity.details ? <small>{activity.details}</small> : null}
                   </span>
