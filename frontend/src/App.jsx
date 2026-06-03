@@ -39,6 +39,9 @@ const primaryTabs = [
   { to: "/community", labelKey: "Community", activePaths: ["/community"] },
 ];
 
+const mobilePrimaryTabs = primaryTabs.filter((tab) => ["/today", "/plan", "/log", "/progress"].includes(tab.to));
+const mobilePrimaryTabPaths = new Set(mobilePrimaryTabs.map((tab) => tab.to));
+
 const secondaryNavGroups = [
   {
     labelKey: "Library",
@@ -76,6 +79,15 @@ function AppLayout() {
           : group,
       )
     : secondaryNavGroups;
+  const mobileNavGroups = [
+    {
+      labelKey: "More",
+      items: primaryTabs
+        .filter((tab) => !mobilePrimaryTabPaths.has(tab.to))
+        .map((tab) => ({ to: tab.to, labelKey: tab.labelKey })),
+    },
+    ...visibleSecondaryNavGroups,
+  ].filter((group) => group.items.length);
   const isActiveTab = (tab) => tab.activePaths.some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`));
   const primaryMenuIsActive = primaryTabs.some(isActiveTab);
   const moreMenuIsActive =
@@ -83,6 +95,9 @@ function AppLayout() {
     visibleSecondaryNavGroups.some((group) =>
       group.items.some((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)),
     );
+  const mobileMoreMenuIsActive = mobileNavGroups.some((group) =>
+    group.items.some((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)),
+  );
 
   useEffect(() => {
     setMoreMenuOpen(false);
@@ -104,7 +119,7 @@ function AppLayout() {
           <strong>Let&apos;s GO</strong>
           <span>{t("Training tracker")}</span>
         </div>
-        <nav className="nav-cluster app-tabs" aria-label="Primary">
+        <nav className="nav-cluster app-tabs desktop-tabs" aria-label="Primary">
           {primaryTabs.map((tab) => (
             <NavLink className={isActiveTab(tab) ? "active" : ""} key={tab.to} to={tab.to}>
               {t(tab.labelKey)}
@@ -152,6 +167,40 @@ function AppLayout() {
             </div>
           </details>
         </div>
+        <nav className="mobile-tabs" aria-label="Primary mobile">
+          {mobilePrimaryTabs.map((tab) => (
+            <NavLink className={isActiveTab(tab) ? "active" : ""} key={tab.to} to={tab.to}>
+              {t(tab.labelKey)}
+            </NavLink>
+          ))}
+          <div className="more-menu">
+            <button
+              type="button"
+              className={mobileMoreMenuIsActive || moreMenuOpen ? "more-menu-trigger active" : "more-menu-trigger"}
+              aria-expanded={moreMenuOpen}
+              aria-haspopup="menu"
+              onClick={() => setMoreMenuOpen((open) => !open)}
+            >
+              {t("More")}
+            </button>
+            {moreMenuOpen ? (
+              <div className="more-menu-layer" role="presentation" onMouseDown={() => setMoreMenuOpen(false)}>
+                <div className="more-menu-panel mobile-more-panel" role="menu" aria-label={t("More")} onMouseDown={(event) => event.stopPropagation()}>
+                  {mobileNavGroups.map((group) => (
+                    <div className="more-menu-section" key={group.labelKey}>
+                      <span>{t(group.labelKey)}</span>
+                      {group.items.map((item) => (
+                        <NavLink key={item.to} to={item.to} role="menuitem" onClick={() => setMoreMenuOpen(false)}>
+                          {t(item.labelKey)}
+                        </NavLink>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </nav>
       </header>
       <Routes>
         <Route path="/" element={<Navigate to="/today" replace />} />

@@ -171,6 +171,10 @@ label {
   padding-bottom: 2px;
 }
 
+.mobile-tabs {
+  display: none;
+}
+
 .topbar a,
 .topbar button,
 .more-menu-trigger {
@@ -6856,14 +6860,18 @@ select[multiple] {
     padding: 10px 12px;
   }
 
-  .app-tabs {
+  .desktop-tabs {
+    display: none;
+  }
+
+  .mobile-tabs {
     position: fixed;
     right: 10px;
     bottom: max(10px, env(safe-area-inset-bottom));
     left: 10px;
     z-index: 40;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 5px;
     border: 1px solid rgba(148, 163, 184, 0.28);
     border-radius: 18px;
@@ -6874,23 +6882,24 @@ select[multiple] {
     backdrop-filter: blur(18px);
   }
 
-  .app-tabs > a,
-  .app-tabs .more-menu-trigger {
+  .mobile-tabs > a,
+  .mobile-tabs .more-menu-trigger {
     justify-content: center;
-    min-height: 44px;
+    width: 100%;
+    min-height: 48px;
     border-radius: 12px;
-    padding: 8px 6px;
+    padding: 8px 4px;
     color: #475467;
-    font-size: 12px;
+    font-size: 11px;
     line-height: 1.1;
     text-align: center;
-    white-space: normal;
+    white-space: nowrap;
   }
 
-  .app-tabs > a.active,
-  .app-tabs > a:hover,
-  .app-tabs .more-menu-trigger.active,
-  .app-tabs .more-menu-trigger:hover {
+  .mobile-tabs > a.active,
+  .mobile-tabs > a:hover,
+  .mobile-tabs .more-menu-trigger.active,
+  .mobile-tabs .more-menu-trigger:hover {
     background: #ecfdf5;
     box-shadow: none;
     transform: none;
@@ -6926,27 +6935,37 @@ select[multiple] {
   .more-menu-panel {
     position: fixed;
     right: 10px;
-    bottom: calc(88px + env(safe-area-inset-bottom));
+    bottom: calc(78px + env(safe-area-inset-bottom));
     left: 10px;
     top: auto;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
     min-width: 0;
     width: auto;
+    max-height: min(72vh, 560px);
     margin-top: 0;
+    overflow-y: auto;
     transform: none;
     padding: 12px;
     border-radius: 16px;
   }
 
+  .mobile-more-panel {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
   .more-menu-section {
+    display: grid;
+    gap: 6px;
     padding: 8px;
   }
 
   .more-menu-section a {
-    min-height: 40px;
-    padding: 9px 10px;
-    white-space: normal;
+    min-height: 48px;
+    border-radius: 10px;
+    padding: 12px;
+    white-space: nowrap;
   }
 
   .summary-grid {
