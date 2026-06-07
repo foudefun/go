@@ -1084,19 +1084,21 @@ export function StravaImportPanel() {
             {t("Drop Strava .fit, .fit.gz, .gpx, .gpx.gz, .tcx, or .tcx.gz files here")}
           </div>
 
-          <label>
-            {t("Strava files")}
+          <label className={uploadedFiles.length ? "import-file-picker selected" : "import-file-picker"}>
             <input
               type="file"
               multiple
               accept=".fit,.fit.gz,.gpx,.gpx.gz,.tcx,.tcx.gz,application/gzip,application/octet-stream,application/gpx+xml,application/xml,text/xml"
               onChange={(event) => setUploadSelection(event.target.files)}
             />
+            <span>{t("Strava files")}</span>
+            <strong>{uploadedFiles.length ? t("Selected files count", { count: uploadedFiles.length }) : t("Choose Strava files")}</strong>
+            <small>{t("FIT, GPX or TCX")}</small>
           </label>
 
           {uploadedFiles.length ? (
-            <div className="notice-panel">
-              <span>{t("Selected files")}: {uploadedFiles.length}</span>
+            <div className="import-selection-preview">
+              <span>{t("Selected files count", { count: uploadedFiles.length })}</span>
               <small>{uploadedFiles.slice(0, 5).map((file) => file.name).join(", ")}{uploadedFiles.length > 5 ? "..." : ""}</small>
             </div>
           ) : null}

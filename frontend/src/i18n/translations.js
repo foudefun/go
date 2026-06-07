@@ -654,6 +654,7 @@ const FR = {
   "Choose activity file": "Choisir un fichier d'activite",
   "Choose activity files": "Choisir des fichiers d'activite",
   "Choose program file": "Choisir un fichier programme",
+  "Choose Strava files": "Choisir des fichiers Strava",
   "Choose an exercise to see history and PRs.": "Choisissez un exercice pour voir l'historique et les PR.",
   "Clipboard copy failed. Select the prompt text and copy it manually.": "La copie dans le presse-papiers a echoue. Selectionnez le prompt et copiez-le manuellement.",
   Content: "Contenu",
