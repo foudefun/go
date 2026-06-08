@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   createStravaConnectUrl,
   disconnectStrava,
@@ -496,6 +496,11 @@ function BatchImportSummary({ result, t }) {
         <BatchImportGroup title={t("Imported files")} items={imported} tone="success" t={t} />
         <BatchImportGroup title={t("Skipped duplicates")} items={skipped} tone="neutral" t={t} />
         <BatchImportGroup title={t("Failed files")} items={errors} tone="error" t={t} defaultOpen={Boolean(errors.length)} />
+      </div>
+
+      <div className="batch-result-actions">
+        <Link className="secondary-action link-action" to="/import?mode=history">{t("Review import history")}</Link>
+        {skipped.length ? <Link className="secondary-action link-action" to="/activity-cleanup">{t("Open duplicate cleanup")}</Link> : null}
       </div>
     </section>
   );

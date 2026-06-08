@@ -115,6 +115,7 @@ const FR = {
   "Quick paths": "Acces rapides",
   "Review week": "Voir la semaine",
   "Review first": "Verifier d'abord",
+  "Review import history": "Verifier l'historique d'import",
   "Review recent imports, skipped duplicates, files saved as Other, and files that still need attention.": "Verifiez les imports recents, les doublons ignores, les fichiers enregistres comme Autre et ceux qui demandent encore de l'attention.",
   "Resolve Errors": "Corriger les erreurs",
   "Retry Failed Files": "Reessayer les fichiers en erreur",

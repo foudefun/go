@@ -5307,6 +5307,14 @@ select[multiple] {
   gap: 8px;
 }
 
+.batch-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid #e8edf5;
+  padding-top: 12px;
+}
+
 .batch-result-group {
   display: grid;
   align-content: start;
