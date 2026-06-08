@@ -57,7 +57,7 @@ function formatMetricValue(metricKey, values) {
 function getActivityMetrics(activity) {
   const metricKeys = ["distance", "duration", "heart_rate", "power"];
   const sourceFiles = Array.isArray(activity.sourceFiles) ? activity.sourceFiles : [];
-  return metricKeys
+  const metrics = metricKeys
     .map((metricKey) => {
       const value = sourceFiles
         .map((source) => formatMetricValue(metricKey, source.metrics?.[metricKey]))
@@ -65,6 +65,11 @@ function getActivityMetrics(activity) {
       return value ? { key: metricKey, value } : null;
     })
     .filter(Boolean);
+  const elevationGain = calculateElevationGain(getAltitudeValuesFromSources(sourceFiles));
+  if (elevationGain > 0) {
+    metrics.splice(Math.min(metrics.length, 2), 0, { key: "elevation_gain", value: `D+ ${Math.round(elevationGain)} m` });
+  }
+  return metrics;
 }
 
 function getTrackPointsFromSources(sourceFiles = []) {
@@ -79,6 +84,27 @@ function getTrackPointsFromSources(sourceFiles = []) {
     if (trackPoints.length >= 2) return trackPoints;
   }
   return [];
+}
+
+function getAltitudeValuesFromSources(sourceFiles = []) {
+  for (const source of sourceFiles) {
+    const points = Array.isArray(source?.series?.points) ? source.series.points : [];
+    const altitudeValues = points
+      .map((point) => Number(point.altitude_m))
+      .filter((value) => Number.isFinite(value));
+    if (altitudeValues.length >= 2) return altitudeValues;
+  }
+  return [];
+}
+
+function calculateElevationGain(altitudeValues) {
+  if (!Array.isArray(altitudeValues) || altitudeValues.length < 2) return 0;
+  return altitudeValues.reduce((total, value, index) => {
+    if (index === 0) return total;
+    const previous = altitudeValues[index - 1];
+    const gain = value - previous;
+    return gain > 0 ? total + gain : total;
+  }, 0);
 }
 
 function buildTrackPolyline(points, width = 120, height = 84, padding = 10) {
