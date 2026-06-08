@@ -4397,6 +4397,11 @@ select[multiple] {
   stroke-width: 2;
 }
 
+.activity-elevation-area {
+  fill: rgba(48, 111, 103, 0.14);
+  pointer-events: none;
+}
+
 .activity-elevation-profile polyline {
   fill: none;
   stroke: var(--color-primary);
@@ -4404,6 +4409,25 @@ select[multiple] {
   stroke-linejoin: round;
   stroke-width: 3;
   pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .activity-maplibre-frame {
+    height: 220px;
+  }
+
+  .activity-maplibre-frame.expanded {
+    height: min(58vh, 460px);
+    min-height: 320px;
+  }
+
+  .activity-elevation-profile svg {
+    height: 160px;
+  }
+
+  .activity-elevation-profile .activity-chart-labels text {
+    font-size: 10px;
+  }
 }
 
 .activity-source-quality {

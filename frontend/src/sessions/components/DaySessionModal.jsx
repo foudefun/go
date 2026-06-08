@@ -639,6 +639,12 @@ function buildElevationProfile(points, width = 600, height = 190) {
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(" ");
+  const baselineY = height - paddingBottom;
+  const areaPolygon = [
+    `${projectedPoints[0].x.toFixed(1)},${baselineY.toFixed(1)}`,
+    ...projectedPoints.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`),
+    `${projectedPoints[projectedPoints.length - 1].x.toFixed(1)},${baselineY.toFixed(1)}`,
+  ].join(" ");
   const altitudeTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
     const value = minAltitude + altitudeSpan * ratio;
     return {
@@ -652,6 +658,7 @@ function buildElevationProfile(points, width = 600, height = 190) {
   }));
   return {
     altitudeTicks,
+    areaPolygon,
     height,
     maxTime,
     polyline,
@@ -1067,6 +1074,7 @@ function ActivityTrackMap({ activity, t }) {
                 </text>
               ))}
             </g>
+            <polygon className="activity-elevation-area" points={elevationProfile.areaPolygon} />
             <polyline points={elevationProfile.polyline} />
             {hoverElevationPoint ? (
               <g className="activity-chart-hover">
