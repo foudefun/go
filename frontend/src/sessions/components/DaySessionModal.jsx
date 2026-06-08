@@ -462,6 +462,14 @@ function readMetricValue(activity, metricKey, valueKey) {
 function buildActivityMetricFields(activity) {
   const durationSeconds = readMetricValue(activity, "duration", "seconds");
   const distanceKm = readMetricValue(activity, "distance", "km");
+  const trackSeries = getTrackSeries(activity);
+  const altitudeValues = trackSeries.points
+    .map((point) => point.altitude_m)
+    .filter((value) => Number.isFinite(value));
+  const elevationGain = calculateElevationGain(altitudeValues);
+  const elevationRange = altitudeValues.length
+    ? `${Math.round(Math.min(...altitudeValues))}-${Math.round(Math.max(...altitudeValues))} m`
+    : "";
   const avgPower = readMetricValue(activity, "power", "avg");
   const maxPower = readMetricValue(activity, "power", "max");
   const avgCadence = readMetricValue(activity, "cadence", "avg");
@@ -471,6 +479,8 @@ function buildActivityMetricFields(activity) {
   return [
     durationSeconds ? { label: "Duration", value: formatDurationSeconds(durationSeconds) } : null,
     distanceKm ? { label: "Distance", value: `${distanceKm.toFixed(2)} km` } : null,
+    elevationGain ? { label: "Elevation gain", value: `${Math.round(elevationGain)} m` } : null,
+    elevationRange ? { label: "Elevation range", value: elevationRange } : null,
     avgPower ? { label: "Average power", value: `${Math.round(avgPower)} W` } : null,
     maxPower ? { label: "Max power", value: `${Math.round(maxPower)} W` } : null,
     avgCadence ? { label: "Average cadence", value: `${Math.round(avgCadence)} rpm` } : null,
