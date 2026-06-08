@@ -93,6 +93,8 @@ const FR = {
   "Open Progress": "Ouvrir la progression",
   "Open activity": "Ouvrir l'activite",
   "Open duplicate cleanup": "Ouvrir le nettoyage des doublons",
+  "Open full map": "Ouvrir la grande carte",
+  "Close full map": "Fermer la grande carte",
   "Open today to adjust the session details.": "Ouvrez aujourd'hui pour ajuster les details de la seance.",
   Other: "Autre",
   Outdoors: "Dehors",

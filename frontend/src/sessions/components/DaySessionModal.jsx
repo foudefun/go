@@ -818,7 +818,7 @@ const ACTIVITY_MAP_STYLE = {
   ],
 };
 
-function ActivityTrackMapCanvas({ points, fallback, t }) {
+function ActivityTrackMapCanvas({ points, fallback, expanded = false, t }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const [status, setStatus] = useState("loading");
@@ -936,10 +936,15 @@ function ActivityTrackMapCanvas({ points, fallback, t }) {
     };
   }, [coordinateKey]);
 
+  useEffect(() => {
+    if (!mapRef.current) return;
+    window.setTimeout(() => mapRef.current?.resize(), 0);
+  }, [expanded]);
+
   if (error) return fallback;
 
   return (
-    <div className="activity-maplibre-frame">
+    <div className={expanded ? "activity-maplibre-frame expanded" : "activity-maplibre-frame"}>
       <div ref={containerRef} className="activity-maplibre-canvas" role="img" aria-label={t("GPS track")} />
       {status === "loading" ? <span className="activity-map-loading">{t("Loading map...")}</span> : null}
     </div>
@@ -949,6 +954,7 @@ function ActivityTrackMapCanvas({ points, fallback, t }) {
 function ActivityTrackMap({ activity, t }) {
   const { source, points } = getTrackSeries(activity);
   const [hoverElevationPoint, setHoverElevationPoint] = useState(null);
+  const [expandedMap, setExpandedMap] = useState(false);
   if (points.length < 2) return null;
 
   const width = 600;
@@ -1013,11 +1019,14 @@ function ActivityTrackMap({ activity, t }) {
         </div>
         <span>{distanceKm ? `${Number(distanceKm).toFixed(2)} km` : formatDurationSeconds(maxTime)}</span>
       </div>
-      <ActivityTrackMapCanvas points={points} fallback={fallbackMap} t={t} />
+      <ActivityTrackMapCanvas points={points} fallback={fallbackMap} expanded={expandedMap} t={t} />
       <div className="activity-track-meta">
         <span>{`${points.length} ${t("GPS points")}`}</span>
         {maxTime ? <span>{formatDurationSeconds(maxTime)}</span> : null}
         {elevationLabel ? <span>{elevationLabel}</span> : null}
+        <button type="button" className="activity-track-map-toggle" onClick={() => setExpandedMap((current) => !current)}>
+          {expandedMap ? t("Close full map") : t("Open full map")}
+        </button>
       </div>
       {elevationProfile ? (
         <div className="activity-elevation-profile">

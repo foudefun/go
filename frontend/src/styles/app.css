@@ -4198,10 +4198,16 @@ select[multiple] {
 .activity-maplibre-frame {
   position: relative;
   min-height: 260px;
+  height: 260px;
   border: 1px solid #d8e2ef;
   border-radius: 10px;
   overflow: hidden;
   background: #eef6f0;
+}
+
+.activity-maplibre-frame.expanded {
+  height: min(62vh, 620px);
+  min-height: 420px;
 }
 
 .activity-maplibre-canvas {
@@ -4299,6 +4305,22 @@ select[multiple] {
   font-size: 12px;
   font-weight: 800;
   padding: 5px 8px;
+}
+
+.activity-track-map-toggle {
+  border: 1px solid #cfd8e6;
+  border-radius: 999px;
+  background: #fff;
+  color: #182230;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.activity-track-map-toggle:hover {
+  border-color: #32645f;
+  background: #eef5f4;
+  color: #244f4b;
 }
 
 .activity-elevation-profile {
