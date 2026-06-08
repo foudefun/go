@@ -1567,6 +1567,15 @@ export default function DaySessionModal({
                     />
                   )}
 
+                  {!isNewActivityDraft && !showImportPanel ? (
+                    <>
+                      <ActivityMetricFields activity={activeActivity} t={t} />
+                      <ActivityPowerCurve activity={activeActivity} t={t} />
+                      <ActivityTrackMap activity={activeActivity} t={t} />
+                      <ActivitySourceQuality activity={activeActivity} t={t} />
+                    </>
+                  ) : null}
+
                   {isNewActivityDraft ? null : (
                     <ActivityDetailActions
                       activity={activeActivity}
@@ -1610,14 +1619,6 @@ export default function DaySessionModal({
                     <>
                       {(activeIndex !== null || isNewActivityDraft) ? (
                         <>
-                          {isNewActivityDraft ? null : (
-                            <>
-                              <ActivityMetricFields activity={activeActivity} t={t} />
-                              <ActivityPowerCurve activity={activeActivity} t={t} />
-                              <ActivityTrackMap activity={activeActivity} t={t} />
-                              <ActivitySourceQuality activity={activeActivity} t={t} />
-                            </>
-                          )}
                           <details
                             className="activity-edit-panel"
                             aria-label={t("Edit activity")}
