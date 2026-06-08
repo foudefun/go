@@ -799,6 +799,153 @@ function ActivityPowerCurve({ activity, t }) {
   );
 }
 
+const ACTIVITY_MAP_STYLE = {
+  version: 8,
+  sources: {
+    cartoVoyager: {
+      type: "raster",
+      tiles: ["/api/map-tiles/cartovoyager/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "(c) OpenStreetMap contributors (c) CARTO",
+    },
+  },
+  layers: [
+    {
+      id: "cartoVoyager",
+      type: "raster",
+      source: "cartoVoyager",
+    },
+  ],
+};
+
+function ActivityTrackMapCanvas({ points, fallback, t }) {
+  const containerRef = useRef(null);
+  const mapRef = useRef(null);
+  const [status, setStatus] = useState("loading");
+  const [error, setError] = useState("");
+  const coordinates = useMemo(
+    () => points
+      .map((point) => [Number(point.lon), Number(point.lat)])
+      .filter((coordinate) => coordinate.every(Number.isFinite)),
+    [points],
+  );
+  const coordinateKey = useMemo(
+    () => coordinates.map((coordinate) => `${coordinate[0].toFixed(6)},${coordinate[1].toFixed(6)}`).join("|"),
+    [coordinates],
+  );
+
+  useEffect(() => {
+    if (!containerRef.current || coordinates.length < 2) return undefined;
+    let isMounted = true;
+
+    async function loadMap() {
+      setStatus("loading");
+      setError("");
+      try {
+        const maplibreModule = await import("maplibre-gl");
+        if (!isMounted || !containerRef.current) return;
+        const maplibregl = maplibreModule.default;
+        const map = new maplibregl.Map({
+          container: containerRef.current,
+          style: ACTIVITY_MAP_STYLE,
+          center: coordinates[0],
+          zoom: 12,
+          interactive: false,
+          attributionControl: { compact: true },
+        });
+        mapRef.current = map;
+        map.on("error", (event) => {
+          if (!isMounted) return;
+          setError(event?.error?.message || "Map tiles could not be loaded.");
+        });
+        map.once("load", () => {
+          if (!isMounted) return;
+          map.addSource("activityTrack", {
+            type: "geojson",
+            data: {
+              type: "Feature",
+              properties: {},
+              geometry: {
+                type: "LineString",
+                coordinates,
+              },
+            },
+          });
+          map.addLayer({
+            id: "activityTrackLine",
+            type: "line",
+            source: "activityTrack",
+            paint: {
+              "line-color": "#166534",
+              "line-width": 5,
+              "line-opacity": 0.9,
+            },
+            layout: {
+              "line-cap": "round",
+              "line-join": "round",
+            },
+          });
+          map.addSource("activityTrackEnds", {
+            type: "geojson",
+            data: {
+              type: "FeatureCollection",
+              features: [
+                { type: "Feature", properties: { kind: "start" }, geometry: { type: "Point", coordinates: coordinates[0] } },
+                { type: "Feature", properties: { kind: "finish" }, geometry: { type: "Point", coordinates: coordinates[coordinates.length - 1] } },
+              ],
+            },
+          });
+          map.addLayer({
+            id: "activityTrackEnds",
+            type: "circle",
+            source: "activityTrackEnds",
+            paint: {
+              "circle-radius": 6,
+              "circle-color": [
+                "match",
+                ["get", "kind"],
+                "start",
+                "#22c55e",
+                "finish",
+                "#ef4444",
+                "#166534",
+              ],
+              "circle-stroke-color": "#ffffff",
+              "circle-stroke-width": 2,
+            },
+          });
+          const bounds = coordinates.reduce(
+            (currentBounds, coordinate) => currentBounds.extend(coordinate),
+            new maplibregl.LngLatBounds(coordinates[0], coordinates[0]),
+          );
+          map.fitBounds(bounds, { padding: 36, maxZoom: 14, duration: 0 });
+          map.resize();
+          setStatus("ready");
+        });
+      } catch (mapError) {
+        if (!isMounted) return;
+        setError(mapError.message || "Map tiles could not be loaded.");
+      }
+    }
+
+    loadMap();
+    return () => {
+      isMounted = false;
+      mapRef.current?.remove();
+      mapRef.current = null;
+    };
+  }, [coordinateKey]);
+
+  if (error) return fallback;
+
+  return (
+    <div className="activity-maplibre-frame">
+      <div ref={containerRef} className="activity-maplibre-canvas" role="img" aria-label={t("GPS track")} />
+      {status === "loading" ? <span className="activity-map-loading">{t("Loading map...")}</span> : null}
+    </div>
+  );
+}
+
 function ActivityTrackMap({ activity, t }) {
   const { source, points } = getTrackSeries(activity);
   const [hoverElevationPoint, setHoverElevationPoint] = useState(null);
@@ -836,6 +983,27 @@ function ActivityTrackMap({ activity, t }) {
     setHoverElevationPoint(nearest);
   }
 
+  const fallbackMap = (
+    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("GPS track")}>
+      <rect x="0" y="0" width={width} height={height} rx="16" />
+      <g className="activity-map-background">
+        <path d={`M 0 ${height * 0.32} C ${width * 0.2} ${height * 0.24}, ${width * 0.38} ${height * 0.44}, ${width * 0.58} ${height * 0.34} S ${width * 0.86} ${height * 0.24}, ${width} ${height * 0.38}`} />
+        <path d={`M 0 ${height * 0.68} C ${width * 0.18} ${height * 0.56}, ${width * 0.34} ${height * 0.76}, ${width * 0.52} ${height * 0.64} S ${width * 0.82} ${height * 0.56}, ${width} ${height * 0.72}`} />
+      </g>
+      <g className="activity-track-grid">
+        {[0.25, 0.5, 0.75].map((ratio) => (
+          <line key={`h-${ratio}`} x1={padding} x2={width - padding} y1={height * ratio} y2={height * ratio} />
+        ))}
+        {[0.25, 0.5, 0.75].map((ratio) => (
+          <line key={`v-${ratio}`} x1={width * ratio} x2={width * ratio} y1={padding} y2={height - padding} />
+        ))}
+      </g>
+      <polyline points={polyline} />
+      <circle className="activity-track-start" cx={start.x} cy={start.y} r="5" />
+      <circle className="activity-track-finish" cx={finish.x} cy={finish.y} r="5" />
+    </svg>
+  );
+
   return (
     <section className="activity-track-map" aria-label={t("Activity route")}>
       <div className="section-heading-row">
@@ -845,24 +1013,7 @@ function ActivityTrackMap({ activity, t }) {
         </div>
         <span>{distanceKm ? `${Number(distanceKm).toFixed(2)} km` : formatDurationSeconds(maxTime)}</span>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("GPS track")}>
-        <rect x="0" y="0" width={width} height={height} rx="16" />
-        <g className="activity-map-background">
-          <path d={`M 0 ${height * 0.32} C ${width * 0.2} ${height * 0.24}, ${width * 0.38} ${height * 0.44}, ${width * 0.58} ${height * 0.34} S ${width * 0.86} ${height * 0.24}, ${width} ${height * 0.38}`} />
-          <path d={`M 0 ${height * 0.68} C ${width * 0.18} ${height * 0.56}, ${width * 0.34} ${height * 0.76}, ${width * 0.52} ${height * 0.64} S ${width * 0.82} ${height * 0.56}, ${width} ${height * 0.72}`} />
-        </g>
-        <g className="activity-track-grid">
-          {[0.25, 0.5, 0.75].map((ratio) => (
-            <line key={`h-${ratio}`} x1={padding} x2={width - padding} y1={height * ratio} y2={height * ratio} />
-          ))}
-          {[0.25, 0.5, 0.75].map((ratio) => (
-            <line key={`v-${ratio}`} x1={width * ratio} x2={width * ratio} y1={padding} y2={height - padding} />
-          ))}
-        </g>
-        <polyline points={polyline} />
-        <circle className="activity-track-start" cx={start.x} cy={start.y} r="5" />
-        <circle className="activity-track-finish" cx={finish.x} cy={finish.y} r="5" />
-      </svg>
+      <ActivityTrackMapCanvas points={points} fallback={fallbackMap} t={t} />
       <div className="activity-track-meta">
         <span>{`${points.length} ${t("GPS points")}`}</span>
         {maxTime ? <span>{formatDurationSeconds(maxTime)}</span> : null}
