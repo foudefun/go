@@ -123,6 +123,8 @@ function ActivityTrackThumbnail({ sourceFiles, t }) {
     <span className="activity-track-thumb" aria-label={t("GPS track")}>
       <svg viewBox="0 0 120 84" role="img" aria-label={t("GPS track")}>
         <rect x="0" y="0" width="120" height="84" rx="8" />
+        <circle cx="21" cy="18" r="15" className="activity-track-thumb-water" />
+        <circle cx="102" cy="66" r="18" className="activity-track-thumb-water secondary" />
         <path className="activity-track-thumb-terrain" d="M -6 25 C 20 15, 34 34, 53 26 S 88 13, 126 27" />
         <path className="activity-track-thumb-terrain secondary" d="M -8 62 C 18 48, 37 70, 58 58 S 91 47, 128 64" />
         <g>

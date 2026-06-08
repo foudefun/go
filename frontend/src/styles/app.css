@@ -1444,7 +1444,7 @@ select[multiple] {
   }
 
   .activity-list-row {
-    grid-template-columns: 90px minmax(0, 1fr);
+    grid-template-columns: 112px minmax(0, 1fr);
   }
 
   .activity-list-row-compact {
@@ -1456,8 +1456,8 @@ select[multiple] {
   .activity-trace-thumb,
   .activity-track-thumb,
   .activity-type-thumb {
-    width: 82px;
-    height: 64px;
+    width: 104px;
+    height: 76px;
   }
 
   .activity-trace-thumb > span {
@@ -1584,8 +1584,8 @@ select[multiple] {
 .activity-list-row {
   width: 100%;
   display: grid;
-  grid-template-columns: 132px minmax(0, 1fr) minmax(160px, auto);
-  gap: 14px;
+  grid-template-columns: 164px minmax(0, 1fr) minmax(160px, auto);
+  gap: 16px;
   align-items: center;
   padding: 12px;
   text-align: left;
@@ -1606,8 +1606,8 @@ select[multiple] {
 .activity-trace-thumb,
 .activity-track-thumb,
 .activity-type-thumb {
-  width: 120px;
-  height: 84px;
+  width: 156px;
+  height: 104px;
   border-radius: 8px;
 }
 
@@ -1616,6 +1616,7 @@ select[multiple] {
   overflow: hidden;
   border: 1px solid var(--color-border);
   background: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.68);
 }
 
 .activity-thumb img {
@@ -1641,7 +1642,7 @@ select[multiple] {
 .activity-track-thumb {
   display: block;
   padding: 0;
-  background: #eef6f0;
+  background: #eaf4ef;
 }
 
 .activity-track-thumb svg {
@@ -1651,7 +1652,15 @@ select[multiple] {
 }
 
 .activity-track-thumb rect {
-  fill: #e7f3ef;
+  fill: #e7f2ec;
+}
+
+.activity-track-thumb-water {
+  fill: rgba(125, 181, 205, 0.34);
+}
+
+.activity-track-thumb-water.secondary {
+  fill: rgba(125, 181, 205, 0.22);
 }
 
 .activity-track-thumb-terrain {
@@ -1786,6 +1795,37 @@ select[multiple] {
   background: var(--color-bg);
   color: var(--color-text-muted) !important;
   font-size: 12px !important;
+}
+
+@media (max-width: 640px) {
+  .activity-list-row {
+    grid-template-columns: 112px minmax(0, 1fr);
+  }
+
+  .activity-list-row-compact {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .activity-thumb,
+  .activity-thumb img,
+  .activity-trace-thumb,
+  .activity-track-thumb,
+  .activity-type-thumb {
+    width: 104px;
+    height: 76px;
+  }
+
+  .activity-list-meta {
+    grid-column: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-items: start;
+  }
+
+  .activity-list-row-compact .activity-list-meta {
+    grid-column: 1;
+  }
 }
 
 .migration-panel {
