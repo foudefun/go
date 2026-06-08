@@ -960,7 +960,15 @@ export function StravaImportPanel() {
             </div>
             <div className="strava-activity-list">
               {activities.map((activity) => (
-                <label className={activity.existing ? "strava-activity-row imported" : "strava-activity-row"} key={activity.id}>
+                <label
+                  className={[
+                    "strava-activity-row",
+                    selectedIds.includes(activity.id) ? "selected" : "",
+                    activity.existing ? "imported" : "",
+                    activity.requires_review ? "needs-review" : "",
+                  ].filter(Boolean).join(" ")}
+                  key={activity.id}
+                >
                   <input
                     type="checkbox"
                     disabled={Boolean(activity.existing || activity.requires_review)}
@@ -1017,7 +1025,15 @@ export function StravaImportPanel() {
             <>
               <div className="strava-activity-list">
                 {exportPreview.activities.map((activity) => (
-                  <label className={activity.existing ? "strava-activity-row imported" : "strava-activity-row"} key={activity.filename}>
+                  <label
+                    className={[
+                      "strava-activity-row",
+                      selectedExportFiles.includes(activity.filename) ? "selected" : "",
+                      activity.existing ? "imported" : "",
+                      activity.requires_review ? "needs-review" : "",
+                    ].filter(Boolean).join(" ")}
+                    key={activity.filename}
+                  >
                     <input
                       type="checkbox"
                       disabled={Boolean(activity.existing || activity.requires_review)}
@@ -1122,7 +1138,15 @@ export function StravaImportPanel() {
           {uploadedPreview.activities?.length ? (
             <div className="strava-activity-list">
               {uploadedPreview.activities.map((activity) => (
-                <label className={activity.existing ? "strava-activity-row imported" : "strava-activity-row"} key={activity.filename}>
+                <label
+                  className={[
+                    "strava-activity-row",
+                    selectedUploadedFiles.includes(activity.filename) ? "selected" : "",
+                    activity.existing ? "imported" : "",
+                    activity.requires_review ? "needs-review" : "",
+                  ].filter(Boolean).join(" ")}
+                  key={activity.filename}
+                >
                   <input
                     type="checkbox"
                     disabled={Boolean(activity.existing || activity.requires_review)}

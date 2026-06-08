@@ -4610,19 +4610,65 @@ select[multiple] {
   gap: 0.75rem;
   align-items: start;
   padding: 0.85rem;
-  border: 1px solid var(--border);
+  border: 1px solid #d8e2ef;
   border-radius: 8px;
-  background: var(--surface);
+  background: #fff;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.strava-activity-row:hover {
+  border-color: #a7b5c8;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.strava-activity-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: #3f7d78;
+}
+
+.strava-activity-row.selected {
+  border-color: #3f7d78;
+  background: #eef8f3;
+  box-shadow: inset 0 0 0 1px rgba(63, 125, 120, 0.18);
 }
 
 .strava-activity-row.imported {
+  cursor: default;
   opacity: 0.68;
+}
+
+.strava-activity-row.needs-review {
+  border-color: #f6d599;
+  background: #fff9ed;
+}
+
+.strava-activity-row.imported:hover {
+  border-color: #d8e2ef;
+  box-shadow: none;
 }
 
 .strava-activity-row span,
 .strava-activity-row small {
   display: grid;
   gap: 0.2rem;
+}
+
+.strava-activity-row strong {
+  color: #172033;
+  overflow-wrap: anywhere;
+}
+
+.strava-activity-row small {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .import-mode-toolbar {
