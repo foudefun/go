@@ -174,6 +174,7 @@ const FR = {
   Force: "Force",
   "GPS track": "Trace GPS",
   "GPS tracks": "Traces GPS",
+  "GPS point count": "{count} pts GPS",
   "GPS points": "Points GPS",
   "Elevation profile": "Profil d'altitude",
   "Elevation gain": "Denivele positif",

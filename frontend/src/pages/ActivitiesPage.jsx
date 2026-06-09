@@ -437,6 +437,7 @@ export default function ActivitiesPage() {
             </div>
             {group.activities.map((activity) => {
               const metrics = getActivityMetrics(activity);
+              const trackPointCount = getTrackPointsFromSources(activity.sourceFiles).length;
               const hasVisualPreview = Boolean(activity.image || activity.sourceCount);
               return (
                 <button
@@ -466,6 +467,9 @@ export default function ActivitiesPage() {
                     {metrics.map((metric) => (
                       <span className="activity-metric-chip" key={metric.key}>{metric.value}</span>
                     ))}
+                    {trackPointCount ? (
+                      <span className="activity-gps-chip">{t("GPS point count", { count: trackPointCount })}</span>
+                    ) : null}
                     {activity.sourceFiles.length ? (
                       <span className="activity-source-chip">{t("Imported source count", { count: activity.sourceFiles.length })}</span>
                     ) : null}

@@ -1775,6 +1775,7 @@ select[multiple] {
 }
 
 .activity-metric-chip,
+.activity-gps-chip,
 .activity-source-chip {
   max-width: 100%;
   border-radius: 999px;
@@ -1787,6 +1788,14 @@ select[multiple] {
   border: 1px solid #cfe7df;
   background: #eef8f3;
   color: #205f5b !important;
+  font-weight: 900;
+}
+
+.activity-gps-chip {
+  border: 1px solid #c7d7f2;
+  background: #eef4ff;
+  color: #2b527f !important;
+  font-size: 12px !important;
   font-weight: 900;
 }
 
