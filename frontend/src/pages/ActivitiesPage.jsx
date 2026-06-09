@@ -469,7 +469,9 @@ export default function ActivitiesPage() {
                       <span className="activity-metric-chip" key={metric.key}>{metric.value}</span>
                     ))}
                     {trackPointCount ? (
-                      <span className="activity-gps-chip">{t("GPS point count", { count: trackPointCount })}</span>
+                      <span className="activity-gps-chip" title={t("GPS point count", { count: trackPointCount })}>
+                        {t("GPS track")}
+                      </span>
                     ) : null}
                     {activity.sourceFiles.length && !hasDataChips ? (
                       <span className="activity-source-chip">{t("Imported source count", { count: activity.sourceFiles.length })}</span>
