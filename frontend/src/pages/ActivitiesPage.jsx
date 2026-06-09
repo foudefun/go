@@ -167,8 +167,20 @@ function ActivityTrackThumbnail({ sourceFiles, t }) {
   );
 }
 
+function normalizeImportedActivityText(value) {
+  return String(value || "")
+    .replaceAll("RandonnÃƒÆ’Ã‚Â©e", "Randonn\u00e9e")
+    .replaceAll("RandonnÃƒÂ©e", "Randonn\u00e9e")
+    .replaceAll("RandonnÃ©e", "Randonn\u00e9e")
+    .replaceAll("DurÃƒÆ’Ã‚Â©e", "Dur\u00e9e")
+    .replaceAll("DurÃƒÂ©e", "Dur\u00e9e")
+    .replaceAll("DurÃ©e", "Dur\u00e9e")
+    .replaceAll("ImportÃ©", "Import\u00e9")
+    .replaceAll("vÃ©lo", "v\u00e9lo");
+}
+
 function translateGeneratedActivityDetails(value, language) {
-  let text = String(value || "").trim();
+  let text = normalizeImportedActivityText(value).trim();
   if (!text) return "";
   text = text.replaceAll("DurÃ©e", "Durée");
   if (language === "en") {
@@ -182,10 +194,10 @@ function translateGeneratedActivityDetails(value, language) {
       .replaceAll("Cadence moy.", "Avg cadence")
       .replaceAll("Importé depuis un fichier FIT", "Imported from a FIT file");
   }
-  return text
+  return normalizeImportedActivityText(text
     .replaceAll("cycling (virtual activity)", "vélo virtuel")
     .replaceAll("cycling", "vélo")
-    .replaceAll("running", "course");
+    .replaceAll("running", "course"));
 }
 
 function compactActivityDetails(value) {
@@ -211,7 +223,7 @@ function compactActivityDetails(value) {
 }
 
 function buildActivityTitle(entry, t) {
-  const title = String(entry.title || "").trim();
+  const title = normalizeImportedActivityText(entry.title).trim();
   if (title) return title;
   const activityType = String(entry.activity_type || "").trim();
   const typeLabel = activityType ? t(getActivityTypeLabel(activityType)) : "";
@@ -220,7 +232,7 @@ function buildActivityTitle(entry, t) {
   if (typeLabel && performedCount) return `${typeLabel} | ${performedCount} ex.`;
   if (typeLabel && climbingCount) return `${typeLabel} | ${climbingCount} voie(s)`;
   if (typeLabel) return typeLabel;
-  return String(entry.summary || "").trim() || t("Activity");
+  return normalizeImportedActivityText(entry.summary).trim() || t("Activity");
 }
 
 function getActivityKicker(activity, t) {
