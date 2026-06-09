@@ -438,6 +438,7 @@ export default function ActivitiesPage() {
             {group.activities.map((activity) => {
               const metrics = getActivityMetrics(activity);
               const trackPointCount = getTrackPointsFromSources(activity.sourceFiles).length;
+              const hasDataChips = metrics.length || trackPointCount;
               const hasVisualPreview = Boolean(activity.image || activity.sourceCount);
               return (
                 <button
@@ -470,7 +471,7 @@ export default function ActivitiesPage() {
                     {trackPointCount ? (
                       <span className="activity-gps-chip">{t("GPS point count", { count: trackPointCount })}</span>
                     ) : null}
-                    {activity.sourceFiles.length ? (
+                    {activity.sourceFiles.length && !hasDataChips ? (
                       <span className="activity-source-chip">{t("Imported source count", { count: activity.sourceFiles.length })}</span>
                     ) : null}
                     {!metrics.length && !activity.sourceFiles.length ? (
