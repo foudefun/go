@@ -165,6 +165,7 @@ const FR = {
   Done: "Termine",
   "Duration min": "Duree min",
   Duration: "Duree",
+  "Duration hh:mm:ss": "Duree hh:mm:ss",
   "Duration sec": "Duree sec",
   "Duration seconds": "Duree en secondes",
   "Edit item": "Modifier l'element",

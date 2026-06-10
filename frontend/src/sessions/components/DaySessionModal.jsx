@@ -1410,7 +1410,8 @@ export default function DaySessionModal({
   const planExists = hasPlanContent(session);
   const hasActivityEditor = activeIndex === null ? Boolean(draftActivity) : Boolean(savedActivities[activeIndex]);
   const isNewActivityDraft = activeIndex === null && Boolean(draftActivity);
-  const shouldShowActivitySidebar = savedActivities.length > 1 || isNewActivityDraft;
+  const shouldShowActivitySidebar = !isNewActivityDraft && savedActivities.length > 1;
+  const shouldShowPlanContext = !isNewActivityDraft && planExists && !showPlanEditor;
   const targetSummary = useMemo(() => {
     if (!session) return "";
     return session.target_load !== null && session.target_load !== undefined
@@ -1691,7 +1692,7 @@ export default function DaySessionModal({
             ) : null}
 
             <section className="day-form">
-              {planExists && !showPlanEditor ? (
+              {shouldShowPlanContext ? (
                 <details className={hasActivityEditor ? "day-plan-summary compact" : "day-plan-summary"} {...(!hasActivityEditor ? { open: true } : {})}>
                   <summary className="section-heading-row">
                     <div>
@@ -1758,14 +1759,14 @@ export default function DaySessionModal({
                     />
                   )}
 
-                  {(isNewActivityDraft || showActivityTypePicker) ? (
+                  {showActivityTypePicker || (isNewActivityDraft && !activeActivity.activity_type) ? (
                     <ActivityTypePicker
                       value={activeActivity.activity_type}
                       search={activityTypeSearch}
                       onSearchChange={setActivityTypeSearch}
                       onSelect={(activityType) => {
                         updateActiveActivity({ activity_type: activityType });
-                        if (!isNewActivityDraft) setShowActivityTypePicker(false);
+                        setShowActivityTypePicker(false);
                       }}
                       t={t}
                     />
@@ -1785,7 +1786,7 @@ export default function DaySessionModal({
 
                   {!showImportPanel ? (
                     <>
-                      {(activeIndex !== null || isNewActivityDraft) ? (
+                      {activeIndex !== null ? (
                         <>
                           <details
                             className="activity-edit-panel"

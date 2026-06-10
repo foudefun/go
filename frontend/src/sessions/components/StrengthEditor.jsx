@@ -95,9 +95,30 @@ function hasSetDraftContent(setDraft) {
 function formatDuration(seconds) {
   const totalSeconds = Number(seconds || 0);
   if (!totalSeconds) return "";
-  const minutes = Math.floor(totalSeconds / 60);
-  const remainingSeconds = totalSeconds % 60;
-  return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
+  const hours = Math.floor(totalSeconds / 3600);
+  const remainingMinutes = Math.floor((totalSeconds % 3600) / 60);
+  const remainingSeconds = Math.round(totalSeconds % 60);
+  return `${String(hours).padStart(2, "0")}:${String(remainingMinutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
+}
+
+function parseDurationInput(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (!text.includes(":")) {
+    const numericSeconds = Number(text);
+    return Number.isFinite(numericSeconds) && numericSeconds >= 0 ? Math.round(numericSeconds) : "";
+  }
+  const parts = text.split(":").map((part) => Number(part));
+  if (parts.some((part) => !Number.isFinite(part) || part < 0)) return "";
+  if (parts.length === 2) {
+    const [minutesValue, secondsValue] = parts;
+    return Math.round(minutesValue * 60 + secondsValue);
+  }
+  if (parts.length === 3) {
+    const [hoursValue, minutesValue, secondsValue] = parts;
+    return Math.round(hoursValue * 3600 + minutesValue * 60 + secondsValue);
+  }
+  return "";
 }
 
 function formatWeight(value, unit = "kg") {
@@ -315,7 +336,11 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
 
   function addSetToDraft() {
     if (!hasSetDraftContent(currentSet)) return;
-    const normalizedSet = normalizePerformedSet(currentSet, trackingMode);
+    const setDraft =
+      trackingMode === "time_watts"
+        ? { ...currentSet, duration_sec: parseDurationInput(currentSet.duration_sec) }
+        : currentSet;
+    const normalizedSet = normalizePerformedSet(setDraft, trackingMode);
     if (!Object.keys(normalizedSet).length) return;
     setDraft((current) => ({
       ...current,
@@ -526,13 +551,13 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
           {trackingMode === "time_watts" ? (
             <div className="form-grid set-input-grid">
               <label>
-                {t("Duration seconds")}
+                {t("Duration hh:mm:ss")}
                 <input
-                  type="number"
-                  min="0"
+                  type="text"
+                  inputMode="numeric"
                   value={currentSet.duration_sec || ""}
                   onChange={(event) => setCurrentSet((current) => ({ ...current, duration_sec: event.target.value }))}
-                  placeholder="300"
+                  placeholder="00:05:00"
                 />
               </label>
               <label>
