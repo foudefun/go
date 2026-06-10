@@ -277,6 +277,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
   const selectedWorkType = draft.work_type || "resistance";
   const selectedExerciseImage = getItemExerciseImage(draft, exerciseMap);
   const [currentSet, setCurrentSet] = useState(() => createBlankSetDraft("reps_weight", "kg"));
+  const [setBuilderMessage, setSetBuilderMessage] = useState("");
   const filteredExercises = useMemo(
     () => filterExercises(sortedExercises, { query: exerciseQuery, language }),
     [sortedExercises, exerciseQuery, language],
@@ -322,6 +323,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
   function resetDraft() {
     setDraft(createBlankStrengthItem());
     setCurrentSet(createBlankSetDraft("reps_weight", "kg"));
+    setSetBuilderMessage("");
     setEditIndex(null);
     setExerciseQuery("");
   }
@@ -332,20 +334,28 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
     const nextWeightUnit = normalizeWeightUnit(exercise?.weight_unit);
     setDraft((current) => ({ ...current, exercise_name: exerciseName }));
     setCurrentSet(createBlankSetDraft(nextTrackingMode, nextWeightUnit));
+    setSetBuilderMessage("");
   }
 
   function addSetToDraft() {
-    if (!hasSetDraftContent(currentSet)) return;
+    if (!hasSetDraftContent(currentSet)) {
+      setSetBuilderMessage(t("Fill set before adding it."));
+      return;
+    }
     const setDraft =
       trackingMode === "time_watts"
         ? { ...currentSet, duration_sec: parseDurationInput(currentSet.duration_sec) }
         : currentSet;
     const normalizedSet = normalizePerformedSet(setDraft, trackingMode);
-    if (!Object.keys(normalizedSet).length) return;
+    if (!Object.keys(normalizedSet).length) {
+      setSetBuilderMessage(t("Fill set before adding it."));
+      return;
+    }
     setDraft((current) => ({
       ...current,
       sets: [...(current.sets || []), normalizedSet],
     }));
+    setSetBuilderMessage(t("Set added to exercise."));
     setCurrentSet(createBlankSetDraft(trackingMode, weightUnit));
   }
 
@@ -371,6 +381,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
     setDraft({ ...createBlankStrengthItem(), ...item, sets: item.sets || [] });
     setEditIndex(index);
     setCurrentSet(createBlankSetDraft(getDraftTrackingMode(item, exerciseMap), getDraftWeightUnit(item, exerciseMap)));
+    setSetBuilderMessage("");
     setExerciseQuery("");
   }
 
@@ -554,7 +565,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
                 {t("Duration hh:mm:ss")}
                 <input
                   type="text"
-                  inputMode="numeric"
+                  inputMode="tel"
                   value={currentSet.duration_sec || ""}
                   onChange={(event) => setCurrentSet((current) => ({ ...current, duration_sec: event.target.value }))}
                   placeholder="00:05:00"
@@ -611,6 +622,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
           <button type="button" className="secondary-action" onClick={addSetToDraft}>
             {t("Add set to exercise")}
           </button>
+          {setBuilderMessage ? <span className="field-hint">{setBuilderMessage}</span> : null}
 
           {draft.sets?.length ? (
             <div className="set-chip-row">

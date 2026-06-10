@@ -77,5 +77,5 @@ test("gets exercise display names in the selected language", () => {
 
 test("formats set labels for the React editor", () => {
   assert.equal(formatPerformedSet({ reps: 5, weight: 40, weight_unit: "kg" }), "5 reps x 40 kg");
-  assert.equal(formatPerformedSet({ duration_sec: 75, watts: 180 }), "1:15 @ 180 W");
+  assert.equal(formatPerformedSet({ duration_sec: 75, watts: 180 }), "00:01:15 @ 180 W");
 });
