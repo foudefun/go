@@ -278,6 +278,7 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
   const selectedExerciseImage = getItemExerciseImage(draft, exerciseMap);
   const [currentSet, setCurrentSet] = useState(() => createBlankSetDraft("reps_weight", "kg"));
   const [setBuilderMessage, setSetBuilderMessage] = useState("");
+  const [imagePreview, setImagePreview] = useState(null);
   const filteredExercises = useMemo(
     () => filterExercises(sortedExercises, { query: exerciseQuery, language }),
     [sortedExercises, exerciseQuery, language],
@@ -488,7 +489,19 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
             </label>
             {selectedExerciseImage ? (
               <div className="selected-exercise-preview">
-                <img src={selectedExerciseImage} alt="" loading="lazy" />
+                <button
+                  type="button"
+                  className="exercise-preview-image-button"
+                  onClick={() =>
+                    setImagePreview({
+                      src: selectedExerciseImage,
+                      title: getItemTitle(draft, exerciseMap, language),
+                    })
+                  }
+                  aria-label={t("Open exercise image")}
+                >
+                  <img src={selectedExerciseImage} alt="" loading="lazy" />
+                </button>
                 <span>{t("Exercise image")}</span>
               </div>
             ) : null}
@@ -639,6 +652,19 @@ export default function StrengthEditor({ activity, exercises, loading, error, on
           {editIndex === null ? t("Add exercise to activity") : t("Update exercise in activity")}
         </button>
       </div>
+      {imagePreview ? (
+        <div className="exercise-image-lightbox" role="presentation" onMouseDown={() => setImagePreview(null)}>
+          <section className="exercise-image-lightbox-panel" role="dialog" aria-modal="true" aria-label={t("Exercise image")} onMouseDown={(event) => event.stopPropagation()}>
+            <header>
+              <strong>{imagePreview.title || t("Exercise image")}</strong>
+              <button type="button" onClick={() => setImagePreview(null)}>
+                {t("Close")}
+              </button>
+            </header>
+            <img src={imagePreview.src} alt="" />
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 }

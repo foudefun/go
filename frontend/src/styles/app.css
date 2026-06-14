@@ -6579,6 +6579,25 @@ select[multiple] {
   padding: 8px;
 }
 
+.exercise-preview-image-button {
+  width: 56px;
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.exercise-preview-image-button:hover {
+  transform: none;
+}
+
+.exercise-preview-image-button:focus-visible {
+  outline: 3px solid rgba(50, 100, 95, 0.28);
+  outline-offset: 2px;
+}
+
 .selected-exercise-preview img {
   width: 56px;
   aspect-ratio: 1;
@@ -6592,6 +6611,50 @@ select[multiple] {
   color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 800;
+}
+
+.exercise-image-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.64);
+  padding: 18px;
+}
+
+.exercise-image-lightbox-panel {
+  width: min(760px, 100%);
+  max-height: min(86vh, 780px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 12px;
+  background: #fff;
+  padding: 14px;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.34);
+}
+
+.exercise-image-lightbox-panel header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.exercise-image-lightbox-panel strong {
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.exercise-image-lightbox-panel img {
+  width: 100%;
+  max-height: calc(86vh - 96px);
+  object-fit: contain;
+  border: 1px solid #e4eaf3;
+  border-radius: 8px;
+  background: #f7f9fc;
 }
 
 .strength-muscle-summary {

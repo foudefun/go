@@ -199,6 +199,7 @@ const FR = {
   Mobility: "Mobilite",
   "Optional planned label": "Libelle planifie optionnel",
   "Optional session label": "Libelle de seance optionnel",
+  "Open exercise image": "Ouvrir l'image de l'exercice",
   "Plan Details": "Details du plan",
   "Plan notes": "Notes du plan",
   "Plan title": "Titre du plan",
