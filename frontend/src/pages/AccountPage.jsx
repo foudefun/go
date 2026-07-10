@@ -119,7 +119,10 @@ export default function AccountPage() {
     setStravaError("");
     try {
       const payload = await createStravaConnectUrl("/account?strava=connected");
-      window.location.href = payload.authorization_url;
+      if (!payload.authorization_url) {
+        throw new Error(t("Strava did not return a login link. Check the backend Strava configuration."));
+      }
+      window.location.assign(payload.authorization_url);
     } catch (connectError) {
       setStravaError(connectError.message);
       setStravaStatus("ready");

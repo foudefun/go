@@ -736,8 +736,11 @@ export function StravaImportPanel() {
     setStatus("connecting");
     setError("");
     try {
-      const payload = await createStravaConnectUrl("/import?strava=connected");
-      window.location.href = payload.authorization_url;
+      const payload = await createStravaConnectUrl("/import?mode=strava&strava=connected");
+      if (!payload.authorization_url) {
+        throw new Error(t("Strava did not return a login link. Check the backend Strava configuration."));
+      }
+      window.location.assign(payload.authorization_url);
     } catch (connectError) {
       setError(connectError.message);
       setStatus("idle");
