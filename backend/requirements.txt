@@ -6,3 +6,4 @@ python-multipart
 fitparse
 pytest
 httpx
+cryptography

@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { updatePreferences } from "../api/authApi.js";
 import { getConfig, updateConfig } from "../api/configApi.js";
-import { createStravaConnectUrl, disconnectStrava, getStravaStatus } from "../api/importApi.js";
+import {
+  createStravaConnectUrl,
+  disconnectIntervalsIcu,
+  disconnectStrava,
+  getIntervalsIcuStatus,
+  getStravaStatus,
+  saveIntervalsIcuConnection,
+} from "../api/importApi.js";
 import { useAuth } from "../auth/AuthProvider.jsx";
 import { normalizeConfigDraft } from "../domain/settingsConfig.js";
 import { useTranslation } from "../i18n/translations.js";
@@ -44,8 +51,13 @@ export default function AccountPage() {
   const [status, setStatus] = useState("loading");
   const [stravaStatus, setStravaStatus] = useState("loading");
   const [stravaConnection, setStravaConnection] = useState({ configured: false, connected: false });
+  const [intervalsStatus, setIntervalsStatus] = useState("loading");
+  const [intervalsConnection, setIntervalsConnection] = useState({ configured: false, connected: false });
+  const [intervalsApiKey, setIntervalsApiKey] = useState("");
+  const [intervalsAthleteId, setIntervalsAthleteId] = useState("0");
   const [error, setError] = useState("");
   const [stravaError, setStravaError] = useState("");
+  const [intervalsError, setIntervalsError] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
 
   useEffect(() => {
@@ -88,6 +100,51 @@ export default function AccountPage() {
   useEffect(() => {
     loadStravaStatus();
   }, []);
+
+  async function loadIntervalsStatus() {
+    setIntervalsStatus("loading");
+    setIntervalsError("");
+    try {
+      const payload = await getIntervalsIcuStatus();
+      setIntervalsConnection(payload);
+      setIntervalsAthleteId(payload.athlete_id || "0");
+    } catch (loadError) {
+      setIntervalsError(loadError.message);
+    } finally {
+      setIntervalsStatus("ready");
+    }
+  }
+
+  useEffect(() => {
+    loadIntervalsStatus();
+  }, []);
+
+  async function handleSaveIntervals() {
+    setIntervalsStatus("saving");
+    setIntervalsError("");
+    try {
+      const payload = await saveIntervalsIcuConnection({ apiKey: intervalsApiKey, athleteId: intervalsAthleteId });
+      setIntervalsConnection(payload);
+      setIntervalsApiKey("");
+    } catch (saveError) {
+      setIntervalsError(saveError.message);
+    } finally {
+      setIntervalsStatus("ready");
+    }
+  }
+
+  async function handleDisconnectIntervals() {
+    setIntervalsStatus("saving");
+    setIntervalsError("");
+    try {
+      await disconnectIntervalsIcu();
+      setIntervalsApiKey("");
+      await loadIntervalsStatus();
+    } catch (disconnectError) {
+      setIntervalsError(disconnectError.message);
+      setIntervalsStatus("ready");
+    }
+  }
 
   function updateField(key, value) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -156,6 +213,7 @@ export default function AccountPage() {
       {status === "loading" ? <div className="app-panel empty-state">{t("Loading account settings...")}</div> : null}
       {error ? <div className="error-banner">{error}</div> : null}
       {stravaError ? <div className="error-banner">{stravaError}</div> : null}
+      {intervalsError ? <div className="error-banner">{intervalsError}</div> : null}
       {savedMessage ? <div className="success-banner">{savedMessage}</div> : null}
 
       <section className="app-panel account-panel">
@@ -235,6 +293,50 @@ export default function AccountPage() {
               </button>
             </div>
           </section>
+
+          {user?.isAdmin ? (
+            <section className="app-panel settings-panel">
+              <div>
+                <p className="eyebrow">{t("Connected Apps")}</p>
+                <h2>Intervals.icu</h2>
+                <p>{t("Connect Intervals.icu directly. Your API key is encrypted by the backend and is never shown again.")}</p>
+              </div>
+
+              <div className="notice-panel">
+                <span>{intervalsConnection.connected ? t("Intervals.icu is connected.") : t("No Intervals.icu account connected.")}</span>
+                {intervalsConnection.connected ? <small>{t("Athlete ID")}: {intervalsConnection.athlete_id}</small> : null}
+              </div>
+
+              {!intervalsConnection.managed_by_environment ? (
+                <div className="settings-field-grid">
+                  <label>
+                    {t("API Key")}
+                    <input type="password" autoComplete="off" value={intervalsApiKey} onChange={(event) => setIntervalsApiKey(event.target.value)} placeholder={intervalsConnection.connected ? t("Enter a new key to replace the saved key") : t("Paste your Intervals.icu API key")} />
+                  </label>
+                  <label>
+                    {t("Athlete ID")}
+                    <input type="text" value={intervalsAthleteId} onChange={(event) => setIntervalsAthleteId(event.target.value)} placeholder="0" />
+                  </label>
+                </div>
+              ) : null}
+
+              <div className="day-modal-actions">
+                {!intervalsConnection.managed_by_environment ? (
+                  <button type="button" className="primary-action" onClick={handleSaveIntervals} disabled={intervalsStatus === "saving" || !intervalsApiKey.trim()}>
+                    {intervalsStatus === "saving" ? t("Saving...") : intervalsConnection.connected ? t("Replace API Key") : t("Connect Intervals.icu")}
+                  </button>
+                ) : null}
+                {intervalsConnection.connected && !intervalsConnection.managed_by_environment ? (
+                  <button type="button" className="secondary-action" onClick={handleDisconnectIntervals} disabled={intervalsStatus === "saving"}>
+                    {t("Disconnect")}
+                  </button>
+                ) : null}
+                <button type="button" className="secondary-action" onClick={loadIntervalsStatus} disabled={intervalsStatus === "loading"}>
+                  {t("Refresh Status")}
+                </button>
+              </div>
+            </section>
+          ) : null}
 
           <div className="day-modal-actions">
             <button type="button" className="primary-action" onClick={handleSave} disabled={status === "saving"}>

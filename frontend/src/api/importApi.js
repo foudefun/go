@@ -56,6 +56,35 @@ export function importStravaActivities(activityIds) {
   });
 }
 
+export function getIntervalsIcuStatus() {
+  return api("/intervals-icu/status");
+}
+
+export function saveIntervalsIcuConnection({ apiKey, athleteId = "0" }) {
+  return api("/intervals-icu/connection", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ api_key: apiKey, athlete_id: athleteId }),
+  });
+}
+
+export function disconnectIntervalsIcu() {
+  return api("/intervals-icu/connection", { method: "DELETE" });
+}
+
+export function getIntervalsIcuActivities({ oldest = "", newest = "" } = {}) {
+  const params = new URLSearchParams({ oldest, newest });
+  return api(`/intervals-icu/activities?${params.toString()}`);
+}
+
+export function importIntervalsIcuActivities(activityIds) {
+  return api("/intervals-icu/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ activity_ids: activityIds }),
+  });
+}
+
 export function getStravaExportPreview({ offset = 0, limit = 25 } = {}) {
   const params = new URLSearchParams();
   params.set("offset", String(offset));

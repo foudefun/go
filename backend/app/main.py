@@ -1,4 +1,5 @@
 
+import base64
 import csv
 import gzip
 import hashlib
@@ -18,6 +19,7 @@ from urllib.parse import quote, urlencode, urlparse
 from urllib.request import Request, urlopen
 from xml.etree import ElementTree as ET
 
+from cryptography.fernet import Fernet, InvalidToken
 from fastapi import Cookie, Depends, FastAPI, File, Form, Header, HTTPException, Request as FastAPIRequest, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
@@ -111,6 +113,9 @@ STRAVA_API_BASE_URL = os.getenv("STRAVA_API_BASE_URL", "https://www.strava.com/a
 STRAVA_OAUTH_BASE_URL = os.getenv("STRAVA_OAUTH_BASE_URL", "https://www.strava.com/oauth").rstrip("/")
 STRAVA_DEFAULT_SCOPES = os.getenv("STRAVA_DEFAULT_SCOPES", "activity:read").strip()
 STRAVA_EXPORT_DIR = os.getenv("STRAVA_EXPORT_DIR", str(BACKEND_DIR.parent / "strava" / "activities")).strip()
+INTERVALS_ICU_API_KEY = os.getenv("INTERVALS_ICU_API_KEY", "").strip()
+INTERVALS_ICU_ATHLETE_ID = os.getenv("INTERVALS_ICU_ATHLETE_ID", "0").strip() or "0"
+INTERVALS_ICU_API_BASE_URL = os.getenv("INTERVALS_ICU_API_BASE_URL", "https://intervals.icu/api/v1").rstrip("/")
 
 def should_secure_auth_cookie(request: FastAPIRequest) -> bool:
     host = str(request.headers.get("host", "") or "").split(":", 1)[0].lower()
@@ -347,6 +352,14 @@ class StravaOAuthStateModel(Base):
     frontend_redirect_url = Column(Text)
     expires_at = Column(String, nullable=False)
     created_at = Column(String, nullable=False)
+
+class IntervalsIcuConnectionModel(Base):
+    __tablename__ = "intervals_icu_connections"
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), primary_key=True)
+    encrypted_api_key = Column(Text, nullable=False)
+    athlete_id = Column(String, nullable=False, default="0")
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
 
 class AppConfigModel(Base):
     __tablename__ = "app_config"
@@ -5891,6 +5904,152 @@ def build_strava_athlete_name(athlete: dict) -> str:
     full_name = " ".join(part for part in [firstname, lastname] if part).strip()
     return full_name or str(athlete.get("username", "") or "").strip()
 
+def get_intervals_icu_cipher() -> Fernet:
+    key_path = DB_PATH.parent / ".intervals-icu-fernet-key"
+    if not key_path.exists():
+        key_path.write_bytes(Fernet.generate_key())
+        try:
+            key_path.chmod(0o600)
+        except OSError:
+            pass
+    return Fernet(key_path.read_bytes().strip())
+
+def encrypt_intervals_icu_api_key(api_key: str) -> str:
+    return get_intervals_icu_cipher().encrypt(api_key.encode("utf-8")).decode("ascii")
+
+def decrypt_intervals_icu_api_key(encrypted_api_key: str) -> str:
+    try:
+        return get_intervals_icu_cipher().decrypt(encrypted_api_key.encode("ascii")).decode("utf-8")
+    except (InvalidToken, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Stored Intervals.icu credential cannot be decrypted") from exc
+
+def get_intervals_icu_credentials(username: str = "") -> tuple[str, str]:
+    if INTERVALS_ICU_API_KEY:
+        return INTERVALS_ICU_API_KEY, INTERVALS_ICU_ATHLETE_ID
+    if not username:
+        return "", "0"
+    with SessionLocal() as db:
+        connection = db.query(IntervalsIcuConnectionModel).filter_by(username=username).first()
+        if not connection:
+            return "", "0"
+        return decrypt_intervals_icu_api_key(connection.encrypted_api_key), connection.athlete_id or "0"
+
+def is_intervals_icu_configured(username: str = "") -> bool:
+    api_key, _ = get_intervals_icu_credentials(username)
+    return bool(api_key)
+
+def intervals_icu_api_get(path: str, query: dict | None = None, username: str = ""):
+    api_key, _ = get_intervals_icu_credentials(username)
+    if not api_key:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Intervals.icu is not configured")
+    filtered_query = {key: value for key, value in (query or {}).items() if value not in {None, ""}}
+    url = f"{INTERVALS_ICU_API_BASE_URL}/{path.lstrip('/')}"
+    if filtered_query:
+        url = f"{url}?{urlencode(filtered_query)}"
+    credentials = base64.b64encode(f"API_KEY:{api_key}".encode("utf-8")).decode("ascii")
+    request = Request(url, headers={"Authorization": f"Basic {credentials}", "Accept": "application/json"}, method="GET")
+    try:
+        with urlopen(request, timeout=30) as response:
+            return json.loads(response.read().decode("utf-8") or "null")
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Intervals.icu request failed") from exc
+
+def intervals_icu_activity_to_parsed(activity: dict) -> dict:
+    start_time = parse_activity_datetime(str(activity.get("start_date_local", "") or activity.get("start_date", "") or ""))
+    distance_m = normalize_optional_float(activity.get("distance"))
+    elapsed_seconds = normalize_optional_int(activity.get("elapsed_time") or activity.get("moving_time"))
+    intervals_id = str(activity.get("id", "") or "").strip()
+    sport = str(activity.get("type", "") or activity.get("sport_type", "") or "")
+    return {
+        "date": start_time.date().isoformat() if start_time else "",
+        "started_at": start_time.isoformat() if start_time else "",
+        "sport": sport,
+        "activity_type": normalize_strava_activity_type({"sport_type": sport, "average_watts": activity.get("icu_average_watts") or activity.get("average_watts")}),
+        "duration_seconds": elapsed_seconds,
+        "duration": format_duration_hms(elapsed_seconds),
+        "distance_m": distance_m,
+        "distance_km": round(distance_m / 1000, 2) if distance_m is not None else None,
+        "avg_power": normalize_optional_float(activity.get("icu_average_watts") or activity.get("average_watts")),
+        "max_power": normalize_optional_float(activity.get("max_watts")),
+        "avg_hr": normalize_optional_float(activity.get("average_heartrate") or activity.get("average_hr")),
+        "max_hr": normalize_optional_float(activity.get("max_heartrate") or activity.get("max_hr")),
+        "avg_cadence": normalize_optional_float(activity.get("average_cadence")),
+        "calories": normalize_optional_float(activity.get("calories")),
+        "elevation_gain_meters": normalize_optional_float(activity.get("total_elevation_gain") or activity.get("icu_elevation_gain")),
+        "source_label": "Import Intervals.icu",
+        "source_file": f"intervals-icu-{intervals_id}",
+        "intervals_icu_activity_id": intervals_id,
+        "intervals_icu_url": f"https://intervals.icu/activities/{quote(intervals_id)}" if intervals_id else "",
+    }
+
+def find_existing_intervals_icu_activity(db, username: str, activity_id: str) -> dict | None:
+    target_id = str(activity_id or "").strip()
+    if not target_id:
+        return None
+    for row in db.query(SessionModel).filter_by(username=username).all():
+        for index, activity in enumerate(get_session_activities(session_payload_from_row(row))):
+            for source in activity.get("source_files", []) if isinstance(activity.get("source_files"), list) else []:
+                parsed = source.get("parsed") if isinstance(source, dict) and isinstance(source.get("parsed"), dict) else {}
+                if str(parsed.get("intervals_icu_activity_id", "") or "") == target_id:
+                    return {"date": row.date, "activity_index": index}
+    return None
+
+def serialize_intervals_icu_activity(activity: dict, existing: dict | None = None) -> dict:
+    parsed = intervals_icu_activity_to_parsed(activity)
+    return {
+        "id": parsed.get("intervals_icu_activity_id", ""),
+        "name": str(activity.get("name", "") or "").strip() or "Intervals.icu activity",
+        "date": parsed.get("date", ""),
+        "started_at": parsed.get("started_at", ""),
+        "sport_type": parsed.get("sport", ""),
+        "activity_type": parsed.get("activity_type", ""),
+        "requires_review": not bool(parsed.get("activity_type", "")),
+        "distance_km": parsed.get("distance_km"),
+        "duration": parsed.get("duration", ""),
+        "elevation_gain_meters": parsed.get("elevation_gain_meters"),
+        "existing": existing or None,
+    }
+
+def import_intervals_icu_activity_into_db(db, username: str, activity: dict) -> dict:
+    parsed = intervals_icu_activity_to_parsed(activity)
+    activity_id = parsed.get("intervals_icu_activity_id", "")
+    if find_existing_intervals_icu_activity(db, username, activity_id):
+        return {"imported": False, "skipped": True, "intervals_icu_activity_id": activity_id}
+    target_date = parsed.get("date")
+    if not target_date:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Intervals.icu activity has no usable date")
+    if not parsed.get("activity_type"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Review activity type before importing this Intervals.icu activity")
+    row = get_session_obj(db, username, target_date)
+    existing_payload = session_payload_from_row(row) if row else normalize_session_payload({})
+    existing_activities = [normalize_activity_entry(item) for item in get_session_activities(existing_payload)]
+    source_record = build_activity_source_file_record(
+        source_id=f"intervals-icu-{activity_id}" if activity_id else uuid.uuid4().hex,
+        provider="Intervals.icu",
+        label=str(activity.get("name", "") or "").strip() or "Intervals.icu activity",
+        filename=f"intervals-icu-{activity_id}",
+        file_format="intervals.icu",
+        file_url=parsed.get("intervals_icu_url", ""),
+        parsed_activity=parsed,
+    )
+    imported_activity = normalize_activity_entry({
+        "title": str(activity.get("name", "") or "").strip(),
+        "activity_type": parsed.get("activity_type"),
+        "activity_details": build_fit_activity_summary(parsed, "", parsed.get("intervals_icu_url", "")),
+        "source_files": [source_record],
+    })
+    existing_activities.append(imported_activity)
+    payload_to_save = dict(existing_payload)
+    payload_to_save["activities"] = existing_activities
+    payload_to_save["draft_active_activity_index"] = len(existing_activities) - 1
+    payload_to_save["draft_updated_at"] = ""
+    normalized_payload = normalize_session_payload(payload_to_save)
+    if row:
+        row.data = json.dumps(normalized_payload, ensure_ascii=False)
+    else:
+        db.add(SessionModel(username=username, date=target_date, data=json.dumps(normalized_payload, ensure_ascii=False)))
+    return {"imported": True, "skipped": False, "date": target_date, "activity_index": len(existing_activities) - 1, "activity_type": imported_activity.get("activity_type", ""), "intervals_icu_activity_id": activity_id}
+
 def normalize_strava_activity_type(activity: dict) -> str:
     sport_type = str(activity.get("sport_type", "") or activity.get("type", "") or "").strip().lower()
     if not sport_type:
@@ -9690,6 +9849,84 @@ def get_hangboard_history(limit: int = 20, current_user: UserModel = Depends(get
         return {"sessions": [serialize_hangboard_session(row) for row in rows], "stats": stats}
     finally:
         db.close()
+
+@app.get("/api/intervals-icu/status")
+def get_intervals_icu_status(current_user: UserModel = Depends(get_current_user)):
+    configured = is_intervals_icu_configured(current_user.username)
+    _, athlete_id = get_intervals_icu_credentials(current_user.username)
+    return {"configured": configured, "connected": configured, "athlete_id": athlete_id if configured else "", "managed_by_environment": bool(INTERVALS_ICU_API_KEY)}
+
+@app.put("/api/intervals-icu/connection")
+def save_intervals_icu_connection(payload: dict, current_user: UserModel = Depends(require_admin)):
+    api_key = str(payload.get("api_key", "") or "").strip()
+    athlete_id = str(payload.get("athlete_id", "0") or "0").strip() or "0"
+    if len(api_key) < 12 or len(api_key) > 512:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Enter a valid Intervals.icu API key")
+    if len(athlete_id) > 64 or not re.fullmatch(r"[A-Za-z0-9_-]+", athlete_id):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Enter a valid Intervals.icu athlete ID")
+    timestamp = datetime.now(timezone.utc).isoformat()
+    with SessionLocal() as db:
+        connection = db.query(IntervalsIcuConnectionModel).filter_by(username=current_user.username).first()
+        if not connection:
+            connection = IntervalsIcuConnectionModel(username=current_user.username, created_at=timestamp)
+            db.add(connection)
+        connection.encrypted_api_key = encrypt_intervals_icu_api_key(api_key)
+        connection.athlete_id = athlete_id
+        connection.updated_at = timestamp
+        write_audit_log(db, current_user.username, "connect_intervals_icu", "intervals_icu", current_user.username, "Saved encrypted Intervals.icu connection")
+        db.commit()
+    return {"configured": True, "connected": True, "athlete_id": athlete_id, "managed_by_environment": False}
+
+@app.delete("/api/intervals-icu/connection")
+def delete_intervals_icu_connection(current_user: UserModel = Depends(require_admin)):
+    if INTERVALS_ICU_API_KEY:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Intervals.icu is managed by the server environment")
+    with SessionLocal() as db:
+        deleted = db.query(IntervalsIcuConnectionModel).filter_by(username=current_user.username).delete()
+        if deleted:
+            write_audit_log(db, current_user.username, "disconnect_intervals_icu", "intervals_icu", current_user.username, "Removed Intervals.icu connection")
+        db.commit()
+    return {"ok": True}
+
+@app.get("/api/intervals-icu/activities")
+def get_intervals_icu_activities(oldest: str = "", newest: str = "", current_user: UserModel = Depends(get_current_user)):
+    if not oldest or not newest:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Choose an oldest and newest date")
+    _, athlete_id = get_intervals_icu_credentials(current_user.username)
+    activities = intervals_icu_api_get(f"/athlete/{quote(athlete_id)}/activities", {"oldest": oldest, "newest": newest}, current_user.username)
+    if not isinstance(activities, list):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Unexpected Intervals.icu activities response")
+    with SessionLocal() as db:
+        return {"activities": [serialize_intervals_icu_activity(item, find_existing_intervals_icu_activity(db, current_user.username, str(item.get("id", "") or ""))) for item in activities if isinstance(item, dict)]}
+
+@app.post("/api/intervals-icu/import")
+def import_intervals_icu_activities(payload: dict, current_user: UserModel = Depends(get_current_user)):
+    activity_ids = list(dict.fromkeys(str(item).strip() for item in payload.get("activity_ids", []) if str(item).strip()))
+    if not activity_ids:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Select at least one Intervals.icu activity to import")
+    if len(activity_ids) > 100:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Import at most 100 Intervals.icu activities at a time")
+    _, athlete_id = get_intervals_icu_credentials(current_user.username)
+    activities = intervals_icu_api_get(f"/athlete/{quote(athlete_id)}/activities/{','.join(quote(item) for item in activity_ids)}", username=current_user.username)
+    if not isinstance(activities, list):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Unexpected Intervals.icu activities response")
+    imported, skipped, errors = [], [], []
+    by_id = {str(item.get("id", "") or ""): item for item in activities if isinstance(item, dict)}
+    with SessionLocal() as db:
+        for activity_id in activity_ids:
+            activity = by_id.get(activity_id)
+            if not activity:
+                errors.append({"intervals_icu_activity_id": activity_id, "detail": "Activity not returned by Intervals.icu"})
+                continue
+            try:
+                result = import_intervals_icu_activity_into_db(db, current_user.username, activity)
+                (imported if result.get("imported") else skipped).append(result)
+            except HTTPException as exc:
+                errors.append({"intervals_icu_activity_id": activity_id, "detail": exc.detail})
+        db.commit()
+        write_audit_log(db, current_user.username, "import_intervals_icu_activities", "intervals_icu", current_user.username, f"Imported {len(imported)} Intervals.icu activities, skipped {len(skipped)}, errors {len(errors)}")
+        db.commit()
+    return {"imported": imported, "skipped": skipped, "errors": errors}
 
 @app.get("/api/strava/status")
 def get_strava_status(current_user: UserModel = Depends(get_current_user)):

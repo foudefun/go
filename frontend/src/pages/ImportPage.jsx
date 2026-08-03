@@ -4,10 +4,13 @@ import {
   createStravaConnectUrl,
   disconnectStrava,
   getImportHistory,
+  getIntervalsIcuActivities,
+  getIntervalsIcuStatus,
   getStravaActivities,
   getStravaExportPreview,
   getStravaStatus,
   importActivityFile,
+  importIntervalsIcuActivities,
   importProgram,
   importStravaActivities,
   importStravaExportFiles,
@@ -26,7 +29,7 @@ import {
 import { useTranslation } from "../i18n/translations.js";
 import DaySessionModal from "../sessions/components/DaySessionModal.jsx";
 
-const IMPORT_MODES = new Set(["activity", "program", "strava", "history"]);
+const IMPORT_MODES = new Set(["activity", "program", "strava", "intervals-icu", "history"]);
 
 function getImportMode(searchParams) {
   const requestedMode = searchParams.get("mode");
@@ -692,6 +695,113 @@ function formatImportDate(value) {
   return dateValue.toLocaleString();
 }
 
+export function IntervalsIcuImportPanel() {
+  const { t } = useTranslation();
+  const today = new Date().toISOString().slice(0, 10);
+  const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+  const [connection, setConnection] = useState({ configured: false, connected: false });
+  const [activities, setActivities] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [oldest, setOldest] = useState(monthAgo);
+  const [newest, setNewest] = useState(today);
+  const [status, setStatus] = useState("loading");
+  const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
+
+  async function loadStatus() {
+    setStatus("loading");
+    setError("");
+    try {
+      setConnection(await getIntervalsIcuStatus());
+    } catch (loadError) {
+      setError(loadError.message);
+    } finally {
+      setStatus("idle");
+    }
+  }
+
+  useEffect(() => {
+    loadStatus();
+  }, []);
+
+  async function loadActivities() {
+    setStatus("fetching");
+    setError("");
+    setResult(null);
+    try {
+      const payload = await getIntervalsIcuActivities({ oldest, newest });
+      setActivities(payload.activities || []);
+      setSelectedIds([]);
+    } catch (loadError) {
+      setError(loadError.message);
+    } finally {
+      setStatus("idle");
+    }
+  }
+
+  function toggleActivity(activityId) {
+    setSelectedIds((current) => current.includes(activityId) ? current.filter((id) => id !== activityId) : [...current, activityId]);
+  }
+
+  async function handleImport() {
+    if (!selectedIds.length) return;
+    setStatus("importing");
+    setError("");
+    try {
+      const payload = await importIntervalsIcuActivities(selectedIds);
+      setResult(payload);
+      await loadActivities();
+    } catch (importError) {
+      setError(importError.message);
+      setStatus("idle");
+    }
+  }
+
+  return (
+    <section className="import-layout single">
+      <div className="settings-form-column">
+        <section className="app-panel import-panel">
+          <div>
+            <p className="eyebrow">Intervals.icu</p>
+            <h2>{t("Import From Intervals.icu")}</h2>
+            <p>{t("Review activities for a date range, then import selected items into your calendar.")}</p>
+          </div>
+          <div className="notice-panel">
+            <span>{connection.connected ? t("Intervals.icu is connected.") : t("Intervals.icu is not configured on the backend.")}</span>
+            {!connection.configured ? <small>{t("Set INTERVALS_ICU_API_KEY on the backend. The athlete ID defaults to 0.")}</small> : null}
+          </div>
+          <div className="form-grid">
+            <label>{t("Oldest")}<input type="date" value={oldest} onChange={(event) => setOldest(event.target.value)} /></label>
+            <label>{t("Newest")}<input type="date" value={newest} onChange={(event) => setNewest(event.target.value)} /></label>
+          </div>
+          <div className="day-modal-actions">
+            <button type="button" className="primary-action" onClick={loadActivities} disabled={!connection.connected || status === "fetching"}>
+              {status === "fetching" ? t("Loading...") : t("Load Intervals.icu Activities")}
+            </button>
+            <button type="button" className="secondary-action" onClick={handleImport} disabled={!selectedIds.length || status === "importing"}>
+              {status === "importing" ? t("Importing...") : t("Import Selected")}
+            </button>
+          </div>
+        </section>
+        {error ? <div className="error-banner">{error}</div> : null}
+        {result ? <div className="success-banner">{`${result.imported?.length || 0} ${t("imported")}, ${result.skipped?.length || 0} ${t("skipped")}`}</div> : null}
+        {activities.length ? (
+          <section className="app-panel import-panel">
+            <div className="strava-activity-list">
+              {activities.map((activity) => (
+                <label className={["strava-activity-row", selectedIds.includes(activity.id) ? "selected" : "", activity.existing ? "imported" : ""].filter(Boolean).join(" ")} key={activity.id}>
+                  <input type="checkbox" disabled={Boolean(activity.existing || activity.requires_review)} checked={selectedIds.includes(activity.id)} onChange={() => toggleActivity(activity.id)} />
+                  <span><strong>{activity.name}</strong><small>{activity.date} - {t(getActivityTypeLabel(activity.activity_type))} - {activity.distance_km ?? "-"} km - {activity.duration || "-"}{activity.existing ? ` - ${t("Already imported")}` : ""}</small></span>
+                </label>
+              ))}
+            </div>
+          </section>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 export function StravaImportPanel() {
   const { t } = useTranslation();
   const [connection, setConnection] = useState({ configured: false, connected: false });
@@ -1223,6 +1333,9 @@ export default function ImportPage() {
           <button type="button" className={mode === "strava" ? "active" : ""} onClick={() => setMode("strava")}>
             {t("Strava")}
           </button>
+          <button type="button" className={mode === "intervals-icu" ? "active" : ""} onClick={() => setMode("intervals-icu")}>
+            Intervals.icu
+          </button>
           <button type="button" className={mode === "history" ? "active" : ""} onClick={() => setMode("history")}>
             {t("History")}
           </button>
@@ -1232,6 +1345,7 @@ export default function ImportPage() {
       {mode === "program" ? <ProgramImportPanel /> : null}
       {mode === "activity" ? <ActivityImportPanel /> : null}
       {mode === "strava" ? <StravaImportPanel /> : null}
+      {mode === "intervals-icu" ? <IntervalsIcuImportPanel /> : null}
       {mode === "history" ? <ImportHistoryPanel /> : null}
     </main>
   );
