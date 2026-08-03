@@ -294,8 +294,7 @@ export default function AccountPage() {
             </div>
           </section>
 
-          {user?.isAdmin ? (
-            <section className="app-panel settings-panel">
+          <section className="app-panel settings-panel">
               <div>
                 <p className="eyebrow">{t("Connected Apps")}</p>
                 <h2>Intervals.icu</h2>
@@ -335,8 +334,7 @@ export default function AccountPage() {
                   {t("Refresh Status")}
                 </button>
               </div>
-            </section>
-          ) : null}
+          </section>
 
           <div className="day-modal-actions">
             <button type="button" className="primary-action" onClick={handleSave} disabled={status === "saving"}>

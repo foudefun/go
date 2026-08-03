@@ -86,7 +86,7 @@ def test_intervals_icu_preview_and_import_deduplicates(monkeypatch, client):
     assert len(duplicate.json()["skipped"]) == 1
 
 
-def test_admin_can_save_encrypted_connection_without_key_disclosure(monkeypatch, client):
+def test_user_can_save_encrypted_connection_without_key_disclosure(monkeypatch, client):
     monkeypatch.setattr(main, "INTERVALS_ICU_API_KEY", "")
     cipher = main.Fernet(main.Fernet.generate_key())
     monkeypatch.setattr(main, "get_intervals_icu_cipher", lambda: cipher)

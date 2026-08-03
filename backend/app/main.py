@@ -9857,7 +9857,7 @@ def get_intervals_icu_status(current_user: UserModel = Depends(get_current_user)
     return {"configured": configured, "connected": configured, "athlete_id": athlete_id if configured else "", "managed_by_environment": bool(INTERVALS_ICU_API_KEY)}
 
 @app.put("/api/intervals-icu/connection")
-def save_intervals_icu_connection(payload: dict, current_user: UserModel = Depends(require_admin)):
+def save_intervals_icu_connection(payload: dict, current_user: UserModel = Depends(get_current_user)):
     api_key = str(payload.get("api_key", "") or "").strip()
     athlete_id = str(payload.get("athlete_id", "0") or "0").strip() or "0"
     if len(api_key) < 12 or len(api_key) > 512:
@@ -9878,7 +9878,7 @@ def save_intervals_icu_connection(payload: dict, current_user: UserModel = Depen
     return {"configured": True, "connected": True, "athlete_id": athlete_id, "managed_by_environment": False}
 
 @app.delete("/api/intervals-icu/connection")
-def delete_intervals_icu_connection(current_user: UserModel = Depends(require_admin)):
+def delete_intervals_icu_connection(current_user: UserModel = Depends(get_current_user)):
     if INTERVALS_ICU_API_KEY:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Intervals.icu is managed by the server environment")
     with SessionLocal() as db:
