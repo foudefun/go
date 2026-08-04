@@ -10,6 +10,8 @@ import mimetypes
 import os
 import re
 import secrets
+import threading
+import time
 import unicodedata
 import uuid
 from datetime import date, datetime, timedelta, timezone
@@ -116,6 +118,12 @@ STRAVA_EXPORT_DIR = os.getenv("STRAVA_EXPORT_DIR", str(BACKEND_DIR.parent / "str
 INTERVALS_ICU_API_KEY = os.getenv("INTERVALS_ICU_API_KEY", "").strip()
 INTERVALS_ICU_ATHLETE_ID = os.getenv("INTERVALS_ICU_ATHLETE_ID", "0").strip() or "0"
 INTERVALS_ICU_API_BASE_URL = os.getenv("INTERVALS_ICU_API_BASE_URL", "https://intervals.icu/api/v1").rstrip("/")
+INTERVALS_ICU_AUTO_SYNC_ENABLED = parse_env_bool(os.getenv("INTERVALS_ICU_AUTO_SYNC_ENABLED"), True)
+INTERVALS_ICU_AUTO_SYNC_MINUTES = max(5, int(os.getenv("INTERVALS_ICU_AUTO_SYNC_MINUTES", "15")))
+INTERVALS_ICU_SYNC_LOOKBACK_DAYS = max(2, int(os.getenv("INTERVALS_ICU_SYNC_LOOKBACK_DAYS", "14")))
+INTERVALS_ICU_SYNC_LOCK = threading.Lock()
+INTERVALS_ICU_SYNC_STOP = threading.Event()
+INTERVALS_ICU_SYNC_THREAD = None
 
 def should_secure_auth_cookie(request: FastAPIRequest) -> bool:
     host = str(request.headers.get("host", "") or "").split(":", 1)[0].lower()
@@ -6058,6 +6066,72 @@ def import_intervals_icu_activity_into_db(db, username: str, activity: dict) -> 
         db.add(SessionModel(username=username, date=target_date, data=json.dumps(normalized_payload, ensure_ascii=False)))
     return {"imported": True, "skipped": False, "date": target_date, "activity_index": len(existing_activities) - 1, "activity_type": imported_activity.get("activity_type", ""), "intervals_icu_activity_id": activity_id}
 
+def sync_intervals_icu_user(username: str, *, lookback_days: int | None = None) -> dict:
+    days = max(2, int(lookback_days or INTERVALS_ICU_SYNC_LOOKBACK_DAYS))
+    newest = date.today().isoformat()
+    oldest = (date.today() - timedelta(days=days)).isoformat()
+    _, athlete_id = get_intervals_icu_credentials(username)
+    activities = intervals_icu_api_get(
+        f"/athlete/{quote(athlete_id)}/activities",
+        {"oldest": oldest, "newest": newest},
+        username,
+    )
+    if not isinstance(activities, list):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Unexpected Intervals.icu activities response")
+    imported, skipped, errors = [], [], []
+    with INTERVALS_ICU_SYNC_LOCK, SessionLocal() as db:
+        for activity in activities:
+            if not isinstance(activity, dict):
+                continue
+            activity_id = str(activity.get("id", "") or "")
+            try:
+                result = import_intervals_icu_activity_into_db(db, username, activity)
+                (imported if result.get("imported") else skipped).append(result)
+            except HTTPException as exc:
+                errors.append({"intervals_icu_activity_id": activity_id, "detail": exc.detail})
+        write_audit_log(
+            db,
+            username,
+            "sync_intervals_icu_activities",
+            "intervals_icu",
+            username,
+            f"Fetched {len(activities)}, imported {len(imported)}, skipped {len(skipped)}, errors {len(errors)}",
+        )
+        db.commit()
+    return {"oldest": oldest, "newest": newest, "fetched": len(activities), "imported": imported, "skipped": skipped, "errors": errors}
+
+def run_intervals_icu_auto_sync_once():
+    with SessionLocal() as db:
+        usernames = [row.username for row in db.query(IntervalsIcuConnectionModel).all()]
+    if INTERVALS_ICU_API_KEY and DEFAULT_USERNAME not in usernames:
+        usernames.append(DEFAULT_USERNAME)
+    for username in usernames:
+        try:
+            sync_intervals_icu_user(username)
+        except Exception as exc:
+            write_security_audit_log(username, "intervals_icu_sync_failed", "intervals_icu", username, f"Automatic sync failed: {str(exc)[:240]}")
+
+def intervals_icu_auto_sync_worker():
+    INTERVALS_ICU_SYNC_STOP.wait(10)
+    while not INTERVALS_ICU_SYNC_STOP.is_set():
+        run_intervals_icu_auto_sync_once()
+        INTERVALS_ICU_SYNC_STOP.wait(INTERVALS_ICU_AUTO_SYNC_MINUTES * 60)
+
+@app.on_event("startup")
+def start_intervals_icu_auto_sync():
+    global INTERVALS_ICU_SYNC_THREAD
+    if not INTERVALS_ICU_AUTO_SYNC_ENABLED or os.getenv("PYTEST_CURRENT_TEST"):
+        return
+    INTERVALS_ICU_SYNC_STOP.clear()
+    if INTERVALS_ICU_SYNC_THREAD and INTERVALS_ICU_SYNC_THREAD.is_alive():
+        return
+    INTERVALS_ICU_SYNC_THREAD = threading.Thread(target=intervals_icu_auto_sync_worker, name="intervals-icu-sync", daemon=True)
+    INTERVALS_ICU_SYNC_THREAD.start()
+
+@app.on_event("shutdown")
+def stop_intervals_icu_auto_sync():
+    INTERVALS_ICU_SYNC_STOP.set()
+
 def normalize_strava_activity_type(activity: dict) -> str:
     sport_type = str(activity.get("sport_type", "") or activity.get("type", "") or "").strip().lower()
     if not sport_type:
@@ -9862,7 +9936,24 @@ def get_hangboard_history(limit: int = 20, current_user: UserModel = Depends(get
 def get_intervals_icu_status(current_user: UserModel = Depends(get_current_user)):
     configured = is_intervals_icu_configured(current_user.username)
     _, athlete_id = get_intervals_icu_credentials(current_user.username)
-    return {"configured": configured, "connected": configured, "athlete_id": athlete_id if configured else "", "managed_by_environment": bool(INTERVALS_ICU_API_KEY)}
+    with SessionLocal() as db:
+        latest_sync = db.query(AuditLogModel).filter_by(username=current_user.username, action="sync_intervals_icu_activities").order_by(AuditLogModel.id.desc()).first()
+    return {
+        "configured": configured,
+        "connected": configured,
+        "athlete_id": athlete_id if configured else "",
+        "managed_by_environment": bool(INTERVALS_ICU_API_KEY),
+        "auto_sync_enabled": INTERVALS_ICU_AUTO_SYNC_ENABLED,
+        "auto_sync_minutes": INTERVALS_ICU_AUTO_SYNC_MINUTES,
+        "last_sync_at": latest_sync.created_at if latest_sync else "",
+        "last_sync_summary": latest_sync.summary if latest_sync else "",
+    }
+
+@app.post("/api/intervals-icu/sync")
+def sync_intervals_icu_now(current_user: UserModel = Depends(get_current_user)):
+    if not is_intervals_icu_configured(current_user.username):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Intervals.icu is not configured")
+    return sync_intervals_icu_user(current_user.username)
 
 @app.put("/api/intervals-icu/connection")
 def save_intervals_icu_connection(payload: dict, current_user: UserModel = Depends(get_current_user)):

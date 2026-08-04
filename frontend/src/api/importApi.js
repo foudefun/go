@@ -72,6 +72,10 @@ export function disconnectIntervalsIcu() {
   return api("/intervals-icu/connection", { method: "DELETE" });
 }
 
+export function syncIntervalsIcuNow() {
+  return api("/intervals-icu/sync", { method: "POST" });
+}
+
 export function getIntervalsIcuActivities({ oldest = "", newest = "" } = {}) {
   const params = new URLSearchParams({ oldest, newest });
   return api(`/intervals-icu/activities?${params.toString()}`);

@@ -65,7 +65,11 @@ def test_intervals_icu_preview_and_import_deduplicates(monkeypatch, client):
 
     status = client.get("/api/intervals-icu/status")
     assert status.status_code == 200
-    assert status.json() == {"configured": True, "connected": True, "athlete_id": "0", "managed_by_environment": True}
+    assert status.json()["configured"] is True
+    assert status.json()["connected"] is True
+    assert status.json()["athlete_id"] == "0"
+    assert status.json()["managed_by_environment"] is True
+    assert status.json()["auto_sync_enabled"] is True
 
     preview = client.get("/api/intervals-icu/activities?oldest=2026-07-01&newest=2026-07-31")
     assert preview.status_code == 200, preview.text

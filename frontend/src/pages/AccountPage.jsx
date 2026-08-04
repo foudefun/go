@@ -8,6 +8,7 @@ import {
   getIntervalsIcuStatus,
   getStravaStatus,
   saveIntervalsIcuConnection,
+  syncIntervalsIcuNow,
 } from "../api/importApi.js";
 import { useAuth } from "../auth/AuthProvider.jsx";
 import { normalizeConfigDraft } from "../domain/settingsConfig.js";
@@ -41,6 +42,12 @@ function SettingsField({ field, value, onChange }) {
       </div>
     </label>
   );
+}
+
+function formatSyncDate(value) {
+  if (!value) return "";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
 }
 
 export default function AccountPage() {
@@ -142,6 +149,18 @@ export default function AccountPage() {
       await loadIntervalsStatus();
     } catch (disconnectError) {
       setIntervalsError(disconnectError.message);
+      setIntervalsStatus("ready");
+    }
+  }
+
+  async function handleSyncIntervals() {
+    setIntervalsStatus("syncing");
+    setIntervalsError("");
+    try {
+      await syncIntervalsIcuNow();
+      await loadIntervalsStatus();
+    } catch (syncError) {
+      setIntervalsError(syncError.message);
       setIntervalsStatus("ready");
     }
   }
@@ -304,6 +323,8 @@ export default function AccountPage() {
               <div className="notice-panel">
                 <span>{intervalsConnection.connected ? t("Intervals.icu is connected.") : t("No Intervals.icu account connected.")}</span>
                 {intervalsConnection.connected ? <small>{t("Athlete ID")}: {intervalsConnection.athlete_id}</small> : null}
+                {intervalsConnection.auto_sync_enabled ? <small>{t("Automatic sync")}: {t("every {{minutes}} minutes", { minutes: intervalsConnection.auto_sync_minutes })}</small> : null}
+                {intervalsConnection.last_sync_at ? <small>{t("Last sync")}: {formatSyncDate(intervalsConnection.last_sync_at)} — {intervalsConnection.last_sync_summary}</small> : null}
               </div>
 
               {!intervalsConnection.managed_by_environment ? (
@@ -328,6 +349,11 @@ export default function AccountPage() {
                 {intervalsConnection.connected && !intervalsConnection.managed_by_environment ? (
                   <button type="button" className="secondary-action" onClick={handleDisconnectIntervals} disabled={intervalsStatus === "saving"}>
                     {t("Disconnect")}
+                  </button>
+                ) : null}
+                {intervalsConnection.connected ? (
+                  <button type="button" className="secondary-action" onClick={handleSyncIntervals} disabled={intervalsStatus === "syncing"}>
+                    {intervalsStatus === "syncing" ? t("Syncing...") : t("Sync Now")}
                   </button>
                 ) : null}
                 <button type="button" className="secondary-action" onClick={loadIntervalsStatus} disabled={intervalsStatus === "loading"}>
