@@ -33,6 +33,7 @@ def test_intervals_icu_basic_auth_uses_literal_api_key_username(monkeypatch):
 
     def fake_urlopen(request, timeout):
         captured["authorization"] = request.headers["Authorization"]
+        captured["user_agent"] = request.headers["User-agent"]
         captured["url"] = request.full_url
         captured["timeout"] = timeout
         return Response()
@@ -41,6 +42,7 @@ def test_intervals_icu_basic_auth_uses_literal_api_key_username(monkeypatch):
     assert main.intervals_icu_api_get("/athlete/0/activities", {"oldest": "2026-07-01", "newest": "2026-07-31"}) == []
     encoded = captured["authorization"].removeprefix("Basic ")
     assert base64.b64decode(encoded).decode() == "API_KEY:secret-value"
+    assert captured["user_agent"] == "RehabTracker/1.0 (+https://go.foudefun.ch)"
     assert "oldest=2026-07-01" in captured["url"]
     assert captured["timeout"] == 30
 

@@ -5947,7 +5947,15 @@ def intervals_icu_api_get(path: str, query: dict | None = None, username: str = 
     if filtered_query:
         url = f"{url}?{urlencode(filtered_query)}"
     credentials = base64.b64encode(f"API_KEY:{api_key}".encode("utf-8")).decode("ascii")
-    request = Request(url, headers={"Authorization": f"Basic {credentials}", "Accept": "application/json"}, method="GET")
+    request = Request(
+        url,
+        headers={
+            "Authorization": f"Basic {credentials}",
+            "Accept": "application/json",
+            "User-Agent": "RehabTracker/1.0 (+https://go.foudefun.ch)",
+        },
+        method="GET",
+    )
     try:
         with urlopen(request, timeout=30) as response:
             return json.loads(response.read().decode("utf-8") or "null")
