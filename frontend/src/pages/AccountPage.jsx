@@ -5,10 +5,13 @@ import {
   createStravaConnectUrl,
   disconnectIntervalsIcu,
   disconnectStrava,
+  getChatGptAccessStatus,
+  getChatGptAdminConfig,
   getIntervalsIcuStatus,
   getStravaStatus,
   saveIntervalsIcuConnection,
   syncIntervalsIcuNow,
+  revokeChatGptAccess,
 } from "../api/importApi.js";
 import { useAuth } from "../auth/AuthProvider.jsx";
 import { normalizeConfigDraft } from "../domain/settingsConfig.js";
@@ -66,6 +69,9 @@ export default function AccountPage() {
   const [stravaError, setStravaError] = useState("");
   const [intervalsError, setIntervalsError] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
+  const [chatGptAccess, setChatGptAccess] = useState({ connected: false, active_grants: 0 });
+  const [chatGptConfig, setChatGptConfig] = useState(null);
+  const [chatGptError, setChatGptError] = useState("");
 
   useEffect(() => {
     setLanguage(user?.language || "fr");
@@ -125,6 +131,34 @@ export default function AccountPage() {
   useEffect(() => {
     loadIntervalsStatus();
   }, []);
+
+  async function loadChatGptStatus() {
+    setChatGptError("");
+    try {
+      const [access, config] = await Promise.all([
+        getChatGptAccessStatus(),
+        user?.isAdmin ? getChatGptAdminConfig() : Promise.resolve(null),
+      ]);
+      setChatGptAccess(access);
+      setChatGptConfig(config);
+    } catch (loadError) {
+      setChatGptError(loadError.message);
+    }
+  }
+
+  useEffect(() => {
+    loadChatGptStatus();
+  }, [user?.isAdmin]);
+
+  async function handleRevokeChatGpt() {
+    setChatGptError("");
+    try {
+      await revokeChatGptAccess();
+      await loadChatGptStatus();
+    } catch (revokeError) {
+      setChatGptError(revokeError.message);
+    }
+  }
 
   async function handleSaveIntervals() {
     setIntervalsStatus("saving");
@@ -233,6 +267,7 @@ export default function AccountPage() {
       {error ? <div className="error-banner">{error}</div> : null}
       {stravaError ? <div className="error-banner">{stravaError}</div> : null}
       {intervalsError ? <div className="error-banner">{intervalsError}</div> : null}
+      {chatGptError ? <div className="error-banner">{chatGptError}</div> : null}
       {savedMessage ? <div className="success-banner">{savedMessage}</div> : null}
 
       <section className="app-panel account-panel">
@@ -360,6 +395,33 @@ export default function AccountPage() {
                   {t("Refresh Status")}
                 </button>
               </div>
+          </section>
+
+          <section className="app-panel settings-panel">
+            <div>
+              <p className="eyebrow">{t("AI Access")}</p>
+              <h2>ChatGPT</h2>
+              <p>{t("A shared Custom GPT can read each user's own training history after that user signs in and authorizes access. Access is read-only.")}</p>
+            </div>
+            <div className="notice-panel">
+              <span>{chatGptAccess.connected ? t("ChatGPT is authorized for this account.") : t("ChatGPT is not authorized for this account.")}</span>
+              {chatGptAccess.connected ? <small>{t("Active grants")}: {chatGptAccess.active_grants}</small> : null}
+            </div>
+            {chatGptConfig ? (
+              <div className="settings-field-grid">
+                <label>{t("OpenAPI schema URL")}<input readOnly value={chatGptConfig.openapi_url} /></label>
+                <label>{t("Authorization URL")}<input readOnly value={chatGptConfig.authorization_url} /></label>
+                <label>{t("Token URL")}<input readOnly value={chatGptConfig.token_url} /></label>
+                <label>{t("Client ID")}<input readOnly value={chatGptConfig.client_id} /></label>
+                <label>{t("Client secret (admin only)")}<input type="password" readOnly value={chatGptConfig.client_secret} /></label>
+                <label>{t("Scope")}<input readOnly value={chatGptConfig.scope} /></label>
+                <label>{t("Privacy policy URL")}<input readOnly value={chatGptConfig.privacy_url} /></label>
+              </div>
+            ) : null}
+            <div className="day-modal-actions">
+              {chatGptAccess.connected ? <button type="button" className="secondary-action" onClick={handleRevokeChatGpt}>{t("Revoke ChatGPT Access")}</button> : null}
+              <button type="button" className="secondary-action" onClick={loadChatGptStatus}>{t("Refresh Status")}</button>
+            </div>
           </section>
 
           <div className="day-modal-actions">

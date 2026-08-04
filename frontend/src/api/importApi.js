@@ -89,6 +89,18 @@ export function importIntervalsIcuActivities(activityIds) {
   });
 }
 
+export function getChatGptAccessStatus() {
+  return api("/chatgpt/access");
+}
+
+export function revokeChatGptAccess() {
+  return api("/chatgpt/access", { method: "DELETE" });
+}
+
+export function getChatGptAdminConfig() {
+  return api("/admin/chatgpt-config");
+}
+
 export function getStravaExportPreview({ offset = 0, limit = 25 } = {}) {
   const params = new URLSearchParams();
   params.set("offset", String(offset));

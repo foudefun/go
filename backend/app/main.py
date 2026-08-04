@@ -4,6 +4,7 @@ import csv
 import gzip
 import hashlib
 import hmac
+import html
 import json
 import math
 import mimetypes
@@ -24,7 +25,7 @@ from xml.etree import ElementTree as ET
 from cryptography.fernet import Fernet, InvalidToken
 from fastapi import Cookie, Depends, FastAPI, File, Form, Header, HTTPException, Request as FastAPIRequest, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Text, UniqueConstraint, and_, case, create_engine, event, func, or_
 from sqlalchemy.orm import object_session, sessionmaker, declarative_base
@@ -124,6 +125,10 @@ INTERVALS_ICU_SYNC_LOOKBACK_DAYS = max(2, int(os.getenv("INTERVALS_ICU_SYNC_LOOK
 INTERVALS_ICU_SYNC_LOCK = threading.Lock()
 INTERVALS_ICU_SYNC_STOP = threading.Event()
 INTERVALS_ICU_SYNC_THREAD = None
+CHATGPT_OAUTH_CLIENT_ID = os.getenv("CHATGPT_OAUTH_CLIENT_ID", "rehab-chatgpt").strip() or "rehab-chatgpt"
+CHATGPT_OAUTH_ACCESS_TOKEN_MINUTES = max(5, int(os.getenv("CHATGPT_OAUTH_ACCESS_TOKEN_MINUTES", "60")))
+CHATGPT_OAUTH_REFRESH_TOKEN_DAYS = max(1, int(os.getenv("CHATGPT_OAUTH_REFRESH_TOKEN_DAYS", "90")))
+CHATGPT_OAUTH_SCOPE = "training:read"
 
 def should_secure_auth_cookie(request: FastAPIRequest) -> bool:
     host = str(request.headers.get("host", "") or "").split(":", 1)[0].lower()
@@ -338,6 +343,28 @@ class AuthTokenModel(Base):
     token_hash = Column(String, primary_key=True)
     username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
     expires_at = Column(String, nullable=False)
+
+class ChatGptOAuthCodeModel(Base):
+    __tablename__ = "chatgpt_oauth_codes"
+    code_hash = Column(String, primary_key=True)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    client_id = Column(String, nullable=False)
+    redirect_uri = Column(Text, nullable=False)
+    scope = Column(Text, nullable=False)
+    code_challenge = Column(Text)
+    code_challenge_method = Column(String)
+    expires_at = Column(String, nullable=False)
+
+class ChatGptOAuthTokenModel(Base):
+    __tablename__ = "chatgpt_oauth_tokens"
+    access_token_hash = Column(String, primary_key=True)
+    refresh_token_hash = Column(String, nullable=False, unique=True)
+    username = Column(String, ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    client_id = Column(String, nullable=False)
+    scope = Column(Text, nullable=False)
+    access_expires_at = Column(String, nullable=False)
+    refresh_expires_at = Column(String, nullable=False)
+    created_at = Column(String, nullable=False)
 
 class StravaConnectionModel(Base):
     __tablename__ = "strava_connections"
@@ -6648,6 +6675,112 @@ def hash_token(token: str) -> str:
 def build_csrf_token(token: str) -> str:
     return hmac.new(token.encode("utf-8"), b"rehab-csrf-token", hashlib.sha256).hexdigest()
 
+def get_chatgpt_oauth_client_secret() -> str:
+    configured = os.getenv("CHATGPT_OAUTH_CLIENT_SECRET", "").strip()
+    if configured:
+        return configured
+    secret_path = DB_PATH.parent / ".chatgpt-oauth-client-secret"
+    if secret_path.exists():
+        return secret_path.read_text(encoding="utf-8").strip()
+    secret = secrets.token_urlsafe(48)
+    secret_path.write_text(secret, encoding="utf-8")
+    try:
+        secret_path.chmod(0o600)
+    except OSError:
+        pass
+    return secret
+
+def validate_chatgpt_redirect_uri(value: str) -> str:
+    redirect_uri = str(value or "").strip()
+    parsed = urlparse(redirect_uri)
+    allowed_hosts = {"chatgpt.com", "chat.openai.com"}
+    if parsed.scheme != "https" or (parsed.hostname or "").lower() not in allowed_hosts or not parsed.path.endswith("/oauth/callback"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth redirect URI")
+    return redirect_uri
+
+def validate_chatgpt_oauth_client(client_id: str, client_secret: str) -> None:
+    if not hmac.compare_digest(str(client_id or ""), CHATGPT_OAUTH_CLIENT_ID) or not hmac.compare_digest(
+        str(client_secret or ""), get_chatgpt_oauth_client_secret()
+    ):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OAuth client", headers={"WWW-Authenticate": "Basic"})
+
+def get_chatgpt_oauth_user(authorization: str | None = Header(default=None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OAuth access token required")
+    raw_token = authorization.split(" ", 1)[1].strip()
+    db = get_db()
+    try:
+        row = db.query(ChatGptOAuthTokenModel).filter_by(access_token_hash=hash_token(raw_token)).first()
+        now = datetime.now(timezone.utc)
+        if not row or datetime.fromisoformat(row.access_expires_at) <= now or CHATGPT_OAUTH_SCOPE not in row.scope.split():
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired OAuth access token")
+        user = db.query(UserModel).filter_by(username=row.username).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OAuth access token")
+        return user
+    finally:
+        db.close()
+
+def parse_oauth_basic_credentials(authorization: str | None) -> tuple[str, str]:
+    if not authorization or not authorization.startswith("Basic "):
+        return "", ""
+    try:
+        decoded = base64.b64decode(authorization.split(" ", 1)[1]).decode("utf-8")
+        return tuple(decoded.split(":", 1)) if ":" in decoded else ("", "")
+    except (ValueError, UnicodeDecodeError):
+        return "", ""
+
+def oauth_error_redirect(redirect_uri: str, state_value: str, error: str) -> RedirectResponse:
+    query = {"error": error}
+    if state_value:
+        query["state"] = state_value
+    separator = "&" if "?" in redirect_uri else "?"
+    return RedirectResponse(f"{redirect_uri}{separator}{urlencode(query)}", status_code=status.HTTP_303_SEE_OTHER)
+
+def compact_activity(date_value: str, index: int, activity: dict) -> dict:
+    metrics = {}
+    for source in activity.get("source_files", []) if isinstance(activity.get("source_files"), list) else []:
+        for metric_name, values in (source.get("metrics") or {}).items():
+            if metric_name not in metrics and isinstance(values, dict):
+                metrics[metric_name] = values
+    performed_items = activity.get("performed_items", []) if isinstance(activity.get("performed_items"), list) else []
+    return {
+        "date": date_value,
+        "activity_index": index,
+        "title": str(activity.get("title", "") or ""),
+        "activity_type": str(activity.get("activity_type", "") or ""),
+        "status": str(activity.get("status", "") or ""),
+        "note": str(activity.get("note", "") or ""),
+        "load": normalize_optional_float(activity.get("load")),
+        "metrics": metrics,
+        "exercises": [
+            {
+                "name": str(item.get("exercise_name", "") or ""),
+                "sets": item.get("sets", []),
+            }
+            for item in performed_items
+            if isinstance(item, dict)
+        ],
+    }
+
+def chatgpt_activity_rows(db, username: str, oldest: str, newest: str, activity_type: str = "") -> list[dict]:
+    query = db.query(SessionModel).filter_by(username=username)
+    if oldest:
+        date.fromisoformat(oldest)
+        query = query.filter(SessionModel.date >= oldest)
+    if newest:
+        date.fromisoformat(newest)
+        query = query.filter(SessionModel.date <= newest)
+    result = []
+    for row in query.order_by(SessionModel.date.desc()).all():
+        payload = session_payload_from_row(row)
+        activities = get_session_activities(payload) or ([payload] if activity_has_content(payload) else [])
+        for index, activity in enumerate(activities):
+            if not isinstance(activity, dict) or (activity_type and activity.get("activity_type") != activity_type):
+                continue
+            result.append(compact_activity(row.date, index, activity))
+    return result
+
 def purge_expired_tokens(db):
     now = datetime.now(timezone.utc)
     rows = db.query(AuthTokenModel).all()
@@ -7861,6 +7994,218 @@ def save_climbing_calibration(
         return {"ok": True, "calibration": serialize_climbing_calibration(db, row)}
     finally:
         db.close()
+
+@app.get("/oauth/authorize", response_class=HTMLResponse)
+def chatgpt_oauth_authorize_page(
+    client_id: str,
+    redirect_uri: str,
+    response_type: str = "code",
+    state: str = "",
+    scope: str = CHATGPT_OAUTH_SCOPE,
+    code_challenge: str = "",
+    code_challenge_method: str = "",
+):
+    redirect_uri = validate_chatgpt_redirect_uri(redirect_uri)
+    if client_id != CHATGPT_OAUTH_CLIENT_ID or response_type != "code" or CHATGPT_OAUTH_SCOPE not in scope.split():
+        return oauth_error_redirect(redirect_uri, state, "invalid_request")
+    fields = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": response_type,
+        "state": state,
+        "scope": CHATGPT_OAUTH_SCOPE,
+        "code_challenge": code_challenge,
+        "code_challenge_method": code_challenge_method,
+    }
+    hidden = "".join(f'<input type="hidden" name="{html.escape(key)}" value="{html.escape(value)}">' for key, value in fields.items())
+    return HTMLResponse(f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect ChatGPT</title><style>body{{font-family:system-ui;background:#f5f3ee;color:#18231d;margin:0;padding:32px}}main{{max-width:440px;margin:7vh auto;background:white;padding:28px;border-radius:18px;box-shadow:0 8px 30px #0001}}label{{display:block;margin:16px 0 6px}}input{{box-sizing:border-box;width:100%;padding:12px;border:1px solid #bbc4bd;border-radius:9px}}button{{width:100%;margin-top:22px;padding:13px;border:0;border-radius:9px;background:#255b45;color:white;font-weight:700}}small{{display:block;margin-top:18px;color:#56645c;line-height:1.4}}</style></head><body><main><h1>Connect your training account</h1><p>Sign in to let ChatGPT read your training history for analysis. It cannot change workouts or account data.</p><form method="post" action="/oauth/authorize">{hidden}<label>Username</label><input name="username" autocomplete="username" required><label>Password</label><input type="password" name="password" autocomplete="current-password" required><button type="submit">Authorize ChatGPT</button></form><small>Access is limited to your own account and can be revoked from the app.</small></main></body></html>""")
+
+@app.post("/oauth/authorize")
+def chatgpt_oauth_authorize(
+    request: FastAPIRequest,
+    client_id: str = Form(...),
+    redirect_uri: str = Form(...),
+    username: str = Form(...),
+    password: str = Form(...),
+    response_type: str = Form("code"),
+    state: str = Form(""),
+    scope: str = Form(CHATGPT_OAUTH_SCOPE),
+    code_challenge: str = Form(""),
+    code_challenge_method: str = Form(""),
+):
+    redirect_uri = validate_chatgpt_redirect_uri(redirect_uri)
+    if client_id != CHATGPT_OAUTH_CLIENT_ID or response_type != "code" or CHATGPT_OAUTH_SCOPE not in scope.split():
+        return oauth_error_redirect(redirect_uri, state, "invalid_request")
+    db = get_db()
+    try:
+        client_ip = get_client_ip(request)
+        if is_login_locked(db, username, client_ip):
+            return oauth_error_redirect(redirect_uri, state, "temporarily_unavailable")
+        user = db.query(UserModel).filter_by(username=username.strip()).first()
+        if not user or not verify_password(password, user.password_salt, user.password_hash):
+            write_audit_log(db, username.strip(), "oauth_login_failed", "chatgpt", login_lock_key(username, client_ip), f"Invalid OAuth credentials from {client_ip}")
+            db.commit()
+            return oauth_error_redirect(redirect_uri, state, "access_denied")
+        if code_challenge_method and code_challenge_method not in {"S256", "plain"}:
+            return oauth_error_redirect(redirect_uri, state, "invalid_request")
+        raw_code = secrets.token_urlsafe(48)
+        db.add(ChatGptOAuthCodeModel(
+            code_hash=hash_token(raw_code), username=user.username, client_id=client_id,
+            redirect_uri=redirect_uri, scope=CHATGPT_OAUTH_SCOPE,
+            code_challenge=code_challenge or None, code_challenge_method=code_challenge_method or None,
+            expires_at=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
+        ))
+        write_audit_log(db, user.username, "authorize_chatgpt", "oauth", user.username, "Authorized read-only ChatGPT training access")
+        db.commit()
+        query = {"code": raw_code}
+        if state:
+            query["state"] = state
+        separator = "&" if "?" in redirect_uri else "?"
+        return RedirectResponse(f"{redirect_uri}{separator}{urlencode(query)}", status_code=status.HTTP_303_SEE_OTHER)
+    finally:
+        db.close()
+
+@app.post("/oauth/token")
+def chatgpt_oauth_token(
+    authorization: str | None = Header(default=None),
+    grant_type: str = Form(...),
+    client_id: str = Form(""),
+    client_secret: str = Form(""),
+    code: str = Form(""),
+    redirect_uri: str = Form(""),
+    refresh_token: str = Form(""),
+    code_verifier: str = Form(""),
+):
+    basic_id, basic_secret = parse_oauth_basic_credentials(authorization)
+    validate_chatgpt_oauth_client(basic_id or client_id, basic_secret or client_secret)
+    db = get_db()
+    try:
+        now = datetime.now(timezone.utc)
+        username = ""
+        if grant_type == "authorization_code":
+            row = db.query(ChatGptOAuthCodeModel).filter_by(code_hash=hash_token(code)).first()
+            if not row or row.client_id != CHATGPT_OAUTH_CLIENT_ID or row.redirect_uri != redirect_uri or datetime.fromisoformat(row.expires_at) <= now:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired authorization code")
+            if row.code_challenge:
+                calculated = code_verifier if row.code_challenge_method == "plain" else base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest()).decode().rstrip("=")
+                if not hmac.compare_digest(calculated, row.code_challenge):
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid PKCE verifier")
+            username = row.username
+            db.delete(row)
+        elif grant_type == "refresh_token":
+            old = db.query(ChatGptOAuthTokenModel).filter_by(refresh_token_hash=hash_token(refresh_token)).first()
+            if not old or old.client_id != CHATGPT_OAUTH_CLIENT_ID or datetime.fromisoformat(old.refresh_expires_at) <= now:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired refresh token")
+            username = old.username
+            db.delete(old)
+        else:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported grant type")
+        access_token = secrets.token_urlsafe(48)
+        new_refresh_token = secrets.token_urlsafe(48)
+        access_expires = now + timedelta(minutes=CHATGPT_OAUTH_ACCESS_TOKEN_MINUTES)
+        db.add(ChatGptOAuthTokenModel(
+            access_token_hash=hash_token(access_token), refresh_token_hash=hash_token(new_refresh_token),
+            username=username, client_id=CHATGPT_OAUTH_CLIENT_ID, scope=CHATGPT_OAUTH_SCOPE,
+            access_expires_at=access_expires.isoformat(),
+            refresh_expires_at=(now + timedelta(days=CHATGPT_OAUTH_REFRESH_TOKEN_DAYS)).isoformat(),
+            created_at=now.isoformat(),
+        ))
+        db.commit()
+        return {"access_token": access_token, "token_type": "bearer", "expires_in": CHATGPT_OAUTH_ACCESS_TOKEN_MINUTES * 60, "refresh_token": new_refresh_token, "scope": CHATGPT_OAUTH_SCOPE}
+    finally:
+        db.close()
+
+@app.post("/oauth/revoke")
+def chatgpt_oauth_revoke(token: str = Form(...)):
+    db = get_db()
+    try:
+        token_hash = hash_token(token)
+        db.query(ChatGptOAuthTokenModel).filter(or_(ChatGptOAuthTokenModel.access_token_hash == token_hash, ChatGptOAuthTokenModel.refresh_token_hash == token_hash)).delete(synchronize_session=False)
+        db.commit()
+        return {"ok": True}
+    finally:
+        db.close()
+
+@app.get("/api/gpt/profile")
+def chatgpt_profile(current_user: UserModel = Depends(get_chatgpt_oauth_user)):
+    db = get_db()
+    try:
+        dates = [item[0] for item in db.query(SessionModel.date).filter_by(username=current_user.username).order_by(SessionModel.date).all()]
+        return {"username": current_user.username, "language": normalize_language(current_user.language), "calendar_days": len(dates), "oldest_date": dates[0] if dates else None, "newest_date": dates[-1] if dates else None}
+    finally:
+        db.close()
+
+@app.get("/api/gpt/activities")
+def chatgpt_activities(oldest: str = "", newest: str = "", activity_type: str = "", limit: int = 100, current_user: UserModel = Depends(get_chatgpt_oauth_user)):
+    db = get_db()
+    try:
+        try:
+            rows = chatgpt_activity_rows(db, current_user.username, oldest, newest, activity_type)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Dates must use YYYY-MM-DD")
+        capped = max(1, min(limit, 200))
+        return {"activities": rows[:capped], "returned": min(len(rows), capped), "total_matching": len(rows)}
+    finally:
+        db.close()
+
+@app.get("/api/gpt/training-summary")
+def chatgpt_training_summary(oldest: str = "", newest: str = "", current_user: UserModel = Depends(get_chatgpt_oauth_user)):
+    db = get_db()
+    try:
+        try:
+            activities = chatgpt_activity_rows(db, current_user.username, oldest, newest)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Dates must use YYYY-MM-DD")
+        by_type = {}
+        total_duration = total_distance = total_load = 0.0
+        for activity in activities:
+            activity_type = activity["activity_type"] or "unspecified"
+            by_type[activity_type] = by_type.get(activity_type, 0) + 1
+            total_load += activity.get("load") or 0
+            total_duration += (activity.get("metrics", {}).get("duration", {}).get("seconds") or 0)
+            total_distance += (activity.get("metrics", {}).get("distance", {}).get("km") or 0)
+        return {"oldest": oldest or None, "newest": newest or None, "activity_count": len(activities), "activities_by_type": by_type, "total_duration_hours": round(total_duration / 3600, 2), "total_distance_km": round(total_distance, 2), "total_load": round(total_load, 2)}
+    finally:
+        db.close()
+
+@app.get("/api/chatgpt/access")
+def chatgpt_access_status(current_user: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        count = db.query(ChatGptOAuthTokenModel).filter_by(username=current_user.username).count()
+        return {"connected": count > 0, "active_grants": count}
+    finally:
+        db.close()
+
+@app.delete("/api/chatgpt/access")
+def revoke_chatgpt_access(current_user: UserModel = Depends(get_current_user)):
+    db = get_db()
+    try:
+        revoked = db.query(ChatGptOAuthTokenModel).filter_by(username=current_user.username).delete()
+        db.query(ChatGptOAuthCodeModel).filter_by(username=current_user.username).delete()
+        write_audit_log(db, current_user.username, "revoke_chatgpt", "oauth", current_user.username, f"Revoked {revoked} ChatGPT grants")
+        db.commit()
+        return {"ok": True, "revoked": revoked}
+    finally:
+        db.close()
+
+@app.get("/api/admin/chatgpt-config")
+def chatgpt_admin_config(request: FastAPIRequest, current_user: UserModel = Depends(require_admin)):
+    base_url = str(request.base_url).rstrip("/")
+    return {"client_id": CHATGPT_OAUTH_CLIENT_ID, "client_secret": get_chatgpt_oauth_client_secret(), "authorization_url": f"{base_url}/oauth/authorize", "token_url": f"{base_url}/oauth/token", "openapi_url": f"{base_url}/api/gpt/openapi.json", "privacy_url": f"{base_url}/gpt/privacy", "scope": CHATGPT_OAUTH_SCOPE}
+
+@app.get("/gpt/privacy", response_class=HTMLResponse)
+def chatgpt_privacy():
+    return HTMLResponse("""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ChatGPT Training Access Privacy</title></head><body style="font:16px system-ui;max-width:760px;margin:48px auto;padding:0 20px;line-height:1.6"><h1>ChatGPT training access privacy</h1><p>This integration lets a user authorize ChatGPT to read that user's training history from this app. It does not grant write, deletion, administration, password, raw-file, or precise location-stream access.</p><p>Credentials entered on the authorization page are used only to verify the app account. The app sends the requested compact training data to ChatGPT when the user asks the GPT to analyze it. OpenAI's handling of that data is governed by the user's OpenAI agreement and settings.</p><p>OAuth tokens are stored as one-way hashes. Access can be revoked at any time from the app's Account page. For questions, contact the administrator of this site.</p></body></html>""")
+
+@app.get("/api/gpt/openapi.json")
+def chatgpt_openapi_schema(request: FastAPIRequest):
+    base_url = str(request.base_url).rstrip("/")
+    return {"openapi": "3.1.0", "info": {"title": "Personal Training Analysis API", "version": "1.0.0", "description": "Read-only access to the currently authorized user's training data."}, "servers": [{"url": base_url}], "paths": {
+        "/api/gpt/profile": {"get": {"operationId": "getTrainingProfile", "summary": "Get the authorized athlete profile and data coverage", "responses": {"200": {"description": "Profile"}}, "security": [{"oauth2": [CHATGPT_OAUTH_SCOPE]}]}},
+        "/api/gpt/activities": {"get": {"operationId": "getTrainingActivities", "summary": "Get compact activity records", "parameters": [{"name": "oldest", "in": "query", "schema": {"type": "string", "format": "date"}}, {"name": "newest", "in": "query", "schema": {"type": "string", "format": "date"}}, {"name": "activity_type", "in": "query", "schema": {"type": "string"}}, {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 100, "maximum": 200}}], "responses": {"200": {"description": "Activities"}}, "security": [{"oauth2": [CHATGPT_OAUTH_SCOPE]}]}},
+        "/api/gpt/training-summary": {"get": {"operationId": "getTrainingSummary", "summary": "Summarize training totals by date range and activity type", "parameters": [{"name": "oldest", "in": "query", "schema": {"type": "string", "format": "date"}}, {"name": "newest", "in": "query", "schema": {"type": "string", "format": "date"}}], "responses": {"200": {"description": "Training summary"}}, "security": [{"oauth2": [CHATGPT_OAUTH_SCOPE]}]}}
+    }, "components": {"securitySchemes": {"oauth2": {"type": "oauth2", "flows": {"authorizationCode": {"authorizationUrl": f"{base_url}/oauth/authorize", "tokenUrl": f"{base_url}/oauth/token", "scopes": {CHATGPT_OAUTH_SCOPE: "Read the authorized user's training history"}}}}}}}
 
 @app.post("/api/auth/login")
 def login(payload: dict, request: FastAPIRequest, response: Response):
