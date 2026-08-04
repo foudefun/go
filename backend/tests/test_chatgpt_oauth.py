@@ -51,7 +51,7 @@ def test_chatgpt_oauth_is_read_only_and_user_scoped(client):
     create_user("oauth-bob", "safe-password-2")
     db = main.SessionLocal()
     try:
-        db.add(main.SessionModel(username="oauth-alice", date="2026-08-01", data=json.dumps({"activities": [{"title": "Alice Ride", "activity_type": "velo", "status": "done", "source_files": [{"id": "a", "metrics": {"duration": {"seconds": 3600}, "distance": {"km": 25}}}]}]})))
+        db.add(main.SessionModel(username="oauth-alice", date="2026-08-01", data=json.dumps({"plan_title": "Easy ride", "plan_activity_type": "velo", "duration_target_min": 60, "plan_notes": "Flexible by one day", "activities": [{"title": "Alice Ride", "activity_type": "velo", "status": "done", "source_files": [{"id": "a", "metrics": {"duration": {"seconds": 3600}, "distance": {"km": 25}}}]}]})))
         db.add(main.SessionModel(username="oauth-bob", date="2026-08-02", data=json.dumps({"activities": [{"title": "Bob Secret Run", "activity_type": "course", "status": "done"}]})))
         db.commit()
     finally:
@@ -65,6 +65,10 @@ def test_chatgpt_oauth_is_read_only_and_user_scoped(client):
     summary = client.get("/api/gpt/training-summary", headers=headers).json()
     assert summary["activity_count"] == 1
     assert summary["total_duration_hours"] == 1
+    calendar = client.get("/api/gpt/calendar?oldest=2026-08-01&newest=2026-08-31", headers=headers).json()
+    assert calendar["count"] == 1
+    assert calendar["planned_days"][0]["title"] == "Easy ride"
+    assert calendar["planned_days"][0]["completed_activities"][0]["title"] == "Alice Ride"
 
     refreshed = client.post(
         "/oauth/token",
@@ -90,4 +94,3 @@ def test_chatgpt_oauth_rejects_untrusted_redirect(client):
         },
     )
     assert response.status_code == 400
-

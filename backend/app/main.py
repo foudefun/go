@@ -6763,6 +6763,29 @@ def compact_activity(date_value: str, index: int, activity: dict) -> dict:
         ],
     }
 
+def compact_planned_day(row) -> dict | None:
+    payload = session_payload_from_row(row)
+    title = str(payload.get("plan_title", "") or "").strip()
+    notes = str(payload.get("plan_notes", "") or "").strip()
+    planned_items = payload.get("planned_items", []) if isinstance(payload.get("planned_items"), list) else []
+    if not title and not notes and not planned_items and not payload.get("plan_activity_type"):
+        return None
+    return {
+        "date": row.date,
+        "title": title,
+        "activity_type": str(payload.get("plan_activity_type", "") or ""),
+        "time": str(payload.get("plan_time", "") or ""),
+        "duration_target_min": normalize_optional_int(payload.get("duration_target_min")),
+        "location": str(payload.get("location", "") or ""),
+        "notes": notes,
+        "items": planned_items,
+        "completed_activities": [
+            compact_activity(row.date, index, activity)
+            for index, activity in enumerate(get_session_activities(payload))
+            if isinstance(activity, dict) and activity_has_content(activity)
+        ],
+    }
+
 def chatgpt_activity_rows(db, username: str, oldest: str, newest: str, activity_type: str = "") -> list[dict]:
     query = db.query(SessionModel).filter_by(username=username)
     if oldest:
@@ -8168,6 +8191,25 @@ def chatgpt_training_summary(oldest: str = "", newest: str = "", current_user: U
     finally:
         db.close()
 
+@app.get("/api/gpt/calendar")
+def chatgpt_calendar(oldest: str = "", newest: str = "", current_user: UserModel = Depends(get_chatgpt_oauth_user)):
+    db = get_db()
+    try:
+        query = db.query(SessionModel).filter_by(username=current_user.username)
+        try:
+            if oldest:
+                date.fromisoformat(oldest)
+                query = query.filter(SessionModel.date >= oldest)
+            if newest:
+                date.fromisoformat(newest)
+                query = query.filter(SessionModel.date <= newest)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Dates must use YYYY-MM-DD")
+        days = [planned for row in query.order_by(SessionModel.date).all() if (planned := compact_planned_day(row))]
+        return {"planned_days": days, "count": len(days)}
+    finally:
+        db.close()
+
 @app.get("/api/chatgpt/access")
 def chatgpt_access_status(current_user: UserModel = Depends(get_current_user)):
     db = get_db()
@@ -8204,6 +8246,7 @@ def chatgpt_openapi_schema(request: FastAPIRequest):
     return {"openapi": "3.1.0", "info": {"title": "Personal Training Analysis API", "version": "1.0.0", "description": "Read-only access to the currently authorized user's training data."}, "servers": [{"url": base_url}], "paths": {
         "/api/gpt/profile": {"get": {"operationId": "getTrainingProfile", "summary": "Get the authorized athlete profile and data coverage", "responses": {"200": {"description": "Profile"}}, "security": [{"oauth2": [CHATGPT_OAUTH_SCOPE]}]}},
         "/api/gpt/activities": {"get": {"operationId": "getTrainingActivities", "summary": "Get compact activity records", "parameters": [{"name": "oldest", "in": "query", "schema": {"type": "string", "format": "date"}}, {"name": "newest", "in": "query", "schema": {"type": "string", "format": "date"}}, {"name": "activity_type", "in": "query", "schema": {"type": "string"}}, {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 100, "maximum": 200}}], "responses": {"200": {"description": "Activities"}}, "security": [{"oauth2": [CHATGPT_OAUTH_SCOPE]}]}},
+        "/api/gpt/calendar": {"get": {"operationId": "getPlannedTrainingCalendar", "summary": "Get planned workouts and completed activities attached to those days", "parameters": [{"name": "oldest", "in": "query", "schema": {"type": "string", "format": "date"}}, {"name": "newest", "in": "query", "schema": {"type": "string", "format": "date"}}], "responses": {"200": {"description": "Planned calendar"}}, "security": [{"oauth2": [CHATGPT_OAUTH_SCOPE]}]}},
         "/api/gpt/training-summary": {"get": {"operationId": "getTrainingSummary", "summary": "Summarize training totals by date range and activity type", "parameters": [{"name": "oldest", "in": "query", "schema": {"type": "string", "format": "date"}}, {"name": "newest", "in": "query", "schema": {"type": "string", "format": "date"}}], "responses": {"200": {"description": "Training summary"}}, "security": [{"oauth2": [CHATGPT_OAUTH_SCOPE]}]}}
     }, "components": {"securitySchemes": {"oauth2": {"type": "oauth2", "flows": {"authorizationCode": {"authorizationUrl": f"{base_url}/oauth/authorize", "tokenUrl": f"{base_url}/oauth/token", "scopes": {CHATGPT_OAUTH_SCOPE: "Read the authorized user's training history"}}}}}}}
 
