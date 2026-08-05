@@ -15,7 +15,7 @@ import {
   isClimbingActivity,
   isStrengthActivity,
 } from "../../domain/activityTypes.js";
-import { buildActivityChartSeries, formatActivityChartValue } from "../../domain/activityChart.js";
+import { buildActivityChartSeries, buildActivityCsv, buildActivityCsvFilename, formatActivityChartValue } from "../../domain/activityChart.js";
 import { useTranslation } from "../../i18n/translations.js";
 import { formatPlannedItem, normalizePlannedItems } from "../plannedItems.js";
 import { normalizeOptionalInt } from "../strengthItems.js";
@@ -706,7 +706,7 @@ function getSvgPointFromEvent(event) {
   };
 }
 
-function ActivityMetricsChart({ activity, t }) {
+function ActivityMetricsChart({ activity, date, t }) {
   const series = useMemo(() => buildActivityChartSeries(activity), [activity]);
   const [hiddenMetrics, setHiddenMetrics] = useState([]);
   const [hoverTime, setHoverTime] = useState(null);
@@ -742,6 +742,18 @@ function ActivityMetricsChart({ activity, t }) {
     setHiddenMetrics((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
   }
 
+  function exportCsv() {
+    const blob = new Blob(["\ufeff", buildActivityCsv(activity)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = buildActivityCsvFilename(activity, date);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <section className="activity-metrics-chart" aria-label={t("Activity chart")}>
       <div className="section-heading-row">
@@ -749,7 +761,10 @@ function ActivityMetricsChart({ activity, t }) {
           <p className="eyebrow">{t("Activity chart")}</p>
           <h3>{t("Metrics over time")}</h3>
         </div>
-        <span>{hoverTime === null ? formatDurationSeconds(maxTime) : formatDurationSeconds(hoverTime)}</span>
+        <div className="activity-chart-heading-actions">
+          <span>{hoverTime === null ? formatDurationSeconds(maxTime) : formatDurationSeconds(hoverTime)}</span>
+          <button type="button" className="secondary-action" onClick={exportCsv}>{t("Export CSV")}</button>
+        </div>
       </div>
       <div className="activity-chart-legend" aria-label={t("Chart metrics")}>
         {series.map((item) => (
@@ -1831,7 +1846,7 @@ export default function DaySessionModal({
                   {!isNewActivityDraft && !showImportPanel ? (
                     <>
                       <ActivityMetricFields activity={activeActivity} t={t} />
-                      <ActivityMetricsChart activity={activeActivity} t={t} />
+                      <ActivityMetricsChart activity={activeActivity} date={date} t={t} />
                       <ActivityPowerCurve activity={activeActivity} t={t} />
                       <ActivityTrackMap activity={activeActivity} t={t} />
                       <ActivitySourceQuality activity={activeActivity} t={t} />

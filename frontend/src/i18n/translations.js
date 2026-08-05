@@ -20,6 +20,7 @@ const FR = {
   "Metrics over time": "Metriques au fil du temps",
   "Chart metrics": "Metriques du graphique",
   "Each metric uses its own relative scale so trends can be compared on one chart.": "Chaque metrique utilise sa propre echelle relative afin de comparer les tendances sur un meme graphique.",
+  "Export CSV": "Exporter en CSV",
   "Assign a type and retry": "Assigner un type et reessayer",
   "Batch Import": "Import multiple",
   "Batch Import Summary": "Resume de l'import multiple",

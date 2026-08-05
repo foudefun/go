@@ -27,6 +27,69 @@ function paceAt(points, index) {
   return (elapsed / 60) / (distance / 1000);
 }
 
+function csvCell(value) {
+  if (value === null || value === undefined) return "";
+  const text = String(value);
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+function metricValue(source, metric, field) {
+  const value = numeric(source?.metrics?.[metric]?.[field]);
+  return value === null ? "" : value;
+}
+
+export const ACTIVITY_CSV_COLUMNS = [
+  "activity_title", "activity_type", "activity_notes", "source", "provider", "filename",
+  "started_at", "elapsed_seconds", "timestamp", "heart_rate_bpm", "pace_min_per_km",
+  "speed_kmh", "power_w", "cadence_rpm", "distance_m", "altitude_m", "latitude", "longitude",
+  "duration_seconds", "distance_km", "average_heart_rate_bpm", "max_heart_rate_bpm",
+  "average_power_w", "max_power_w", "average_cadence_rpm", "calories_kcal",
+];
+
+export function buildActivityCsv(activity) {
+  const sources = Array.isArray(activity?.source_files) && activity.source_files.length ? activity.source_files : [{}];
+  const rows = [];
+  for (let sourceIndex = 0; sourceIndex < sources.length; sourceIndex += 1) {
+    const source = sources[sourceIndex];
+    const points = Array.isArray(source?.series?.points) && source.series.points.length ? source.series.points : [{}];
+    const sourceName = String(source.label || source.provider || source.filename || `Source ${sourceIndex + 1}`).trim();
+    const startedAt = String(source?.parsed?.started_at || "").trim();
+    const startTime = startedAt ? new Date(startedAt) : null;
+    for (let pointIndex = 0; pointIndex < points.length; pointIndex += 1) {
+      const point = points[pointIndex];
+      const elapsed = numeric(point.t);
+      const speedMps = numeric(point.speed_mps);
+      const pace = points.length > 1 ? paceAt(points, pointIndex) : null;
+      const timestamp = startTime && !Number.isNaN(startTime.getTime()) && elapsed !== null
+        ? new Date(startTime.getTime() + elapsed * 1000).toISOString()
+        : "";
+      rows.push([
+        activity?.title || "", activity?.activity_type || "", activity?.note || "", sourceName,
+        source?.provider || "", source?.filename || "", startedAt, elapsed ?? "", timestamp,
+        numeric(point.hr) ?? "", pace === null ? "" : Number(pace.toFixed(4)),
+        speedMps === null ? "" : Number((speedMps * 3.6).toFixed(3)), numeric(point.power) ?? "",
+        numeric(point.cadence) ?? "", numeric(point.distance_m) ?? "", numeric(point.altitude_m) ?? "",
+        numeric(point.lat) ?? "", numeric(point.lon) ?? "", metricValue(source, "duration", "seconds"),
+        metricValue(source, "distance", "km"), metricValue(source, "heart_rate", "avg"),
+        metricValue(source, "heart_rate", "max"), metricValue(source, "power", "avg"),
+        metricValue(source, "power", "max"), metricValue(source, "cadence", "avg"),
+        metricValue(source, "calories", "value"),
+      ]);
+    }
+  }
+  return [ACTIVITY_CSV_COLUMNS, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
+}
+
+export function buildActivityCsvFilename(activity, date = "") {
+  const base = `${date || "activity"}-${activity?.title || activity?.activity_type || "activity"}`
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+  return `${base || "activity"}.csv`;
+}
+
 function percentile(sorted, ratio) {
   if (!sorted.length) return 0;
   return sorted[Math.min(sorted.length - 1, Math.max(0, Math.round((sorted.length - 1) * ratio)))];

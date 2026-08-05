@@ -4162,6 +4162,25 @@ select[multiple] {
   font-weight: 700;
 }
 
+.activity-chart-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.activity-chart-heading-actions > span {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.activity-chart-heading-actions .secondary-action {
+  min-height: 34px;
+  padding: 6px 11px;
+}
+
 .activity-chart-legend,
 .activity-chart-values {
   display: flex;
