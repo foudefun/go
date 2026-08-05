@@ -59,6 +59,15 @@ def test_intervals_icu_preview_and_import_deduplicates(monkeypatch, client):
             return [activity]
         if path == "/athlete/0/activities/i12345":
             return [activity]
+        if path == "/activity/i12345/streams.json":
+            assert query["types"].startswith("time,distance,heartrate")
+            return [
+                {"type": "time", "data": [0, 5, 10]},
+                {"type": "distance", "data": [0, 25, 55]},
+                {"type": "heartrate", "data": [120, 125, 130]},
+                {"type": "watts", "data": [150, 180, 200]},
+                {"type": "velocity_smooth", "data": [5, 5.2, 5.4]},
+            ]
         raise AssertionError(path)
 
     monkeypatch.setattr(main, "intervals_icu_api_get", fake_get)
@@ -85,11 +94,29 @@ def test_intervals_icu_preview_and_import_deduplicates(monkeypatch, client):
     assert saved["title"] == "Morning Ride"
     assert saved["source_files"][0]["provider"] == "Intervals.icu"
     assert saved["source_files"][0]["parsed"]["intervals_icu_activity_id"] == "i12345"
+    assert saved["source_files"][0]["series"]["points"][1] == {
+        "t": 5,
+        "power": 180.0,
+        "hr": 125.0,
+        "distance_m": 25.0,
+        "speed_mps": 5.2,
+    }
 
     duplicate = client.post("/api/intervals-icu/import", json={"activity_ids": ["i12345"]})
     assert duplicate.status_code == 200
     assert duplicate.json()["imported"] == []
     assert len(duplicate.json()["skipped"]) == 1
+
+
+def test_intervals_icu_streams_to_series_ignores_unknown_streams():
+    series = main.intervals_icu_streams_to_series([
+        {"type": "time", "data": [0, 2]},
+        {"type": "altitude", "data": [400.5, 401.5]},
+        {"type": "latlng", "data": [[46.2, 6.1], [46.21, 6.11]]},
+        {"type": "unknown", "data": [99, 100]},
+    ])
+    assert series["sample_interval_seconds"] == 2
+    assert series["points"][1] == {"t": 2, "altitude_m": 401.5, "lat": 46.21, "lon": 6.11}
 
 
 def test_user_can_save_encrypted_connection_without_key_disclosure(monkeypatch, client):

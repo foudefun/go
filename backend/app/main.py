@@ -3625,6 +3625,8 @@ def normalize_activity_source_series(series: dict) -> dict:
             ("heart_rate", "hr"),
             ("cadence", "cadence"),
             ("distance_m", "distance_m"),
+            ("speed_mps", "speed_mps"),
+            ("speed", "speed_mps"),
             ("lat", "lat"),
             ("latitude", "lat"),
             ("lon", "lon"),
@@ -6023,7 +6025,86 @@ def intervals_icu_activity_to_parsed(activity: dict) -> dict:
         "source_file": f"intervals-icu-{intervals_id}",
         "intervals_icu_activity_id": intervals_id,
         "intervals_icu_url": f"https://intervals.icu/activities/{quote(intervals_id)}" if intervals_id else "",
+        "series": activity.get("_rehab_series", {}),
     }
+
+def intervals_icu_streams_to_series(streams) -> dict:
+    if not isinstance(streams, list):
+        return {}
+    values_by_type = {}
+    for stream in streams:
+        if not isinstance(stream, dict):
+            continue
+        stream_type = str(stream.get("type", "") or "").strip().lower()
+        values = stream.get("data")
+        if stream_type and isinstance(values, list):
+            values_by_type[stream_type] = values
+    if not values_by_type:
+        return {}
+    times = values_by_type.get("time", [])
+    point_count = min(max((len(values) for values in values_by_type.values()), default=0), MAX_ACTIVITY_SERIES_POINTS)
+    points = []
+    scalar_mappings = {
+        "heartrate": "hr",
+        "watts": "power",
+        "raw_watts": "power",
+        "cadence": "cadence",
+        "distance": "distance_m",
+        "altitude": "altitude_m",
+        "velocity_smooth": "speed_mps",
+    }
+    for index in range(point_count):
+        elapsed = normalize_optional_int(times[index] if index < len(times) else index)
+        point = {"t": elapsed if elapsed is not None else index}
+        for stream_type, target_key in scalar_mappings.items():
+            values = values_by_type.get(stream_type, [])
+            if index >= len(values) or target_key in point:
+                continue
+            value = normalize_optional_float(values[index])
+            if value is not None:
+                point[target_key] = value
+        latlng = values_by_type.get("latlng", [])
+        if index < len(latlng) and isinstance(latlng[index], (list, tuple)) and len(latlng[index]) >= 2:
+            lat = normalize_optional_float(latlng[index][0])
+            lon = normalize_optional_float(latlng[index][1])
+            if lat is not None and lon is not None:
+                point.update({"lat": lat, "lon": lon})
+        if len(point) > 1:
+            points.append(point)
+    if not points:
+        return {}
+    intervals = [points[index]["t"] - points[index - 1]["t"] for index in range(1, len(points)) if points[index]["t"] > points[index - 1]["t"]]
+    return {"sample_interval_seconds": int(round(sum(intervals) / len(intervals))) if intervals else 1, "points": points}
+
+def fetch_intervals_icu_activity_series(activity_id: str, username: str) -> dict:
+    if not activity_id:
+        return {}
+    streams = intervals_icu_api_get(
+        f"/activity/{quote(activity_id)}/streams.json",
+        {"types": "time,distance,heartrate,watts,cadence,altitude,velocity_smooth,latlng"},
+        username,
+    )
+    return intervals_icu_streams_to_series(streams)
+
+def enrich_existing_intervals_icu_series(db, username: str, existing: dict, activity_id: str) -> bool:
+    row = get_session_obj(db, username, existing.get("date", ""))
+    if not row:
+        return False
+    payload = session_payload_from_row(row)
+    activities = get_session_activities(payload)
+    index = normalize_optional_int(existing.get("activity_index"))
+    if index is None or index < 0 or index >= len(activities):
+        return False
+    activity = activities[index]
+    source = next((item for item in activity.get("source_files", []) if str(item.get("parsed", {}).get("intervals_icu_activity_id", "")) == activity_id), None)
+    if not source or source.get("series", {}).get("points"):
+        return False
+    series = fetch_intervals_icu_activity_series(activity_id, username)
+    if not series:
+        return False
+    source["series"] = series
+    row.data = json.dumps(normalize_session_payload(payload), ensure_ascii=False)
+    return True
 
 def find_existing_intervals_icu_activity(db, username: str, activity_id: str) -> dict | None:
     target_id = str(activity_id or "").strip()
@@ -6056,8 +6137,18 @@ def serialize_intervals_icu_activity(activity: dict, existing: dict | None = Non
 def import_intervals_icu_activity_into_db(db, username: str, activity: dict) -> dict:
     parsed = intervals_icu_activity_to_parsed(activity)
     activity_id = parsed.get("intervals_icu_activity_id", "")
-    if find_existing_intervals_icu_activity(db, username, activity_id):
+    existing = find_existing_intervals_icu_activity(db, username, activity_id)
+    if existing:
+        try:
+            enrich_existing_intervals_icu_series(db, username, existing, activity_id)
+        except HTTPException:
+            pass
         return {"imported": False, "skipped": True, "intervals_icu_activity_id": activity_id}
+    try:
+        activity["_rehab_series"] = fetch_intervals_icu_activity_series(activity_id, username)
+        parsed = intervals_icu_activity_to_parsed(activity)
+    except HTTPException:
+        pass
     target_date = parsed.get("date")
     if not target_date:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Intervals.icu activity has no usable date")

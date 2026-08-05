@@ -15,6 +15,7 @@ import {
   isClimbingActivity,
   isStrengthActivity,
 } from "../../domain/activityTypes.js";
+import { buildActivityChartSeries, formatActivityChartValue } from "../../domain/activityChart.js";
 import { useTranslation } from "../../i18n/translations.js";
 import { formatPlannedItem, normalizePlannedItems } from "../plannedItems.js";
 import { normalizeOptionalInt } from "../strengthItems.js";
@@ -703,6 +704,97 @@ function getSvgPointFromEvent(event) {
     x: ((event.clientX - rect.left) / Math.max(rect.width, 1)) * width,
     y: ((event.clientY - rect.top) / Math.max(rect.height, 1)) * height,
   };
+}
+
+function ActivityMetricsChart({ activity, t }) {
+  const series = useMemo(() => buildActivityChartSeries(activity), [activity]);
+  const [hiddenMetrics, setHiddenMetrics] = useState([]);
+  const [hoverTime, setHoverTime] = useState(null);
+  if (!series.length) return null;
+  const visibleSeries = series.filter((item) => !hiddenMetrics.includes(item.key));
+  const width = 700;
+  const height = 260;
+  const paddingLeft = 24;
+  const paddingRight = 18;
+  const paddingTop = 18;
+  const paddingBottom = 36;
+  const plotWidth = width - paddingLeft - paddingRight;
+  const plotHeight = height - paddingTop - paddingBottom;
+  const maxTime = Math.max(...series.flatMap((item) => item.points.map((point) => point.t)), 1);
+  const xForTime = (time) => paddingLeft + (time / maxTime) * plotWidth;
+  const yForValue = (item, value) => {
+    const ratio = Math.min(1, Math.max(0, (value - item.minimum) / (item.maximum - item.minimum)));
+    const visualRatio = item.invert ? 1 - ratio : ratio;
+    return paddingTop + plotHeight - visualRatio * plotHeight;
+  };
+  const timeTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => ({ value: maxTime * ratio, x: paddingLeft + ratio * plotWidth }));
+  const hoverValues = hoverTime === null ? [] : visibleSeries.map((item) => {
+    const point = item.points.reduce((best, candidate) => Math.abs(candidate.t - hoverTime) < Math.abs(best.t - hoverTime) ? candidate : best, item.points[0]);
+    return { ...item, point };
+  });
+
+  function handleHover(event) {
+    const localX = getSvgPointFromEvent(event).x;
+    setHoverTime(Math.min(maxTime, Math.max(0, ((localX - paddingLeft) / plotWidth) * maxTime)));
+  }
+
+  function toggleMetric(key) {
+    setHiddenMetrics((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
+  }
+
+  return (
+    <section className="activity-metrics-chart" aria-label={t("Activity chart")}>
+      <div className="section-heading-row">
+        <div>
+          <p className="eyebrow">{t("Activity chart")}</p>
+          <h3>{t("Metrics over time")}</h3>
+        </div>
+        <span>{hoverTime === null ? formatDurationSeconds(maxTime) : formatDurationSeconds(hoverTime)}</span>
+      </div>
+      <div className="activity-chart-legend" aria-label={t("Chart metrics")}>
+        {series.map((item) => (
+          <button
+            type="button"
+            className={hiddenMetrics.includes(item.key) ? "muted" : "active"}
+            onClick={() => toggleMetric(item.key)}
+            key={item.key}
+          >
+            <span style={{ backgroundColor: item.color }} />
+            {t(item.label)}
+          </button>
+        ))}
+      </div>
+      {hoverValues.length ? (
+        <div className="activity-chart-values">
+          {hoverValues.map((item) => <span key={item.key} style={{ borderColor: item.color }}>{`${t(item.label)} ${formatActivityChartValue(item.key, item.point.value)}`}</span>)}
+        </div>
+      ) : null}
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={t("Metrics over time")}
+        onMouseMove={handleHover}
+        onMouseLeave={() => setHoverTime(null)}
+      >
+        <g className="activity-chart-grid">
+          {[0, 0.25, 0.5, 0.75, 1].map((ratio) => <line key={`metric-h-${ratio}`} x1={paddingLeft} y1={paddingTop + ratio * plotHeight} x2={width - paddingRight} y2={paddingTop + ratio * plotHeight} />)}
+          {timeTicks.map((tick) => <line key={`metric-v-${tick.value}`} x1={tick.x} y1={paddingTop} x2={tick.x} y2={height - paddingBottom} />)}
+        </g>
+        <g className="activity-chart-labels">
+          {timeTicks.map((tick) => <text key={`metric-time-${tick.value}`} x={tick.x} y={height - 10} textAnchor="middle">{formatDurationSeconds(tick.value)}</text>)}
+        </g>
+        {visibleSeries.map((item) => (
+          <polyline
+            key={item.key}
+            points={item.points.map((point) => `${xForTime(point.t).toFixed(1)},${yForValue(item, point.value).toFixed(1)}`).join(" ")}
+            style={{ stroke: item.color }}
+          />
+        ))}
+        {hoverTime !== null ? <line className="activity-metrics-hover-line" x1={xForTime(hoverTime)} y1={paddingTop} x2={xForTime(hoverTime)} y2={height - paddingBottom} /> : null}
+      </svg>
+      <small>{t("Each metric uses its own relative scale so trends can be compared on one chart.")}</small>
+    </section>
+  );
 }
 
 function ActivityPowerCurve({ activity, t }) {
@@ -1739,6 +1831,7 @@ export default function DaySessionModal({
                   {!isNewActivityDraft && !showImportPanel ? (
                     <>
                       <ActivityMetricFields activity={activeActivity} t={t} />
+                      <ActivityMetricsChart activity={activeActivity} t={t} />
                       <ActivityPowerCurve activity={activeActivity} t={t} />
                       <ActivityTrackMap activity={activeActivity} t={t} />
                       <ActivitySourceQuality activity={activeActivity} t={t} />
