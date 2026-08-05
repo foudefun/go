@@ -52,8 +52,9 @@ def test_intervals_icu_preview_and_import_deduplicates(monkeypatch, client):
     monkeypatch.setattr(main, "INTERVALS_ICU_ATHLETE_ID", "0")
     activity = sample_activity()
 
-    def fake_get(path, query=None, username=""):
+    def fake_get(path, query=None, username="", api_key_override=""):
         assert username == "admin"
+        assert api_key_override == "secret-value"
         if path == "/athlete/0/activities":
             assert query == {"oldest": "2026-07-01", "newest": "2026-07-31"}
             return [activity]

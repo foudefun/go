@@ -5975,8 +5975,10 @@ def is_intervals_icu_configured(username: str = "") -> bool:
     api_key, _ = get_intervals_icu_credentials(username)
     return bool(api_key)
 
-def intervals_icu_api_get(path: str, query: dict | None = None, username: str = ""):
-    api_key, _ = get_intervals_icu_credentials(username)
+def intervals_icu_api_get(path: str, query: dict | None = None, username: str = "", api_key_override: str = ""):
+    api_key = str(api_key_override or "").strip()
+    if not api_key:
+        api_key, _ = get_intervals_icu_credentials(username)
     if not api_key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Intervals.icu is not configured")
     filtered_query = {key: value for key, value in (query or {}).items() if value not in {None, ""}}
@@ -6076,17 +6078,18 @@ def intervals_icu_streams_to_series(streams) -> dict:
     intervals = [points[index]["t"] - points[index - 1]["t"] for index in range(1, len(points)) if points[index]["t"] > points[index - 1]["t"]]
     return {"sample_interval_seconds": int(round(sum(intervals) / len(intervals))) if intervals else 1, "points": points}
 
-def fetch_intervals_icu_activity_series(activity_id: str, username: str) -> dict:
+def fetch_intervals_icu_activity_series(activity_id: str, username: str, api_key: str = "") -> dict:
     if not activity_id:
         return {}
     streams = intervals_icu_api_get(
         f"/activity/{quote(activity_id)}/streams.json",
         {"types": "time,distance,heartrate,watts,cadence,altitude,velocity_smooth,latlng"},
         username,
+        api_key,
     )
     return intervals_icu_streams_to_series(streams)
 
-def enrich_existing_intervals_icu_series(db, username: str, existing: dict, activity_id: str) -> bool:
+def enrich_existing_intervals_icu_series(db, username: str, existing: dict, activity_id: str, api_key: str = "") -> bool:
     row = get_session_obj(db, username, existing.get("date", ""))
     if not row:
         return False
@@ -6099,7 +6102,7 @@ def enrich_existing_intervals_icu_series(db, username: str, existing: dict, acti
     source = next((item for item in activity.get("source_files", []) if str(item.get("parsed", {}).get("intervals_icu_activity_id", "")) == activity_id), None)
     if not source or source.get("series", {}).get("points"):
         return False
-    series = fetch_intervals_icu_activity_series(activity_id, username)
+    series = fetch_intervals_icu_activity_series(activity_id, username, api_key)
     if not series:
         return False
     source["series"] = series
@@ -6134,18 +6137,18 @@ def serialize_intervals_icu_activity(activity: dict, existing: dict | None = Non
         "existing": existing or None,
     }
 
-def import_intervals_icu_activity_into_db(db, username: str, activity: dict) -> dict:
+def import_intervals_icu_activity_into_db(db, username: str, activity: dict, api_key: str = "") -> dict:
     parsed = intervals_icu_activity_to_parsed(activity)
     activity_id = parsed.get("intervals_icu_activity_id", "")
     existing = find_existing_intervals_icu_activity(db, username, activity_id)
     if existing:
         try:
-            enrich_existing_intervals_icu_series(db, username, existing, activity_id)
+            enrich_existing_intervals_icu_series(db, username, existing, activity_id, api_key)
         except HTTPException:
             pass
         return {"imported": False, "skipped": True, "intervals_icu_activity_id": activity_id}
     try:
-        activity["_rehab_series"] = fetch_intervals_icu_activity_series(activity_id, username)
+        activity["_rehab_series"] = fetch_intervals_icu_activity_series(activity_id, username, api_key)
         parsed = intervals_icu_activity_to_parsed(activity)
     except HTTPException:
         pass
@@ -6188,11 +6191,12 @@ def sync_intervals_icu_user(username: str, *, lookback_days: int | None = None) 
     days = max(2, int(lookback_days or INTERVALS_ICU_SYNC_LOOKBACK_DAYS))
     newest = date.today().isoformat()
     oldest = (date.today() - timedelta(days=days)).isoformat()
-    _, athlete_id = get_intervals_icu_credentials(username)
+    api_key, athlete_id = get_intervals_icu_credentials(username)
     activities = intervals_icu_api_get(
         f"/athlete/{quote(athlete_id)}/activities",
         {"oldest": oldest, "newest": newest},
         username,
+        api_key,
     )
     if not isinstance(activities, list):
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Unexpected Intervals.icu activities response")
@@ -6203,7 +6207,7 @@ def sync_intervals_icu_user(username: str, *, lookback_days: int | None = None) 
                 continue
             activity_id = str(activity.get("id", "") or "")
             try:
-                result = import_intervals_icu_activity_into_db(db, username, activity)
+                result = import_intervals_icu_activity_into_db(db, username, activity, api_key)
                 (imported if result.get("imported") else skipped).append(result)
             except HTTPException as exc:
                 errors.append({"intervals_icu_activity_id": activity_id, "detail": exc.detail})
@@ -10470,8 +10474,8 @@ def delete_intervals_icu_connection(current_user: UserModel = Depends(get_curren
 def get_intervals_icu_activities(oldest: str = "", newest: str = "", current_user: UserModel = Depends(get_current_user)):
     if not oldest or not newest:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Choose an oldest and newest date")
-    _, athlete_id = get_intervals_icu_credentials(current_user.username)
-    activities = intervals_icu_api_get(f"/athlete/{quote(athlete_id)}/activities", {"oldest": oldest, "newest": newest}, current_user.username)
+    api_key, athlete_id = get_intervals_icu_credentials(current_user.username)
+    activities = intervals_icu_api_get(f"/athlete/{quote(athlete_id)}/activities", {"oldest": oldest, "newest": newest}, current_user.username, api_key)
     if not isinstance(activities, list):
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Unexpected Intervals.icu activities response")
     with SessionLocal() as db:
@@ -10484,8 +10488,8 @@ def import_intervals_icu_activities(payload: dict, current_user: UserModel = Dep
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Select at least one Intervals.icu activity to import")
     if len(activity_ids) > 100:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Import at most 100 Intervals.icu activities at a time")
-    _, athlete_id = get_intervals_icu_credentials(current_user.username)
-    activities = intervals_icu_api_get(f"/athlete/{quote(athlete_id)}/activities/{','.join(quote(item) for item in activity_ids)}", username=current_user.username)
+    api_key, athlete_id = get_intervals_icu_credentials(current_user.username)
+    activities = intervals_icu_api_get(f"/athlete/{quote(athlete_id)}/activities/{','.join(quote(item) for item in activity_ids)}", username=current_user.username, api_key_override=api_key)
     if not isinstance(activities, list):
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Unexpected Intervals.icu activities response")
     imported, skipped, errors = [], [], []
@@ -10497,7 +10501,7 @@ def import_intervals_icu_activities(payload: dict, current_user: UserModel = Dep
                 errors.append({"intervals_icu_activity_id": activity_id, "detail": "Activity not returned by Intervals.icu"})
                 continue
             try:
-                result = import_intervals_icu_activity_into_db(db, current_user.username, activity)
+                result = import_intervals_icu_activity_into_db(db, current_user.username, activity, api_key)
                 (imported if result.get("imported") else skipped).append(result)
             except HTTPException as exc:
                 errors.append({"intervals_icu_activity_id": activity_id, "detail": exc.detail})
