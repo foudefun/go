@@ -1,9 +1,9 @@
 export const ACTIVITY_CHART_METRICS = [
-  { key: "heart_rate", field: "hr", label: "Heart rate", unit: "bpm", color: "#dc2626" },
-  { key: "pace", label: "Pace", unit: "min/km", color: "#2563eb", invert: true },
-  { key: "power", field: "power", label: "Power", unit: "W", color: "#ca8a04" },
-  { key: "cadence", field: "cadence", label: "Cadence", unit: "rpm", color: "#7c3aed" },
-  { key: "altitude", field: "altitude_m", label: "Altitude", unit: "m", color: "#059669" },
+  { key: "heart_rate", field: "hr", label: "Heart rate", unit: "bpm", color: "#2f80ed" },
+  { key: "pace", label: "Pace", unit: "min/km", color: "#4f6d9a", invert: true },
+  { key: "power", field: "power", label: "Power", unit: "W", color: "#7a86a8" },
+  { key: "cadence", field: "cadence", label: "Cadence", unit: "rpm", color: "#8d6e83" },
+  { key: "altitude", field: "altitude_m", label: "Altitude", unit: "m", color: "#64748b" },
 ];
 
 function numeric(value) {
